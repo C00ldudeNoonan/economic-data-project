@@ -1,0 +1,4 @@
+name: econ_db
+type: duckdb
+options:
+  filename: econ_db.duckdb
