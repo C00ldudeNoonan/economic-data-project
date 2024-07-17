@@ -1,7 +1,7 @@
 import requests
 import duckdb
 import pandas as pd
-from dotenv import load_dotenv  # Import load_dotenv from dotenv
+from dotenv import load_dotenv 
 import os
 
 # Load environment variables from .env file
