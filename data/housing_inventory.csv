@@ -1,4 +1,32 @@
 data_type_code,time_slot_id,seasonally_adj,category_code,cell_value,error_data,time,us,series_name,plot_groupings
+E_HVR,0,no,RATE,0.1,yes,1999-Q4,1,Error Homeowner Vacancy Rate,Error
+RVR,0,no,RATE,8.2,no,1999-Q1,1,Rental Vacancy Rate,Rates
+RVR,0,no,RATE,8.1,no,1999-Q2,1,Rental Vacancy Rate,Rates
+RVR,0,no,RATE,8.2,no,1999-Q3,1,Rental Vacancy Rate,Rates
+RVR,0,no,RATE,7.9,no,1999-Q4,1,Rental Vacancy Rate,Rates
+E_RVR,0,no,RATE,0.2,yes,1999-Q1,1,Error Rental Vacancy Rate,Error
+E_RVR,0,no,RATE,0.2,yes,1999-Q2,1,Error Rental Vacancy Rate,Error
+E_RVR,0,no,RATE,0.2,yes,1999-Q3,1,Error Rental Vacancy Rate,Error
+E_RVR,0,no,RATE,0.2,yes,1999-Q4,1,Error Rental Vacancy Rate,Error
+SAHOR,0,yes,RATE,66.7,no,1999-Q1,1,Seasonal Adjusted Home Owner Rate,Rates
+SAHOR,0,yes,RATE,66.7,no,1999-Q2,1,Seasonal Adjusted Home Owner Rate,Rates
+SAHOR,0,yes,RATE,66.8,no,1999-Q3,1,Seasonal Adjusted Home Owner Rate,Rates
+SAHOR,0,yes,RATE,66.9,no,1999-Q4,1,Seasonal Adjusted Home Owner Rate,Rates
+HOR,0,no,RATE,66.7,no,1999-Q1,1,Homeownership Rate,Rates
+HOR,0,no,RATE,66.6,no,1999-Q2,1,Homeownership Rate,Rates
+HOR,0,no,RATE,67.0,no,1999-Q3,1,Homeownership Rate,Rates
+HOR,0,no,RATE,66.9,no,1999-Q4,1,Homeownership Rate,Rates
+E_HOR,0,no,RATE,0.3,yes,1999-Q1,1,Error Homeownership Rate,Error
+E_HOR,0,no,RATE,0.3,yes,1999-Q2,1,Error Homeownership Rate,Error
+E_HOR,0,no,RATE,0.3,yes,1999-Q3,1,Error Homeownership Rate,Error
+E_HOR,0,no,RATE,0.3,yes,1999-Q4,1,Error Homeownership Rate,Error
+HVR,0,no,RATE,1.8,no,1999-Q1,1,Homeowner Vacancy Rate,Rates
+HVR,0,no,RATE,1.6,no,1999-Q2,1,Homeowner Vacancy Rate,Rates
+HVR,0,no,RATE,1.6,no,1999-Q3,1,Homeowner Vacancy Rate,Rates
+HVR,0,no,RATE,1.6,no,1999-Q4,1,Homeowner Vacancy Rate,Rates
+E_HVR,0,no,RATE,0.1,yes,1999-Q1,1,Error Homeowner Vacancy Rate,Error
+E_HVR,0,no,RATE,0.1,yes,1999-Q2,1,Error Homeowner Vacancy Rate,Error
+E_HVR,0,no,RATE,0.1,yes,1999-Q3,1,Error Homeowner Vacancy Rate,Error
 SALE,0,no,ESTIMATE,1031,no,2000-Q2,1,Vacant Housing Units For Sale,Vacant Inventory
 E_HOR,0,no,RATE,0.3,yes,2000-Q1,1,Error Homeownership Rate,Error
 E_HVR,0,no,RATE,0.1,yes,2000-Q2,1,Error Homeowner Vacancy Rate,Error
@@ -2001,3 +2029,24 @@ SAHOR,0,yes,RATE,66.0,no,2023-Q1,1,Seasonal Adjusted Home Owner Rate,Rates
 SAHOR,0,yes,RATE,66.0,no,2023-Q2,1,Seasonal Adjusted Home Owner Rate,Rates
 SAHOR,0,yes,RATE,65.9,no,2023-Q3,1,Seasonal Adjusted Home Owner Rate,Rates
 SAHOR,0,yes,RATE,65.7,no,2023-Q4,1,Seasonal Adjusted Home Owner Rate,Rates
+OCC,0,no,ESTIMATE,131092,no,2024-Q1,1,Total Occupied housing Units,Total Housing Units
+OCCUSE,0,no,ESTIMATE,2140,no,2024-Q1,1,Held Off the Market and for Occasional Use,Vacant Inventory
+OFFMAR,0,no,ESTIMATE,6905,no,2024-Q1,1,Held Off the Market Vacant Housing Units,Vacant Inventory
+OTH,0,no,ESTIMATE,3611,no,2024-Q1,1,Held off the Market and Vacant for Other Reasons Vacant Housing Units,Vacant Inventory
+OWNOCC,0,no,ESTIMATE,86052,no,2024-Q1,1,Owner Occupied Units,Occupied Inventory
+RENT,0,no,ESTIMATE,3189,no,2024-Q1,1,Vacant Housing Units For Rent,Vacant Inventory
+RNTOCC,0,no,ESTIMATE,45040,no,2024-Q1,1,Renter Occupied Units,Occupied Inventory
+RNTSLD,0,no,ESTIMATE,738,no,2024-Q1,1,"Rented or Sold, Not Yet Occupied Vacant Housing Units",Vacant Inventory
+SALE,0,no,ESTIMATE,728,no,2024-Q1,1,Vacant Housing Units For Sale,Vacant Inventory
+SEASON,0,no,ESTIMATE,3723,no,2024-Q1,1,Seasonal Vacant Housing Units,Vacant Inventory
+TOTAL,0,no,ESTIMATE,146375,no,2024-Q1,1,Total Housing Units,Total Housing Units
+URE,0,no,ESTIMATE,1155,no,2024-Q1,1,Vacant Housing Units Held off the Market and Usual Residence Elsewhere,Vacant Inventory
+VACANT,0,no,ESTIMATE,15283,no,2024-Q1,1,Total Vacant Housing Units,Total Housing Units
+YRVAC,0,no,ESTIMATE,11560,no,2024-Q1,1,Year-Round Vacant Housing Units,Vacant Inventory
+HOR,0,no,RATE,65.6,no,2024-Q1,1,Homeownership Rate,Rates
+E_HOR,0,no,RATE,0.5,yes,2024-Q1,1,Error Homeownership Rate,Error
+HVR,0,no,RATE,0.8,no,2024-Q1,1,Homeowner Vacancy Rate,Rates
+E_HVR,0,no,RATE,0.1,yes,2024-Q1,1,Error Homeowner Vacancy Rate,Error
+RVR,0,no,RATE,6.6,no,2024-Q1,1,Rental Vacancy Rate,Rates
+E_RVR,0,no,RATE,0.2,yes,2024-Q1,1,Error Rental Vacancy Rate,Error
+SAHOR,0,yes,RATE,65.6,no,2024-Q1,1,Seasonal Adjusted Home Owner Rate,Rates
