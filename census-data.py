@@ -36,7 +36,7 @@ def get_housing_inventory(census_api_key):
     # Get the data from the Census API
 
     # need to paginate the calls and then 
-    year_list = list(range(2000, 2024))
+    year_list = list(range(1999, 2025))
     main_df = pd.DataFrame()
     mapping_dict = {
     'RENT': 'Vacant Housing Units For Rent',
