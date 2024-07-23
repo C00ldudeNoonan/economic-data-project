@@ -7,7 +7,7 @@ This repository serves as a public reference on how to build a end to end data a
 * duckdb
     * [duckdb Docs](https://duckdb.org/docs) 
 * evidence
-    * [evidence Docs](https://evidence.dev/docs)
+    * [evidence Docs](https://docs.evidence.dev)
 
 ## Data Sources
 
