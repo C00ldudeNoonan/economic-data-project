@@ -1,36 +1,15 @@
 import requests
-import duckdb
 import pandas as pd
 from dotenv import load_dotenv 
 import os
-
+from utils import drop_create_duck_db_table
+from datetime import datetime
 # Load environment variables from .env file
 load_dotenv()
 
 census_api_key = os.getenv('CENSUS_API_KEY')
 
 # Load the data into a DuckDB database
-def load_data_to_duckdb(table_name, df):
-    # Define the database path
-    db_path = 'evidence_project/sources/econ/econ_db.duckdb'
-
-    try:
-    # Connect to the DuckDB database
-        con = duckdb.connect(db_path, read_only=False)
-        # need
-        # Replace the table in the DuckDB database with the data from the DataFrame
-        con.execute(f'DROP TABLE IF EXISTS {table_name}')
-        con.execute(f'CREATE TABLE {table_name} AS SELECT * FROM df')
-        # Save the DuckDB file
-        con.commit()
-    except Exception as e:
-        print(e)
-    finally:
-
-
-        con.close()
-
-    return db_path
 
 def get_housing_inventory(census_api_key):
     # Get the data from the Census API
@@ -111,12 +90,65 @@ def get_housing_inventory(census_api_key):
 
     main_df.to_csv('data/housing_inventory.csv', index=False)
     # this dataframe is also saved as a duckdb table in the sources folder as economic_data.duckdb
-    load_data_to_duckdb('housing_inventory', main_df)
+    drop_create_duck_db_table('housing_inventory', main_df)
 
     return 'housing_inventory added to database'
 
+# def get_population_estimates(census_api_key):
+#     year_list = list(range(2010, 2025))
+#     main_df = pd.DataFrame()
+#     for year in year_list:
+    
+    url = f'https://api.census.gov/data/2021/pep/natmonthly?get=POP,NAME,MONTHLY&for=us:*&key={census_api_key}'
+    response = requests.get(url)
 
-print(get_housing_inventory(census_api_key))
+    # need to convert the json to a dataframe
+    columns = response.json()[0]
+    rows = response.json()[1:]
+
+    # Create DataFrame
+    df = pd.DataFrame(rows, columns=columns)
+    # appending the df to the main_df
+    # main_df = pd.concat([main_df, df], axis=0, ignore_index=True)
+    df.to_csv('data/population_estimate.csv', index=False)
+    return "population estimates added to database"
+
+def get_household_pulse(census_api_key):
+    main_df = pd.DataFrame()
+    iterator = True
+    while iterator:
+        for cycle in list(range(1, datetime.now().month)):
+
+            try:
+                url = f'https://api.census.gov/data/timeseries/hhpulse?get=SURVEY_YEAR,NAME,MEASURE_NAME,COL_START_DATE,COL_END_DATE,RATE,TOTAL,MEASURE_DESCRIPTION&for=state:*&time=2024&CYCLE=0{str(cycle)}&key={census_api_key}'
+                response = requests.get(url)
+                columns = response.json()[0]
+                rows = response.json()[1:]
+                df = pd.DataFrame(rows, columns=columns)
+            except Exception as e:
+                print("series doesnt exist")
+                print(e)
+                break
+        break       
+    # need to convert the json to a dataframe
+    # Create DataFrame
+
+    # appending the df to the main_df
+    main_df = pd.concat([main_df, df], axis=0, ignore_index=True)
+    df.to_csv('data/household_pulse.csv', index=False)
+    drop_create_duck_db_table('housing_pulse', main_df)
+
+    return "housing pulse added to database"
+#print(get_housing_inventory(census_api_key))
+
+#print(get_population_estimates(census_api_key))
+
+print(get_household_pulse(census_api_key))
 
 
-
+# # get the current month number
+# from datetime import datetime
+# current_month = datetime.now().month
+# print(current_month)
+# month_list = list(range(1, datetime.now().month))
+# print(month_list)
