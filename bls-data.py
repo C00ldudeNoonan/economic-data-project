@@ -118,24 +118,24 @@ def get_household_pulse(census_api_key):
     iterator = True
     while iterator:
         for cycle in list(range(1, datetime.now().month)):
-
+            
             try:
                 url = f'https://api.census.gov/data/timeseries/hhpulse?get=SURVEY_YEAR,NAME,MEASURE_NAME,COL_START_DATE,COL_END_DATE,RATE,TOTAL,MEASURE_DESCRIPTION&for=state:*&time=2024&CYCLE=0{str(cycle)}&key={census_api_key}'
                 response = requests.get(url)
                 columns = response.json()[0]
                 rows = response.json()[1:]
                 df = pd.DataFrame(rows, columns=columns)
+                main_df = pd.concat([main_df, df], axis=0, ignore_index=True)
             except Exception as e:
                 print("series doesnt exist")
                 print(e)
                 break
+            
         break       
     # need to convert the json to a dataframe
     # Create DataFrame
 
-    # appending the df to the main_df
-    main_df = pd.concat([main_df, df], axis=0, ignore_index=True)
-    df.to_csv('data/household_pulse.csv', index=False)
+    main_df.to_csv('data/household_pulse.csv', index=False)
     drop_create_duck_db_table('housing_pulse', main_df)
 
     return "housing pulse added to database"
