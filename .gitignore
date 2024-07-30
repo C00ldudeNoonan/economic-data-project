@@ -1,2 +1,3 @@
 .env
 /econ
+__pycache__/

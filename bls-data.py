@@ -141,14 +141,7 @@ def get_household_pulse(census_api_key):
     return "housing pulse added to database"
 #print(get_housing_inventory(census_api_key))
 
-#print(get_population_estimates(census_api_key))
 
 print(get_household_pulse(census_api_key))
 
 
-# # get the current month number
-# from datetime import datetime
-# current_month = datetime.now().month
-# print(current_month)
-# month_list = list(range(1, datetime.now().month))
-# print(month_list)
