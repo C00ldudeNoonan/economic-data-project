@@ -1,10 +1,9 @@
 import polars as pl
 from dotenv import load_dotenv 
 import os
-from utils import load_data_to_duckdb
-import json
-from datetime import datetime
-# Load environment variables from .env file
+import requests
+from utils import upsert_data
+
 load_dotenv()
 
 fred_api_key = os.getenv('FRED_API_KEY')
@@ -19,3 +18,33 @@ series = [("BAMLH0A0HYM2", "High Yield Bond Rate"), ("DJIA", "Dow Jones Industri
 
 
 
+def get_fred_data(series_code, series_name, key):
+
+    url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_code}&api_key={key}&file_type=json&"
+
+    response = requests.get(url)
+    data = response.json()
+
+    df = pl.DataFrame(data['observations'])
+    df = df.with_columns(
+        series_name = pl.lit(series_name),
+        series_code = pl.lit(series_code)
+    )
+    df = df.drop(['realtime_start', 'realtime_end'])
+    df = df.with_columns(
+        pl.col('date').str.strptime(pl.Date),
+        pl.when(pl.col('value') == '.').then(None).otherwise(pl.col('value')).cast(pl.Float64)
+    )
+    df = df.drop_nulls('value')
+
+    print(len(df))
+
+
+    return df
+
+
+
+for series_code, series_name in series:
+    data = get_fred_data(series_code, series_name, fred_api_key)
+    upsert_data('evidence_project/sources/econ/econ_db.duckdb', 'fred_data', data, ['date', 'series_code'])
+    print(f"Updated table: {series_name}")
