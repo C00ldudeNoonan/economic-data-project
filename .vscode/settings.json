@@ -1,9 +1,3 @@
-{
-    "editor.acceptSuggestionOnEnter": true,
-    "editor.quickSuggestions": {
-        "other": false,
-        "comments": false,
-        "strings": false
-    },
-    "editor.quickSuggestionsDelay": 300
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:97da51477d12a498e4b6a831bb72d780bd0dc53eef507c92bcde7927cd8074f2
+size 211
