@@ -1,16 +1,6 @@
 # Map Data
 
 
-```sql county_data
-  select
-  county_name,
-  county_fips,
-  avg(median_days_on_market)  as median_days_on_market
-  from econ_db.county_map_data
-  GROUP BY
-  county_name,
-  county_fips
-```
 
 
 ```sql state_data

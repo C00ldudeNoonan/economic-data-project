@@ -7,6 +7,46 @@ title: United States Housing Inventory View
 </Details>
 
 
+
+## Housing Inventory and Population
+
+```sql population
+  select
+    series_name,
+    time_date,
+    year,
+    series_value,
+    number_of_households,
+    series_value/number_of_households as number_of_households_ratio
+  from econ_db.housing_inventory_and_population
+```
+
+<Dropdown
+    name=TimeSeries
+    data={population}
+    value=series_name
+    multiple=true
+    selectAllByDefault=true
+/>
+
+```sql population_plot
+  select
+    *
+  from ${population}
+  WHERE series_name in ${inputs.TimeSeries.value}
+```
+
+
+
+<LineChart 
+    data={population_plot}
+    x=time_date
+    y=number_of_households_ratio
+    series=series_name
+/>
+
+
+
 ```sql full_data
   select
       series_name as series_name,

@@ -25,6 +25,7 @@ def drop_create_duck_db_table(table_name, df):
 
     return db_path
 
+
 def load_csv_data_to_duck_db(table_name, csv_file_path):
     # Define the database path
     csv_file_path = csv_file_path.replace('\\', '/')
