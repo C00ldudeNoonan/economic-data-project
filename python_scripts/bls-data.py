@@ -78,12 +78,12 @@ def get_housing_inventory(census_api_key):
         main_df = pl.concat([main_df, df])
 
     # Create the new column by mapping 'data_type_code' to 'Series Name'
-    main_df = main_df.with_column(
-        pl.col('data_type_code').map_dict(mapping_dict).alias('series_name')
+    main_df = main_df.with_columns(
+        pl.col('data_type_code').replace(mapping_dict).alias('series_name')
     )
 
-    main_df = main_df.with_column(
-        pl.col('series_name').map_dict(series_name_to_plot_groupings).alias('plot_groupings')
+    main_df = main_df.with_columns(
+        pl.col('series_name').replace(series_name_to_plot_groupings).alias('plot_groupings')
     )
 
     # This dataframe is also saved as a duckdb table in the sources folder as economic_data.duckdb
