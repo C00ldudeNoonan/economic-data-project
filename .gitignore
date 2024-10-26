@@ -7,4 +7,4 @@ data/RDC_Inventory_Core_Metrics_County_History.csv
 data/RDC_Inventory_Core_Metrics_Metro_History.csv
 data/RDC_Inventory_Core_Metrics_State_History.csv
 data/RDC_Inventory_Core_Metrics_Country_History.csv
-*.duckdb
+evidence_project/sources/econ/econ_db.duckdb
