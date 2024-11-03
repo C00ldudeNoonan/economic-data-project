@@ -28,6 +28,11 @@ on:
         default: '3.12.4'
         type: string
 
+env:
+  CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+  FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+  BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+
 jobs:
   run-scripts:
     runs-on: ubuntu-latest
