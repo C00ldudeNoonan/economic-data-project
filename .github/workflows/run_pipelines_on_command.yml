@@ -18,10 +18,6 @@ on:
         - info
         - warning
         - debug
-      tags:
-        description: 'Runs Data Pipelines on command'
-        required: false
-        type: boolean
       python_version:
         description: 'Python version to use'
         required: false
