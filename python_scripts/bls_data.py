@@ -73,7 +73,7 @@ def get_housing_inventory(census_api_key):
         rows = response.json()[1:]
 
         # Create DataFrame
-        df = pl.DataFrame(rows, schema=columns)
+        df = pl.DataFrame(rows, schema=columns, orient="row")
         # appending the df to the main_df
         main_df = pl.concat([main_df, df])
 
@@ -106,20 +106,21 @@ def get_household_pulse(census_api_key):
                 df = pl.DataFrame(data)
                 main_df = pl.concat([main_df, df])
             except Exception as e:
-                print("series doesnt exist")
+                print('series doesnt exist')
                 print(cycle)
                 print(e)
                 break
             
-        break       
+        break
+    print(f'fetched {len(main_df)} rows for housing pulse')       
     drop_create_duck_db_table('housing_pulse', main_df)
 
-    return "housing pulse added to database"
+    return 'housing pulse added to database'
 
 def main():
-    census_api_key = os.getenv("CENSUS_API_KEY") # Replace with your actual API key
+    census_api_key = os.getenv('CENSUS_API_KEY') # Replace with your actual API key
     print(get_housing_inventory(census_api_key))
     print(get_household_pulse(census_api_key))
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

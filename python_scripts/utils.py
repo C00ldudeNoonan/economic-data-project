@@ -18,10 +18,11 @@ def drop_create_duck_db_table(table_name, df):
         conn.commit()
     except Exception as e:
         print(e)
+        raise  
     finally:
-
-
-        conn.close()
+        # Only try to close if conn was successfully created
+        if conn is not None:
+            conn.close()
 
     return db_path
 
