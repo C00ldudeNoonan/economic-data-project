@@ -38,6 +38,8 @@ on:
 env:
   CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
   FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+  MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+
   # Set default log level when not triggered manually
   LOG_LEVEL: ${{ inputs.logLevel || 'warning' }}
   PYTHON_VERSION: ${{ inputs.python_version || '3.12.4' }}

@@ -32,6 +32,8 @@ on:
 env:
   CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
   FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+  MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+
 
 
 jobs:
