@@ -1,15 +1,21 @@
 import duckdb
 import polars as pl
+from dotenv import load_dotenv
+import os
 
-db_path = 'evidence_project/sources/econ/econ_db.duckdb'
+load_dotenv()
 
+md_token = os.getenv('MOTHERDUCK_TOKEN')
+db_connection = f'md:?motherduck_token={md_token}'
+
+#db_path = 'evidence_project/sources/econ/econ_db.duckdb'
 
 def drop_create_duck_db_table(table_name, df):
     # Define the database path
 
     try:
     # Connect to the DuckDB database
-        conn = duckdb.connect(db_path, read_only=False)
+        conn = duckdb.connect(db_connection, read_only=False)
         # need
         # Replace the table in the DuckDB database with the data from the DataFrame
         conn.execute(f'DROP TABLE IF EXISTS {table_name}')
@@ -24,7 +30,7 @@ def drop_create_duck_db_table(table_name, df):
         if conn is not None:
             conn.close()
 
-    return db_path
+    return db_connection
 
 
 def load_csv_data_to_duck_db(table_name, csv_file_path):
@@ -33,7 +39,7 @@ def load_csv_data_to_duck_db(table_name, csv_file_path):
 
     try:
     # Connect to the DuckDB database
-        conn = duckdb.connect(db_path, read_only=False)
+        conn = duckdb.connect(db_connection, read_only=False)
         # Replace the table in the DuckDB database with the data from the DataFrame
         conn.execute(f'DROP TABLE IF EXISTS {table_name}')
         conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_csv_auto('{csv_file_path}')")
@@ -46,7 +52,7 @@ def load_csv_data_to_duck_db(table_name, csv_file_path):
 
         conn.close()
 
-    return db_path
+    return db_connection
 
 
 def map_dtype(dtype):
@@ -64,7 +70,7 @@ def map_dtype(dtype):
 
 def upsert_data(table_name, data, key_columns):
     # Connect to DuckDB
-    conn = duckdb.connect(database=db_path, read_only=False)
+    conn = duckdb.connect(database=db_connection, read_only=False)
     
     # Ensure the table exists
     create_table_query = f"""

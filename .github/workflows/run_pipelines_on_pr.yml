@@ -1,0 +1,132 @@
+name: Run Data Pipelines on Pr
+
+on:
+  # Trigger on pull requests
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [ "main" ]  # Specify target branches
+  
+  # Keep existing triggers
+  schedule:
+    - cron: '0 0 1 * *'  # Run monthly
+  
+  workflow_dispatch:
+    inputs:
+      script_name:
+        description: 'Specific script to run (leave empty to run all)'
+        required: false
+        type: string  
+      logLevel:
+        description: 'Log level'
+        required: true
+        default: 'warning'
+        type: choice
+        options:
+        - info
+        - warning
+        - debug
+      tags:
+        description: 'Runs Data Pipelines on command'
+        required: false
+        type: boolean
+      python_version:
+        description: 'Python version to use'
+        required: false
+        default: '3.12.4'
+        type: string
+
+env:
+  CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+  FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+  # Set default log level when not triggered manually
+  LOG_LEVEL: ${{ inputs.logLevel || 'warning' }}
+  PYTHON_VERSION: ${{ inputs.python_version || '3.12.4' }}
+
+jobs:
+  run-scripts:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v3    
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+   
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+   
+    - name: Run Python scripts
+      id: run-scripts
+      continue-on-error: true
+      run: |
+        # Create a temporary file to store results
+        echo "### Pipeline Execution Results" > results.md
+        echo "Execution started at $(date)" >> results.md
+        echo "" >> results.md
+        
+        # Initialize counters
+        success_count=0
+        failure_count=0
+        
+        echo "Starting to run Python scripts (excluding utils.py)..."
+        for script in python_scripts/*.py; do
+          filename=$(basename "$script")
+          if [ "$filename" != "utils.py" ]; then
+            echo "----------------------------------------"
+            echo "Running $script..."
+            if python "$script" 2>&1; then
+              echo "✅ $filename - Success" >> results.md
+              ((success_count++))
+            else
+              echo "❌ $filename - Failed" >> results.md
+              ((failure_count++))
+            fi
+          else
+            echo "⏭️ Skipping utils.py" >> results.md
+          fi
+        done
+        
+        echo "" >> results.md
+        echo "### Summary" >> results.md
+        echo "✅ Successful: $success_count" >> results.md
+        echo "❌ Failed: $failure_count" >> results.md
+        echo "Execution completed at $(date)" >> results.md
+        
+        # Save results to output
+        echo "results<<EOF" >> $GITHUB_OUTPUT
+        cat results.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const results = fs.readFileSync('results.md', 'utf8');
+          const comment = `
+          # Data Pipeline Execution Results
+          ${results}
+          
+          [View full run details](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+          `;
+          
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: Debug Environment Variables
+      if: always()
+      run: |
+        echo "Python Version: ${{ env.PYTHON_VERSION }}"
+        echo "Log Level: ${{ env.LOG_LEVEL }}"
+        echo "Has CENSUS_API_KEY: ${{ env.CENSUS_API_KEY != '' }}"
+        echo "Has FRED_API_KEY: ${{ env.FRED_API_KEY != '' }}"
+        echo "Trigger Event: ${{ github.event_name }}"

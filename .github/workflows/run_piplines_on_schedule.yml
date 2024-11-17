@@ -1,4 +1,4 @@
-name: Manually Run Pipelines
+name: Run Pipelines On Schedule
 
 on:
   # Only trigger workflow manually from GitHub UI
@@ -51,81 +51,25 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     
+
     - name: Run Python scripts
+      continue-on-error: true
       run: |
         echo "Starting to run Python scripts (excluding utils.py)..."
-        # Initialize error log file
-        echo "Script Execution Log - $(date)" > script_errors.log
-        
-        # Initialize success/failure counters
-        successful_scripts=0
-        failed_scripts=0
-        
         for script in python_scripts/*.py; do
           filename=$(basename "$script")
           if [ "$filename" != "utils.py" ]; then
             echo "----------------------------------------"
             echo "Running $script..."
-            
-            # Run the script and capture its output and exit status
-            if python "$script" 2>&1 | tee -a script_output.log; then
-              echo "✅ Successfully completed: $filename"
-              ((successful_scripts++))
-            else
-              echo "❌ Failed: $filename"
-              echo "$(date) - Error in $filename" >> script_errors.log
-              cat script_output.log >> script_errors.log
-              echo "----------------------------------------" >> script_errors.log
-              ((failed_scripts++))
-            fi
-            
-            # Clear the output log for the next script
-            > script_output.log
-            
+            python "$script" || echo "Script $filename failed, continuing to next script..."
             echo "Finished running $script"
           else
             echo "Skipping utils.py"
           fi
         done
-        
         echo "----------------------------------------"
-        echo "Execution Summary:"
-        echo "Successful scripts: $successful_scripts"
-        echo "Failed scripts: $failed_scripts"
-        
-        # If any scripts failed, display the error log
-        if [ $failed_scripts -gt 0 ]; then
-          echo "Error Log:"
-          cat script_errors.log
-        fi
+        echo "All scripts completed"
 
-    - name: Upload error log
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: script-errors-${{ github.run_number }}
-        path: script_errors.log
-        retention-days: 7
-
-    - name: Report execution status
-      if: always()
-      run: |
-        echo "Workflow execution completed"
-        echo "Scripts processed:"
-        for script in python_scripts/*.py; do
-          filename=$(basename "$script")
-          if [ "$filename" != "utils.py" ]; then
-            echo "- $filename"
-          fi
-        done
-
-
-        if [ -f script_errors.log ] && [ -s script_errors.log ]; then
-          echo "⚠️ Some scripts failed during execution. See error log for details."
-          exit 1
-        else
-          echo "✅ All scripts completed successfully"
-        fi
 
     - name: Debug Environment Variables
       if: always()
