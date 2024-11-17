@@ -47,7 +47,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: Run Python scripts
-      continue-on-error: true
+      continue-on-error: false
       run: |
         echo "Starting to run Python scripts (excluding utils.py)..."
         for script in python_scripts/*.py; do

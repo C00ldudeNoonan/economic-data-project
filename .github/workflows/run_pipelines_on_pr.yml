@@ -63,7 +63,7 @@ jobs:
    
     - name: Run Python scripts
       id: run-scripts
-      continue-on-error: true
+      continue-on-error: false
       run: |
         # Create a temporary file to store results
         echo "### Pipeline Execution Results" > results.md
