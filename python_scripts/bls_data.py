@@ -11,8 +11,6 @@ load_dotenv()
 
 def get_housing_inventory(census_api_key):
     # Get the data from the Census API
-
-    # need to paginate the calls and then 
     year_list = list(range(1999, 2025))
     main_df = pl.DataFrame()
     mapping_dict = {
@@ -38,7 +36,7 @@ def get_housing_inventory(census_api_key):
     'SEASON': 'Seasonal Vacant Housing Units',
     'TOTAL': 'Total Housing Units'
     }
-# Define the second mapping dictionary for 'series_name' to 'Plot groupings'
+    # Define the second mapping dictionary for 'series_name' to 'Plot groupings'
     series_name_to_plot_groupings = {
         'Error Homeowner Vacancy Rate': 'Error',
         'Error Homeownership Rate': 'Error',

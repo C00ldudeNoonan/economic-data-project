@@ -71,3 +71,4 @@ jobs:
         echo "Log Level: ${{ env.LOG_LEVEL }}"
         echo "Has CENSUS_API_KEY: ${{ env.CENSUS_API_KEY != '' }}"
         echo "Has FRED_API_KEY: ${{ env.FRED_API_KEY != '' }}"
+        echo "Has MOTHERDUCK_TOKEN: ${{ env.MOTHERDUCK_TOKEN  != '' }}
