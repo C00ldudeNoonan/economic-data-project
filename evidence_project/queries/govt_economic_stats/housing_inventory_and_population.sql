@@ -4,7 +4,7 @@ SELECT
 date as time_date,
 cast(value as float) as number_of_households,
 EXTRACT(YEAR FROM date) AS year
-FROM fred_data
+FROM housing_inventory
 WHERE series_code = 'TTLHH'
 and value <> '.'
 )

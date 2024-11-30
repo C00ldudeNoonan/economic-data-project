@@ -43,4 +43,4 @@ pending_ratio,
 pending_ratio_mm,
 pending_ratio_yy,
 quality_flag
-FROM "econ_db"."main"."RDC_Inventory_Core_Metrics_County"
+FROM "econ_md"."my_db"."RDC_Inventory_Core_Metrics_County"

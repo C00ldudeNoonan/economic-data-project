@@ -1,5 +1,9 @@
 ---
 title: United States Housing Inventory View
+queries:
+  - fred_data: sources/econ_md/raw/fred_data.sql
+  - housing_invetory: sources/econ_md/raw/housing_inventory.sql
+  - housing_pulse: sources/econ_md/raw/housing_pulse.sql
 ---
 
 <Details title='Housing Data Series'>
