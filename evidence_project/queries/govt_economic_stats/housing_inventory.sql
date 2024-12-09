@@ -13,5 +13,5 @@ CAST((CASE
     WHEN RIGHT(time, 2) = 'Q3' THEN (LEFT(time, 4) || '-07-01')::DATE
     WHEN RIGHT(time, 2) = 'Q4' THEN (LEFT(time, 4) || '-10-01')::DATE
 END) as date) as time_date
-from housing_inventory
+from econ_md.housing_inventory
 WHERE cell_value <> '(z)'

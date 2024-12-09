@@ -4,7 +4,7 @@ SELECT
 date as time_date,
 cast(value as float) as number_of_households,
 EXTRACT(YEAR FROM date) AS year
-FROM housing_inventory
+FROM econ_md.housing_inventory
 WHERE series_code = 'TTLHH'
 and value <> '.'
 )
@@ -27,7 +27,7 @@ SELECT
         WHEN RIGHT(housing_inventory.time, 2) = 'Q4' THEN (LEFT(housing_inventory.time, 4) || '-10-01')::DATE
     END) as date)) as year,
         hs.number_of_households
-FROM housing_inventory
+FROM econ_md.housing_inventory
 LEFT JOIN hs
     on EXTRACT(YEAR FROM     CAST((CASE 
         WHEN RIGHT(housing_inventory.time, 2) = 'Q1' THEN (LEFT(housing_inventory.time, 4) || '-01-01')::DATE
