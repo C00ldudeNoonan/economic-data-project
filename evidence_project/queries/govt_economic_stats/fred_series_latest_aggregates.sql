@@ -7,31 +7,30 @@ series_dates AS (
     SELECT 
         series_code,
         series_name,
-        date,
-        LAG(date, -2) OVER (PARTITION BY series_code ORDER BY date DESC) as previous_date,
-        LAG(date, -3) OVER (PARTITION BY series_code ORDER BY date DESC) as two_events_ago
-    FROM econ_md.fred_data s, date_bounds d
-    WHERE s.date >= d.start_date AND s.date <= d.end_date
+        LAG(CAST(NULLIF(value, '.') as float), -2) OVER (PARTITION BY series_code ORDER BY date DESC) as previous_date,
+        LAG(CAST(NULLIF(value, '.') as float), -3) OVER (PARTITION BY series_code ORDER BY date DESC) as two_events_ago
+    FROM econ_md.fred_data, date_bounds d
+    WHERE fred_data.date >= d.start_date AND fred_data.date <= d.end_date
 ),
-  
-date_grain as (SELECT 
-    s.series_code,
-    s.series_name,
-    COUNT(*) as entry_count,
-    CASE 
-        WHEN COUNT(*) >= 200 THEN 'Daily'
-        WHEN COUNT(*) >= 50 THEN 'Weekly'
-        WHEN COUNT(*) >= 9 THEN 'Monthly'
-        WHEN COUNT(*) >= 2 THEN 'Quarterly'
-        WHEN COUNT(*) >= 1 THEN 'Annually'
-        ELSE 'Limited Data' 
-    END as date_grain
-FROM 
-    series_dates s
-GROUP BY s.series_code,
-    s.series_name
-ORDER BY 
-    entry_count DESC
+ date_grain as (
+  SELECT 
+      s.series_code,
+      s.series_name,
+      COUNT(*) as entry_count,
+      CASE 
+          WHEN COUNT(*) >= 200 THEN 'Daily'
+          WHEN COUNT(*) >= 50 THEN 'Weekly'
+          WHEN COUNT(*) >= 9 THEN 'Monthly'
+          WHEN COUNT(*) >= 2 THEN 'Quarterly'
+          WHEN COUNT(*) >= 1 THEN 'Annually'
+          ELSE 'Limited Data' 
+      END as date_grain
+  FROM 
+      series_dates s
+  GROUP BY s.series_code,
+      s.series_name
+  ORDER BY 
+      entry_count DESC
 ),
 aggregates as (
   select
@@ -39,11 +38,11 @@ aggregates as (
     fred_data.series_code,
     fred_data.series_name,
     date_grain.date_grain,
-    ROUND(AVG(CAST(NULLIF(fred_data.value, '.') as float)), 2) as clean_value
+    ROUND(AVG(CAST(NULLIF(fred_data.value, '.') as float)), 4) as clean_value
   FROM econ_md.fred_data
-  JOIN date_grain
+  LEFT JOIN date_grain
     on date_grain.series_code = fred_data.series_code
-  WHERE date_grain.date_grain in ('Daily', 'Monthly', 'Quarterly')
+  WHERE date_grain.date_grain in ('Daily', 'Monthly', 'Quarterly', 'Weekly')
   GROUP BY
     DATE_TRUNC('month', fred_data.date),
     fred_data.series_code,
@@ -51,6 +50,7 @@ aggregates as (
     fred_data.series_name
   ORDER BY DATE_TRUNC('month', fred_data.date) DESC
 ),
+
 date_ranges AS (
   SELECT 
       series_code,
