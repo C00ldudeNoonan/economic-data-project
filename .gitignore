@@ -1,5 +1,7 @@
 .env
-/econ
+/.venv
+/.ruff_cache
+/.vscode
 __pycache__/
 data/RDC_Inventory_Core_Metrics_Zip_History.csv
 data/RDC_Inventory_Core_Metrics_County_History.csv
