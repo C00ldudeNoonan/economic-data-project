@@ -1,0 +1,35 @@
+[project]
+name = "econ_data_platform"
+version = "0.1.0"
+description = "Dagster project for econ data platform"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+    "dagster",
+    "dagster-cloud",
+    "dagster-duckdb",
+    "polars",
+    "dagster-dbt",
+    "requests",
+    "dbt-core",
+    "google-api-core",
+    "google-auth",
+]
+
+[project.optional-dependencies]
+dev = [
+    "dagster-webserver", 
+    "pytest",
+    "ruff",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.dagster]
+module_name = "econ_data_platform.definitions"
+project_name = "econ_data_platform"
+
+[tool.setuptools.packages.find]
+exclude=["econ_data_platform_tests"]

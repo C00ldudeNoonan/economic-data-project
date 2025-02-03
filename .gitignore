@@ -10,3 +10,5 @@ data/RDC_Inventory_Core_Metrics_Metro_History.csv
 data/RDC_Inventory_Core_Metrics_State_History.csv
 data/RDC_Inventory_Core_Metrics_Country_History.csv
 evidence_project/sources/econ/econ_db.duckdb
+creds.json
+.ruff_cache
