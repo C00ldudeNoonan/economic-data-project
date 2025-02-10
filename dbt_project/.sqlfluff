@@ -1,0 +1,9 @@
+[sqlfluff]
+dialect = postgres
+templater = dbt
+
+[sqlfluff:templater:dbt]
+project_dir = .
+profiles_dir = .
+profile = econ_database
+

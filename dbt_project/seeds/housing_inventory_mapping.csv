@@ -1,0 +1,22 @@
+code,series_name,plot_grouping
+RENT,Vacant Housing Units For Rent,Vacant Inventory
+URE,Vacant Housing Units Held off the Market and Usual Residence Elsewhere,Vacant Inventory
+RVR,Rental Vacancy Rate,Rates
+E_RVR,Error Rental Vacancy Rate,Error
+OWNOCC,Owner Occupied Units,Occupied Inventory
+VACANT,Total Vacant Housing Units,Total Housing Units
+YRVAC,Year-Round Vacant Housing Units,Vacant Inventory
+HOR,Homeownership Rate,Rates
+E_HOR,Error Homeownership Rate,Error
+HVR,Homeowner Vacancy Rate,Rates
+E_HVR,Error Homeowner Vacancy Rate,Error
+SAHOR,Seasonal Adjusted Home Owner Rate,Rates
+OCC,Total Occupied housing Units,Total Housing Units
+OCCUSE,Held Off the Market and for Occasional Use,Vacant Inventory
+OFFMAR,Held Off the Market Vacant Housing Units,Vacant Inventory
+OTH,Held off the Market and Vacant for Other Reasons Vacant Housing Units,Vacant Inventory
+RNTOCC,Renter Occupied Units,Occupied Inventory
+RNTSLD,Rented or Sold, Not Yet Occupied Vacant Housing Units,Vacant Inventory
+SALE,Vacant Housing Units For Sale,Vacant Inventory
+SEASON,Seasonal Vacant Housing Units,Vacant Inventory
+TOTAL,Total Housing Units,Total Housing Units

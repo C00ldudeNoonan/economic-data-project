@@ -1,0 +1,13 @@
+econ_database:
+  target: prod
+  outputs:
+    dev:
+      type: duckdb
+      schema: econ_db
+      path: "local.duckdb"
+      threads: 1
+    prod:
+      type: duckdb
+      schema: econ_db
+      path: "md:prod_econ"
+      threads: 1
