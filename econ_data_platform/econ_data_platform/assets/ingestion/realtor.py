@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 
 from datetime import datetime
+import os
 
 
 @dataclass
@@ -20,7 +21,7 @@ class DriveFile:
 
 
 def realtor_asset_factory(file_definition: DriveFile) -> dg.Definitions:
-    file_name = file_definition.name[:-4]
+    file_name, _ = os.path.splitext(file_definition.name)    
     file_id = file_definition.id
 
     @dg.asset(
@@ -64,10 +65,12 @@ def realtor_asset_factory(file_definition: DriveFile) -> dg.Definitions:
         file_metadata = (
             service.files().get(fileId=file_id, fields="modifiedTime").execute()
         )
+        context.log.info(f"File metadata: {file_metadata}")
 
         current_mtime = datetime.strptime(
             file_metadata["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ"
         ).timestamp()
+        context.log.info(f"Current mtime: {current_mtime}")
 
         # If file has been modified, trigger the job
         if current_mtime > last_mtime:
@@ -88,7 +91,7 @@ credentials = service_account.Credentials.from_service_account_file(
     "creds.json", scopes=SCOPES
 )
 service = build("drive", "v3", credentials=credentials)
-folder_id = os.environ("GOOGLE_DRIVE_FOLDER_ID")
+folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
 
 # Get files from folder
 query = f"'{folder_id}' in parents and mimeType='text/csv'"
