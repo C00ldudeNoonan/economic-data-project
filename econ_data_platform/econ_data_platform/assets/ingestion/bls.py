@@ -3,8 +3,9 @@ import polars as pl
 import requests
 from datetime import datetime
 from econ_data_platform.resources.motherduck import MotherDuckResource
+import os
 
-census_api_key = dg.EnvVar("CENSUS_API_KEY")
+census_api_key = os.getenv("CENSUS_API_KEY")
 year_partition = dg.StaticPartitionsDefinition(
     [str(year) for year in range(1999, 2025)]
 )
@@ -31,7 +32,7 @@ def housing_inventory_raw(
 
     df = pl.DataFrame(rows, schema=columns, orient="row")
 
-    md.drop_create_duck_db_table("housing_inventory", df)
+    md.drop_create_duck_db_table("housing_inventory_raw", df)
 
     return dg.MaterializeResult(
         metadata={

@@ -5,19 +5,19 @@
 
 With hs as (
 SELECT
-date as time_date,
-cast(value as float) as number_of_households,
-EXTRACT(YEAR FROM date) AS year
-FROM {{ref('stg_housing_inventory')}}
-WHERE series_code = 'TTLHH'
-and value <> '.'
+time_date,
+cast(series_value as float) as number_of_households,
+EXTRACT(YEAR FROM time_date) AS year
+FROM {{ref('housing_inventory')}}
+WHERE category_code = 'TTLHH'
+and series_value <> '.'
 )
 
 
 
 SELECT
     series_name,
-    CAST(cell_value as float) as series_value,
+    CAST(series_value as float) as series_value,
     CAST((CASE 
         WHEN RIGHT(housing_inventory.time, 2) = 'Q1' THEN (LEFT(housing_inventory.time, 4) || '-01-01')::DATE
         WHEN RIGHT(housing_inventory.time, 2) = 'Q2' THEN (LEFT(housing_inventory.time, 4) || '-04-01')::DATE
@@ -31,7 +31,7 @@ SELECT
         WHEN RIGHT(housing_inventory.time, 2) = 'Q4' THEN (LEFT(housing_inventory.time, 4) || '-10-01')::DATE
     END) as date)) as year,
         hs.number_of_households
-FROM {{ref('stg_housing_inventory')}}
+FROM {{ref('housing_inventory')}}
 LEFT JOIN hs
     on EXTRACT(YEAR FROM     CAST((CASE 
         WHEN RIGHT(housing_inventory.time, 2) = 'Q1' THEN (LEFT(housing_inventory.time, 4) || '-01-01')::DATE

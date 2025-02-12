@@ -12,7 +12,7 @@ With inventory as (
     error_data,
     time,
     series_name,
-    plot_groupings,
+    plot_grouping,
     CAST((CASE 
         WHEN RIGHT(time, 2) = 'Q1' THEN (LEFT(time, 4) || '-01-01')::DATE
         WHEN RIGHT(time, 2) = 'Q2' THEN (LEFT(time, 4) || '-04-01')::DATE

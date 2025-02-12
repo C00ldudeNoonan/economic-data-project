@@ -3,9 +3,8 @@
 ) }}
 SELECT
     STRPTIME(LEFT(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 4) || '-' || SUBSTRING(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 5, 2) || '-01', '%Y-%m-%d') as year_month,
-    cbsa_code,
-    cbsa_title,
-    HouseholdRank,
+    postal_code,
+    zip_name,
     median_listing_price,
     median_listing_price_mm,
     median_listing_price_yy,
@@ -43,4 +42,4 @@ SELECT
     pending_ratio_mm,
     pending_ratio_yy,
     quality_flag
-FROM {{ source('realtor_data_raw', 'RDC_Inventory_Core_Metrics_Zip_History') }}
+FROM {{ source('staging', 'RDC_Inventory_Core_Metrics_Zip_History') }}

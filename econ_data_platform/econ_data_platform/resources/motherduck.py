@@ -3,34 +3,66 @@ import polars as pl
 import dagster as dg
 from typing import List, Union
 from pydantic import Field
-
+import os
 
 class MotherDuckResource(dg.ConfigurableResource):
     """A Dagster resource for managing MotherDuck database connections and operations."""
 
     # Define the configuration schema
-    md_token: str = Field(description="MotherDuck token for authentication")
-    md_database: str = Field(description="MotherDuck database name")
-    md_schema: str = Field(description="MotherDuck schema name")
+
+    md_token: str = Field(
+        description="MotherDuck token for authentication",
+    )
+    md_database: str = Field(
+        description="MotherDuck database name",
+        default="local"
+    )
+    md_schema: str = Field(
+        description="MotherDuck schema name",
+        default="public"
+    )
+    local_path: str = Field(
+        description="Local DuckDB file path",
+        default="local.duckdb"
+    )
+    environment: str = Field(
+        description="Environment (LOCAL or PROD)",
+        default="LOCAL"
+    )
+
 
     @property
     def db_connection(self) -> str:
-        """Get the database connection string."""
+        """Get the database connection string based on environment."""
+        if self.environment == "LOCAL":
+            return self.local_path
         return f"md:?motherduck_token={self.md_token}"
 
     def get_connection(self, read_only: bool = False) -> duckdb.DuckDBPyConnection:
-        """Create a database connection.
-
-        Args:
-            read_only (bool): Whether to open the connection in read-only mode
-        """
+        """Create a database connection."""
         conn = duckdb.connect(self.db_connection, read_only=read_only)
-        conn.execute("USE prod_econ.main")
+        if self.environment != "LOCAL":
+            conn.execute(f"USE {self.md_database}.{self.md_schema}")
         conn.commit()
         return conn
 
     def drop_create_duck_db_table(
         self, table_name: str, df: Union[pl.DataFrame, duckdb.DuckDBPyRelation]
+    ):
+        """Drop and recreate a table with the provided DataFrame data."""
+        conn = None
+        try:
+            conn = self.get_connection(read_only=False)
+            conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+            conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM df")
+            conn.commit()
+        finally:
+            if conn:
+                conn.close()
+        return self.db_connection
+    
+    def drop_create_partitioned_table(
+        self, table_name: str, df: Union[pl.DataFrame, duckdb.DuckDBPyRelation], parition_key, paritition_column
     ):
         """Drop and recreate a table with the provided DataFrame data."""
         conn = None
@@ -106,9 +138,14 @@ class MotherDuckResource(dg.ConfigurableResource):
             if conn:
                 conn.close()
 
+environment = os.getenv("ENVIRONMENT", "LOCAL")
 
 motherduck_resource = MotherDuckResource(
-    md_token=dg.EnvVar("MOTHERDUCK_TOKEN"),
-    md_database=dg.EnvVar("MOTHERDUCK_DATABASE"),
-    md_schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA"),
+    environment=environment,
+    md_token=dg.EnvVar("MOTHERDUCK_TOKEN") if environment != "LOCAL" else "",
+    md_database=dg.EnvVar("MOTHERDUCK_DATABASE") if environment != "LOCAL" else "local",
+    md_schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA") if environment != "LOCAL" else "public",
+    local_path="local.duckdb"
 )
+
+

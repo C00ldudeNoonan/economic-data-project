@@ -12,7 +12,7 @@ SELECT
     inv.time,
     inv.us,
     map.series_name,
-    map.plot_groupings
-FROM {{ source('bls_data', 'housing_inventory_raw') }} inv
-LEFT JOIN {{ ref('fred_series_mapping') }} map
+    map.plot_grouping
+FROM {{ source('staging', 'housing_inventory_raw') }} inv
+LEFT JOIN {{ ref('housing_inventory_mapping') }} map
     on inv.data_type_code = map.code

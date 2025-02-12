@@ -43,4 +43,4 @@ SELECT
     pending_ratio_mm,
     pending_ratio_yy,
     quality_flag
-FROM {{ source('realtor_data_raw', 'RDC_Inventory_Core_Metrics_Country_History') }}
+FROM {{ source('staging', 'RDC_Inventory_Core_Metrics_Country_History') }}

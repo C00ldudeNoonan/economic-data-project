@@ -14,4 +14,4 @@ SELECT
     time,
     CYCLE,
     state
-FROM {{ source('bls_data', 'housing_pulse_raw') }}
+FROM {{ source('staging', 'housing_pulse_raw') }}

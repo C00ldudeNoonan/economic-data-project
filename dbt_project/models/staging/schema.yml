@@ -1,3 +1,40 @@
 version: 2
 
 models:
+  - name: stg_fred_series
+    description: >
+      raw data from FRED (Federal Reserve Economic Data).
+
+  - name: stg_housing_inventory
+    description: >
+      raw data tracking the number of available housing units over time and other metrics from the BLS (Bureau of labor statistics)
+
+
+  - name: stg_housing_pulse
+    description: >
+      raw data from biweekly housing pulse survey from the BLS (Bureau of labor statistics)
+
+
+  - name: stg_realtor_country_history
+    description: >
+      monthly country level housing data from the realtor.com
+
+
+  - name: stg_realtor_county_history
+    description: >
+      monthly county level housing data from the realtor.com
+
+
+  - name: stg_realtor_metro_history
+    description: >
+      monthly metro level housing data from the realtor.com
+
+
+  - name: stg_realtor_state_history
+    description: >
+      monthly state level housing data from the realtor.com
+
+
+  - name: stg_realtor_zip_history
+    description: >
+      monthly state level housing data from the realtor.com

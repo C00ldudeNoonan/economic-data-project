@@ -4,7 +4,7 @@
 
 
 SELECT
-  STRPTIME(LEFT(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 4) || '-' || SUBSTRING(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 5, 2) || '-01', '%Y-%m-%d') as year_month,
+  year_month,
   state,   
   total_listing_count,
   total_listing_count_mm,
@@ -13,4 +13,4 @@ SELECT
   average_listing_price_mm,
   average_listing_price_yy,
 FROM {{ref('stg_realtor_state_history')}}
-WHERE STRPTIME(LEFT(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 4) || '-' || SUBSTRING(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 5, 2) || '-01', '%Y-%m-%d') = (SELECT MAX(STRPTIME(LEFT(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 4) || '-' || SUBSTRING(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 5, 2) || '-01', '%Y-%m-%d')) FROM {{ref('stg_realtor_state_history')}});
+WHERE year_month = (SELECT MAX(year_month) FROM {{ref('stg_realtor_state_history')}})

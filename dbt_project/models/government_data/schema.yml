@@ -1,3 +1,36 @@
 version: 2
 
 models:
+  - name: fred_series_grain
+    description: >
+      Contains historical real estate gain/loss data from FRED (Federal Reserve Economic Data).
+      This table tracks changes in real estate values over time, providing insights into
+      market trends and property appreciation/depreciation rates.
+
+
+  - name: fred_series_latest_aggregates
+    description: >
+      Aggregated view of the most recent FRED series data points, providing a
+      snapshot of current real estate market conditions. This table is updated
+      daily with the latest available metrics from various FRED series.
+
+
+  - name: housing_inventory_and_population
+    description: >
+      Combines housing inventory data with population statistics to provide
+      insights into housing availability relative to population size. This table
+      helps analyze housing supply and demand dynamics across different regions.
+
+
+  - name: housing_inventory_latest_aggregates
+    description: >
+      Provides the most recent aggregated housing inventory metrics, offering a
+      current snapshot of housing availability and market conditions. Updated
+      daily with the latest available inventory data.
+
+
+  - name: housing_inventory
+    description: >
+      Historical housing inventory data tracking the number of available housing
+      units over time. This table serves as the primary source for analyzing
+      housing supply trends and seasonal patterns in the market.

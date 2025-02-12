@@ -35,4 +35,4 @@ FROM
 GROUP BY s.series_code,
     s.series_name
 ORDER BY 
-    entry_count DESC;
+    entry_count DESC

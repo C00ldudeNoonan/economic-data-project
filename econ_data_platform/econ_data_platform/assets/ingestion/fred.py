@@ -42,7 +42,7 @@ def fred_data_raw(
     series_code = context.partition_key
 
     data = fred.get_fred_data(series_code)
-    md.upsert_data("fred_data", data, ["date", "series_code"])
+    md.upsert_data("fred_data_raw", data, ["date", "series_code"])
 
     return dg.MaterializeResult(
         metadata={
