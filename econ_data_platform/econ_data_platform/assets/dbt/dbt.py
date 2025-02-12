@@ -32,8 +32,8 @@ dbt_project = DbtProject(
     target=os.getenv("DBT_TARGET", environment)
 )
 
-# dbt_project.prepare_if_dev()
-
+dbt_project.prepare_if_dev()
+dbt_cli_resource = DbtCliResource(project_dir=dbt_project)
 
 
 @dbt_assets(manifest=dbt_project.manifest_path,
@@ -41,8 +41,3 @@ dbt_project = DbtProject(
 def full_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCliResource):
     yield from dbt.cli(["build"], context=context).stream()
 
-
-dbt_definitions = dg.Definitions(
-    assets=[full_dbt_assets],
-    resources={"dbt": DbtCliResource(project_dir=dbt_project)},
-)
