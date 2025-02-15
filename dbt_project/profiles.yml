@@ -1,5 +1,5 @@
 econ_database:
-  target: LOCAL #"{{ env_var('ENVIRONMENT', 'LOCAL') }}"  # Default to LOCAL if not set
+  target: "{{ env_var('ENVIRONMENT', 'LOCAL') }}"  # Default to LOCAL if not set
   outputs:
     LOCAL:  # Local development environment
       type: duckdb

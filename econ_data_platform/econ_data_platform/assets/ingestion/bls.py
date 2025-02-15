@@ -31,13 +31,16 @@ def housing_inventory_raw(
     rows = response.json()[1:]
 
     df = pl.DataFrame(rows, schema=columns, orient="row")
+    df = df.with_columns(pl.lit(year).alias("year"))
+    context.log.info(f"Columns: {df.columns}")
 
-    md.drop_create_duck_db_table("housing_inventory_raw", df)
+    md.upsert_data("housing_inventory_raw", df, ["year"])
 
     return dg.MaterializeResult(
         metadata={
             "year": year,
             "num_records": len(df),
+            "columns": df.columns,
         }
     )
 

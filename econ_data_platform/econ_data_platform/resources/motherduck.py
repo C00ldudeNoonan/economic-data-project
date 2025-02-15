@@ -61,20 +61,6 @@ class MotherDuckResource(dg.ConfigurableResource):
                 conn.close()
         return self.db_connection
     
-    def drop_create_partitioned_table(
-        self, table_name: str, df: Union[pl.DataFrame, duckdb.DuckDBPyRelation], parition_key, paritition_column
-    ):
-        """Drop and recreate a table with the provided DataFrame data."""
-        conn = None
-        try:
-            conn = self.get_connection(read_only=False)
-            conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM df")
-            conn.commit()
-        finally:
-            if conn:
-                conn.close()
-        return self.db_connection
 
     @staticmethod
     def map_dtype(dtype: pl.DataType) -> str:
