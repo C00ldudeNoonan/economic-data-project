@@ -4,7 +4,7 @@ econ_database:
     dev:  # Keep dev target for backwards compatibility
       type: duckdb
       schema: public
-      path: "local.duckdb"
+      path: "../econ_data_platform/local.duckdb"
       threads: 1
     
     prod:  # Keep prod target for backwards compatibility
