@@ -1,18 +1,6 @@
 econ_database:
-  target: "{{ env_var('ENVIRONMENT', 'LOCAL') }}"  # Default to LOCAL if not set
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"  # Default to dev if not set
   outputs:
-    LOCAL:  # Local development environment
-      type: duckdb
-      schema: public
-      path: "../econ_data_platform/local.duckdb"
-      threads: 1
-    
-    PROD:  # Production environment
-      type: duckdb
-      schema: "{{ env_var('MOTHERDUCK_PROD_SCHEMA') }}"
-      path: "md:{{ env_var('MOTHERDUCK_DATABASE') }}?motherduck_token={{ env_var('MOTHERDUCK_TOKEN') }}"
-      threads: 1
-    
     dev:  # Keep dev target for backwards compatibility
       type: duckdb
       schema: public

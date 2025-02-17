@@ -26,7 +26,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         default="local.duckdb"
     )
     environment: str = Field(
-        description="Environment (LOCAL or PROD)",
+        description="Environment (dev or prod)",
         default="LOCAL"
     )
 
@@ -34,14 +34,14 @@ class MotherDuckResource(dg.ConfigurableResource):
     @property
     def db_connection(self) -> str:
         """Get the database connection string based on environment."""
-        if self.environment == "LOCAL":
+        if self.environment == "dev":
             return self.local_path
         return f"md:?motherduck_token={self.md_token}"
 
     def get_connection(self, read_only: bool = False) -> duckdb.DuckDBPyConnection:
         """Create a database connection."""
         conn = duckdb.connect(self.db_connection, read_only=read_only)
-        if self.environment != "LOCAL":
+        if self.environment != "dev":
             conn.execute(f"USE {self.md_database}.{self.md_schema}")
         conn.commit()
         return conn
@@ -124,13 +124,13 @@ class MotherDuckResource(dg.ConfigurableResource):
             if conn:
                 conn.close()
 
-environment = os.getenv("ENVIRONMENT", "LOCAL")
+environment = os.getenv("ENVIRONMENT", "dev")
 
 motherduck_resource = MotherDuckResource(
     environment=environment,
-    md_token=dg.EnvVar("MOTHERDUCK_TOKEN") if environment != "LOCAL" else "",
-    md_database=dg.EnvVar("MOTHERDUCK_DATABASE") if environment != "LOCAL" else "local",
-    md_schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA") if environment != "LOCAL" else "public",
+    md_token=dg.EnvVar("MOTHERDUCK_TOKEN") if environment != "dev" else "",
+    md_database=dg.EnvVar("MOTHERDUCK_DATABASE") if environment != "dev" else "dev",
+    md_schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA") if environment != "dev" else "public",
     local_path="local.duckdb"
 )
 

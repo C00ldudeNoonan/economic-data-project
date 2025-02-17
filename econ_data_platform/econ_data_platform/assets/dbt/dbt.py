@@ -25,7 +25,7 @@ class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
             return super().get_asset_key(dbt_resource_props)
 
 
-environment = os.getenv("ENVIRONMENT", "LOCAL")
+environment = os.getenv("DBT_TARGET", "dev")
 
 
 
@@ -40,16 +40,7 @@ dbt_cli_resource = DbtCliResource(project_dir=dbt_project)
 @dbt_assets(manifest=dbt_project.manifest_path,
             dagster_dbt_translator=CustomizedDagsterDbtTranslator())
 def full_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCliResource):
-    dbt_invocation = dbt.cli(["build"], context=context)
+    yield from dbt.cli(["build"], context=context).stream()
 
-    # Each dbt event is structured: https://docs.getdbt.com/reference/events-logging
-    for dbt_event in dbt_invocation.stream_raw_events():
-        for dagster_event in dbt_event.to_default_asset_events(
-            manifest=dbt_invocation.manifest,
-            dagster_dbt_translator=dbt_invocation.dagster_dbt_translator,
-            context=dbt_invocation.context,
-            target_path=dbt_invocation.target_path,
-        ):
 
-            yield dagster_event
 
