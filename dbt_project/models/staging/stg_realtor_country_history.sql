@@ -4,7 +4,6 @@
 
 
 SELECT
-    STRPTIME(LEFT(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 4) || '-' || SUBSTRING(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 5, 2) || '-01', '%Y-%m-%d') as year_month,
     country,
     median_listing_price,
     median_listing_price_mm,
@@ -42,5 +41,12 @@ SELECT
     pending_ratio,
     pending_ratio_mm,
     pending_ratio_yy,
-    quality_flag
+    quality_flag,
+    STRPTIME(
+        LEFT(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 4)
+        || '-'
+        || SUBSTRING(REPLACE(CAST(month_date_yyyymm AS VARCHAR), ',', ''), 5, 2)
+        || '-01',
+        '%Y-%m-%d'
+    ) AS year_month
 FROM {{ source('staging', 'RDC_Inventory_Core_Metrics_Country_History') }}

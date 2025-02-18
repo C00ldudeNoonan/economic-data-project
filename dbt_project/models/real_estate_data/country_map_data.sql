@@ -4,7 +4,7 @@
 
 
 SELECT
-    year_month, 
+    year_month,
     country,
     median_listing_price,
     median_listing_price_mm,
@@ -43,4 +43,4 @@ SELECT
     pending_ratio_mm,
     pending_ratio_yy,
     quality_flag
-FROM {{ref('stg_realtor_country_history')}}
+FROM {{ ref('stg_realtor_country_history') }}

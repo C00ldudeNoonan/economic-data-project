@@ -11,7 +11,7 @@ SELECT
     RATE,
     TOTAL,
     MEASURE_DESCRIPTION,
-    time,
+    TIME,
     CYCLE,
-    state
+    STATE
 FROM {{ source('staging', 'housing_pulse_raw') }}

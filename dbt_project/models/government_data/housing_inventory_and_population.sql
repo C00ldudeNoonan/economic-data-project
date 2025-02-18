@@ -3,44 +3,73 @@
 ) }}
 
 
-With hs as (
-SELECT
-time_date,
-cast(series_value as float) as number_of_households,
-EXTRACT(YEAR FROM time_date) AS year
-FROM {{ref('housing_inventory')}}
-WHERE category_code = 'TTLHH'
-and series_value <> '.'
+With hs As (
+    Select
+        time_date,
+        cast(series_value As float) As number_of_households,
+        extract(Year From time_date) As year
+    From {{ ref('housing_inventory') }}
+    Where
+        category_code = 'TTLHH'
+        And series_value <> '.'
 )
 
 
 
-SELECT
+Select
     series_name,
-    CAST(series_value as float) as series_value,
-    CAST((CASE 
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q1' THEN (LEFT(housing_inventory.time, 4) || '-01-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q2' THEN (LEFT(housing_inventory.time, 4) || '-04-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q3' THEN (LEFT(housing_inventory.time, 4) || '-07-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q4' THEN (LEFT(housing_inventory.time, 4) || '-10-01')::DATE
-    END) as date) as time_date,
-    EXTRACT(YEAR FROM     CAST((CASE 
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q1' THEN (LEFT(housing_inventory.time, 4) || '-01-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q2' THEN (LEFT(housing_inventory.time, 4) || '-04-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q3' THEN (LEFT(housing_inventory.time, 4) || '-07-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q4' THEN (LEFT(housing_inventory.time, 4) || '-10-01')::DATE
-    END) as date)) as year,
-        hs.number_of_households
-FROM {{ref('housing_inventory')}}
-LEFT JOIN hs
-    on EXTRACT(YEAR FROM     CAST((CASE 
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q1' THEN (LEFT(housing_inventory.time, 4) || '-01-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q2' THEN (LEFT(housing_inventory.time, 4) || '-04-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q3' THEN (LEFT(housing_inventory.time, 4) || '-07-01')::DATE
-        WHEN RIGHT(housing_inventory.time, 2) = 'Q4' THEN (LEFT(housing_inventory.time, 4) || '-10-01')::DATE
-    END) as date)) = hs.year
+    cast(series_value As float) As series_value,
+    cast((Case
+        When
+            right(housing_inventory.time, 2) = 'Q1'
+            Then cast ((left(housing_inventory.time, 4) || '-01-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q2'
+            Then cast ((left(housing_inventory.time, 4) || '-04-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q3'
+            Then cast ((left(housing_inventory.time, 4) || '-07-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q4'
+            Then cast ((left(housing_inventory.time, 4) || '-10-01') As date)
+    End) As date) As time_date,
+    hs.number_of_households,
+    extract(Year From cast((Case
+        When
+            right(housing_inventory.time, 2) = 'Q1'
+            Then cast ((left(housing_inventory.time, 4) || '-01-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q2'
+            Then cast ((left(housing_inventory.time, 4) || '-04-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q3'
+            Then cast ((left(housing_inventory.time, 4) || '-07-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q4'
+            Then cast ((left(housing_inventory.time, 4) || '-10-01') As date)
+    End) As date)) As year
+From {{ ref('housing_inventory') }}
+Left Join hs
+    On extract(Year From cast((Case
+        When
+            right(housing_inventory.time, 2) = 'Q1'
+            Then cast ((left(housing_inventory.time, 4) || '-01-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q2'
+            Then cast ((left(housing_inventory.time, 4) || '-04-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q3'
+            Then cast ((left(housing_inventory.time, 4) || '-07-01') As date)
+        When
+            right(housing_inventory.time, 2) = 'Q4'
+            Then cast ((left(housing_inventory.time, 4) || '-10-01') As date)
+    End) As date)) = hs.year
 
 Where
-    error_data = 'no' 
-    and category_code ='ESTIMATE'
-    and series_name in ('Renter Occupied Units', 'Owner Occupied Units', 'Total Vacant Housing Units')
+    error_data = 'no'
+    And category_code = 'ESTIMATE'
+    And series_name In (
+        'Renter Occupied Units',
+        'Owner Occupied Units',
+        'Total Vacant Housing Units'
+    )
