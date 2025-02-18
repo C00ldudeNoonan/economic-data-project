@@ -21,7 +21,7 @@ class DriveFile:
 
 
 def realtor_asset_factory(file_definition: DriveFile) -> dg.Definitions:
-    file_name, _ = os.path.splitext(file_definition.name)    
+    file_name, _ = os.path.splitext(file_definition.name)
     file_id = file_definition.id
 
     @dg.asset(

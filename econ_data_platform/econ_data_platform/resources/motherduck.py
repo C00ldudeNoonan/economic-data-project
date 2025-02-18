@@ -5,6 +5,7 @@ from typing import List, Union
 from pydantic import Field
 import os
 
+
 class MotherDuckResource(dg.ConfigurableResource):
     """A Dagster resource for managing MotherDuck database connections and operations."""
 
@@ -13,23 +14,12 @@ class MotherDuckResource(dg.ConfigurableResource):
     md_token: str = Field(
         description="MotherDuck token for authentication",
     )
-    md_database: str = Field(
-        description="MotherDuck database name",
-        default="local"
-    )
-    md_schema: str = Field(
-        description="MotherDuck schema name",
-        default="public"
-    )
+    md_database: str = Field(description="MotherDuck database name", default="local")
+    md_schema: str = Field(description="MotherDuck schema name", default="public")
     local_path: str = Field(
-        description="Local DuckDB file path",
-        default="local.duckdb"
+        description="Local DuckDB file path", default="local.duckdb"
     )
-    environment: str = Field(
-        description="Environment (dev or prod)",
-        default="LOCAL"
-    )
-
+    environment: str = Field(description="Environment (dev or prod)", default="LOCAL")
 
     @property
     def db_connection(self) -> str:
@@ -60,7 +50,6 @@ class MotherDuckResource(dg.ConfigurableResource):
             if conn:
                 conn.close()
         return self.db_connection
-    
 
     @staticmethod
     def map_dtype(dtype: pl.DataType) -> str:
@@ -124,6 +113,7 @@ class MotherDuckResource(dg.ConfigurableResource):
             if conn:
                 conn.close()
 
+
 environment = os.getenv("ENVIRONMENT", "dev")
 
 motherduck_resource = MotherDuckResource(
@@ -131,7 +121,5 @@ motherduck_resource = MotherDuckResource(
     md_token=dg.EnvVar("MOTHERDUCK_TOKEN") if environment != "dev" else "",
     md_database=dg.EnvVar("MOTHERDUCK_DATABASE") if environment != "dev" else "dev",
     md_schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA") if environment != "dev" else "public",
-    local_path="local.duckdb"
+    local_path="local.duckdb",
 )
-
-

@@ -18,12 +18,12 @@ defs = dg.Definitions.merge(
             fred_data_raw,
             housing_pulse_raw,
             housing_inventory_raw,
-            full_dbt_assets
+            full_dbt_assets,
         ],
         resources={
             "md": motherduck_resource,
             "fred": fred_resource,
-            "dbt": dbt_cli_resource
+            "dbt": dbt_cli_resource,
         },
     ),
 )
