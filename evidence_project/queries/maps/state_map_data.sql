@@ -1,3 +1,3 @@
 select
     * 
-from econ_md.state_data
+from econ_md.prod_econ.latest_state_data

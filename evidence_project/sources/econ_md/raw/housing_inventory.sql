@@ -1,3 +1,3 @@
 SELECT 
     *
-FROM main.housing_inventory
+FROM main.stg_housing_inventory

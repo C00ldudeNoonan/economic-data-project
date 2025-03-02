@@ -2,4 +2,4 @@
 name: econ_md
 type: motherduck
 options:
-  database: my_db
+  database: prod_econ

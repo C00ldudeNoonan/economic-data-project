@@ -34,3 +34,9 @@ models:
       Historical housing inventory data tracking the number of available housing
       units over time. This table serves as the primary source for analyzing
       housing supply trends and seasonal patterns in the market.
+
+  - name: housing_mortgate_rates
+    description: >
+      Contains historical mortgage rate data from FRED (Federal Reserve Economic Data).
+      This table tracks changes in mortgage rates over time, providing insights into
+      market trends and interest rate fluctuations. It uses the median sales price data from FRED and performs the calculations to get the mortgage rate and median monthly payment with and without a 20% down payment. 

@@ -1,3 +1,3 @@
 SELECT
     *
-FROM main.fred_data
+FROM main.stg_fred_series

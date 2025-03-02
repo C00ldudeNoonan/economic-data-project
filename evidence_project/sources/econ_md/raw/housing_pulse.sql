@@ -1,3 +1,3 @@
 SELECT
     *
-FROM main.housing_pulse
+FROM main.stg_housing_pulse
