@@ -1,12 +1,14 @@
 import dagster as dg
 from econ_data_platform.resources.motherduck import MotherDuckResource
+from econ_data_platform.resources.google_drive import (
+    GoogleDriveResource,
+    google_drive_resource,
+)
 
 import polars as pl
 from io import StringIO
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
+
 from dataclasses import dataclass
-from collections.abc import Sequence
 
 from datetime import datetime
 import os
@@ -20,7 +22,9 @@ class DriveFile:
     modifiedTime: str
 
 
-def realtor_asset_factory(file_definition: DriveFile) -> dg.Definitions:
+def realtor_asset_factory(
+    file_definition: DriveFile, google_drive: GoogleDriveResource
+) -> dg.Definitions:
     file_name, _ = os.path.splitext(file_definition.name)
     file_id = file_definition.id
 
@@ -30,13 +34,14 @@ def realtor_asset_factory(file_definition: DriveFile) -> dg.Definitions:
         kinds={"polars", "duckdb", "google_drive"},
     )
     def read_csv_from_drive(
-        context: dg.AssetExecutionContext, md: MotherDuckResource
+        context: dg.AssetExecutionContext,
+        md: MotherDuckResource,
+        google_drive: GoogleDriveResource,
     ) -> dg.MaterializeResult:
         """Read CSV directly from Google Drive file ID into a polars DataFrame"""
         context.log.info(f"Reading file {file_name} from Google Drive")
-        request = service.files().get_media(fileId=file_id)
-        content = request.execute()
-        csv_string = content.decode("utf-8")
+        request = google_drive.request_content(file_id)
+        csv_string = request.decode("utf-8")
         df = pl.read_csv(StringIO(csv_string))
         md.drop_create_duck_db_table(file_name, df)
 
@@ -57,14 +62,12 @@ def realtor_asset_factory(file_definition: DriveFile) -> dg.Definitions:
         job_name=f"{file_name}_job",
         minimum_interval_seconds=15,
     )
-    def file_sensor(context):
+    def file_sensor(context, google_drive: GoogleDriveResource):
         # Get current modification time from cursor
         last_mtime = float(context.cursor) if context.cursor else 0
 
         # Get file details from Drive
-        file_metadata = (
-            service.files().get(fileId=file_id, fields="modifiedTime").execute()
-        )
+        file_metadata = google_drive.get_file_metadata(file_id)
         context.log.info(f"File metadata: {file_metadata}")
 
         current_mtime = datetime.strptime(
@@ -83,24 +86,16 @@ def realtor_asset_factory(file_definition: DriveFile) -> dg.Definitions:
         assets=[read_csv_from_drive],
         jobs=[file_job],
         sensors=[file_sensor],
+        resources={"google_drive": google_drive},
     )
 
 
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
-credentials = service_account.Credentials.from_service_account_file(
-    "creds.json", scopes=SCOPES
-)
-service = build("drive", "v3", credentials=credentials)
+# Fetch files from the Google Drive folder using properly initialized _client
 folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+file_results = google_drive_resource.retrieve_files(folder_id).get("files", [])
 
-# Get files from folder
-query = f"'{folder_id}' in parents and mimeType='text/csv'"
-results = (
-    service.files()
-    .list(q=query, fields="files(id, name, createdTime, modifiedTime)")
-    .execute()
-)
-
+# Create realtor definitions dynamically
 realtor_definitions = [
-    realtor_asset_factory(DriveFile(**file)) for file in results.get("files", [])
+    realtor_asset_factory(DriveFile(**file), google_drive_resource)
+    for file in file_results
 ]
