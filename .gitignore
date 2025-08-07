@@ -13,3 +13,7 @@ evidence_project/sources/econ/econ_db.duckdb
 creds.json
 .ruff_cache
 /econ_data_platform/local.duckdb
+# Dagster temporary directories
+tmp_*
+tmpr_*
+tmpd_*

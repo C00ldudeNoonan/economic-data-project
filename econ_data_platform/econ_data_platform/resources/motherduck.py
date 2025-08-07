@@ -9,8 +9,7 @@ import os
 class MotherDuckResource(dg.ConfigurableResource):
     """A Dagster resource for managing MotherDuck database connections and operations."""
 
-    # Define the configuration schema
-
+    
     md_token: str = Field(
         description="MotherDuck token for authentication",
     )
