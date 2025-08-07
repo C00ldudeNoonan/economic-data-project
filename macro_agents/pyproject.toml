@@ -1,0 +1,43 @@
+[project]
+name = "macro_agents"
+requires-python = ">=3.9,<3.14"
+version = "0.1.0"
+dependencies = [
+    "dagster>=1.11.4",
+    "dagster-cloud",
+    "dagster-duckdb",
+    "polars",
+    "dagster-dbt",
+    "requests",
+    "dbt-core",
+    "google-api-core",
+    "google-auth",
+    "dbt-duckdb",
+    "dagster-shared>=1.11.4",
+    "dagster-pipes>=1.11.4",
+    "dagster-dg-cli>=1.11.4",
+    "dagster-webserver>=1.11.4",
+    "pyarrow>=21.0.0",
+    "beautifulsoup4",
+    "lxml",
+    "ruff>=0.12.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "dagster-webserver", 
+    "pytest",
+    "ruff",
+]
+ 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.dg]
+directory_type = "project"
+
+[tool.dg.project]
+root_module = "macro_agents"
+
+

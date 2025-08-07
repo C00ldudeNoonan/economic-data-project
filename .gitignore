@@ -17,3 +17,4 @@ creds.json
 tmp_*
 tmpr_*
 tmpd_*
+.tmp_dagster_*
