@@ -1,6 +1,22 @@
 import dagster as dg
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.resources.fred import FredResource
+from macro_agents.defs.assets.constants.fred_series_lists import (
+    inflation_series,
+    interest_rates_series,
+    money_credit_series,
+    gdp_production_series,
+    labor_market_series,
+    gdp_production_series,
+    consumer_series,
+    housing_series,
+    trade_series,
+    financial_conditions_series,
+    leading_indicators_series,
+    regional_indicators_series
+)
+
+
 
 fred_series_partition = dg.StaticPartitionsDefinition(
     [
@@ -27,6 +43,9 @@ fred_series_partition = dg.StaticPartitionsDefinition(
         "MEHOINUSA672N",
     ]
 )
+
+
+## different lists for fred series
 
 
 @dg.asset(
