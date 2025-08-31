@@ -57,7 +57,7 @@ def get_week_dates(partition_key: str) -> tuple[str, str]:
     automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
     description="Raw data from MarketStack API for US Sector ETFs",
 )
-def marketstack_us_sector_etfs_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
+def us_sector_etfs_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
     # Extract partition dimensions
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
@@ -71,7 +71,7 @@ def marketstack_us_sector_etfs_data_raw(context: dg.Context, md: MotherDuckResou
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
     
     # Upsert to MotherDuck
-    md.upsert_data(df, "marketstack_us_sector_etfs_data_raw", key_columns=["ticker", "date"])
+    md.upsert_data(df, "us_sector_etfs_data_raw", key_columns=["ticker", "date"])
     
     return dg.MaterializeResult(
         metadata={"rows": df.shape[0], "ticker": ticker, "start_date": start_date, "end_date": end_date}
@@ -85,7 +85,7 @@ def marketstack_us_sector_etfs_data_raw(context: dg.Context, md: MotherDuckResou
     automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
     description="Raw data from MarketStack API for Currency ETFs",
 )
-def marketstack_currency_etfs_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
+def currency_etfs_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
     start_date, end_date = get_week_dates(date_partition)
@@ -93,7 +93,7 @@ def marketstack_currency_etfs_data_raw(context: dg.Context, md: MotherDuckResour
     context.log.info(f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}")
     
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    md.upsert_data(df, "marketstack_currency_etfs_data_raw", key_columns=["ticker", "date"])
+    md.upsert_data(df, "currency_etfs_data_raw", key_columns=["ticker", "date"])
     
     return dg.MaterializeResult(
         metadata={"rows": df.shape[0], "ticker": ticker, "start_date": start_date, "end_date": end_date}
@@ -107,7 +107,7 @@ def marketstack_currency_etfs_data_raw(context: dg.Context, md: MotherDuckResour
     automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
     description="Raw data from MarketStack API for Major Indices",
 )
-def marketstack_major_indices_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
+def major_indices_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
     start_date, end_date = get_week_dates(date_partition)
@@ -115,7 +115,7 @@ def marketstack_major_indices_data_raw(context: dg.Context, md: MotherDuckResour
     context.log.info(f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}")
     
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    md.upsert_data(df, "marketstack_major_indices_data_raw", key_columns=["ticker", "date"])
+    md.upsert_data(df, "major_indices_data_raw", key_columns=["ticker", "date"])
     
     return dg.MaterializeResult(
         metadata={"rows": df.shape[0], "ticker": ticker, "start_date": start_date, "end_date": end_date}
@@ -129,7 +129,7 @@ def marketstack_major_indices_data_raw(context: dg.Context, md: MotherDuckResour
     automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
     description="Raw data from MarketStack API for Fixed Income ETFs",
 )
-def marketstack_fixed_income_etfs_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
+def fixed_income_etfs_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
     start_date, end_date = get_week_dates(date_partition)
@@ -137,7 +137,7 @@ def marketstack_fixed_income_etfs_data_raw(context: dg.Context, md: MotherDuckRe
     context.log.info(f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}")
     
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    md.upsert_data(df, "marketstack_fixed_income_etfs_data_raw", key_columns=["ticker", "date"])
+    md.upsert_data(df, "fixed_income_etfs_data_raw", key_columns=["ticker", "date"])
     
     return dg.MaterializeResult(
         metadata={"rows": df.shape[0], "ticker": ticker, "start_date": start_date, "end_date": end_date}
@@ -151,7 +151,7 @@ def marketstack_fixed_income_etfs_data_raw(context: dg.Context, md: MotherDuckRe
     automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
     description="Raw data from MarketStack API for Global Markets",
 )
-def marketstack_global_markets_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
+def global_markets_data_raw(context: dg.Context, md: MotherDuckResource, marketstack: MarketStackResource) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
     start_date, end_date = get_week_dates(date_partition)
@@ -159,7 +159,7 @@ def marketstack_global_markets_data_raw(context: dg.Context, md: MotherDuckResou
     context.log.info(f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}")
     
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    md.upsert_data(df, "marketstack_global_markets_data_raw", key_columns=["ticker", "date"])
+    md.upsert_data(df, "global_markets_data_raw", key_columns=["ticker", "date"])
     
     return dg.MaterializeResult(
         metadata={"rows": df.shape[0], "ticker": ticker, "start_date": start_date, "end_date": end_date}
