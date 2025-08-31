@@ -5,9 +5,15 @@ labor_market_series = [
     ("JTSJOL", "Job Openings: Total Nonfarm"),
     ("ICSA", "Initial Claims"),
     ("PAYEMS", "All Employees, Total Nonfarm"),
-    ("AHETPI", "Average Hourly Earnings of Production and Nonsupervisory Employees, Total Private"),
+    (
+        "AHETPI",
+        "Average Hourly Earnings of Production and Nonsupervisory Employees, Total Private",
+    ),
     ("JTSQUR", "Job Openings and Labor Turnover Survey: Quits Rate"),
-    ("U6RATE", "Total Unemployed, Plus All Marginally Attached Workers Plus Total Employed Part Time"),
+    (
+        "U6RATE",
+        "Total Unemployed, Plus All Marginally Attached Workers Plus Total Employed Part Time",
+    ),
     ("EMRATIO", "Employment-Population Ratio"),
     ("UNEMPLOY", "Unemployed"),
 ]
@@ -15,9 +21,15 @@ labor_market_series = [
 # Inflation & Price Dynamics
 inflation_series = [
     ("CPIAUCSL", "Consumer Price Index for All Urban Consumers: All Items"),
-    ("CPILFESL", "Consumer Price Index for All Urban Consumers: All Items Less Food and Energy"),
+    (
+        "CPILFESL",
+        "Consumer Price Index for All Urban Consumers: All Items Less Food and Energy",
+    ),
     ("PCEPI", "Personal Consumption Expenditures: Chain-type Price Index"),
-    ("PCEPILFE", "Personal Consumption Expenditures Excluding Food and Energy (Core PCE Price Index)"),
+    (
+        "PCEPILFE",
+        "Personal Consumption Expenditures Excluding Food and Energy (Core PCE Price Index)",
+    ),
     ("PPIACO", "Producer Price Index by Commodity: All Commodities"),
     ("T5YIE", "5-Year Breakeven Inflation Rate"),
     ("T10YIE", "10-Year Breakeven Inflation Rate"),
@@ -40,8 +52,14 @@ interest_rates_series = [
     ("TB5YR", "5-Year Treasury Constant Maturity Rate"),
     ("TB10YR", "10-Year Treasury Constant Maturity Rate"),
     ("TB30YR", "30-Year Treasury Constant Maturity Rate"),
-    ("T10Y2Y", "10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity"),
-    ("T10Y3M", "10-Year Treasury Constant Maturity Minus 3-Month Treasury Constant Maturity"),
+    (
+        "T10Y2Y",
+        "10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity",
+    ),
+    (
+        "T10Y3M",
+        "10-Year Treasury Constant Maturity Minus 3-Month Treasury Constant Maturity",
+    ),
 ]
 
 # Money Supply & Credit
@@ -54,8 +72,14 @@ money_credit_series = [
     ("MORTGAGE15US", "15-Year Fixed Rate Mortgage Average in the United States"),
     ("BAMLH0A0HYM2", "ICE BofA US High Yield Index Option-Adjusted Spread"),
     ("BAMLC0A0CM", "ICE BofA US Corporate Index Option-Adjusted Spread"),
-    ("AAA10Y", "Moody's Seasoned Aaa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity"),
-    ("BAA10Y", "Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity"),
+    (
+        "AAA10Y",
+        "Moody's Seasoned Aaa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity",
+    ),
+    (
+        "BAA10Y",
+        "Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity",
+    ),
 ]
 
 # ============================================================================
@@ -83,7 +107,10 @@ consumer_series = [
     ("PCEC96", "Real Personal Consumption Expenditures"),
     ("RSXFS", "Advance Retail Sales: Retail and Food Services, Total"),
     ("PSAVERT", "Personal Saving Rate"),
-    ("CSCICP03USM665S", "Consumer Opinion Surveys: Confidence Indicators: Composite Indicators: OECD Indicator for the United States"),
+    (
+        "CSCICP03USM665S",
+        "Consumer Opinion Surveys: Confidence Indicators: Composite Indicators: OECD Indicator for the United States",
+    ),
     ("UMCSENT", "University of Michigan: Consumer Sentiment"),
     ("DSPIC96", "Real Disposable Personal Income"),
     ("PCEDG", "Personal Consumption Expenditures: Durable Goods"),
@@ -130,13 +157,22 @@ trade_series = [
 financial_conditions_series = [
     ("VIXCLS", "CBOE Volatility Index: VIX"),
     ("NFCI", "Chicago Fed National Financial Conditions Index"),
-    ("NFCINONFINLEVERAGE", "Chicago Fed National Financial Conditions Non-Financial Leverage Subindex"),
+    (
+        "NFCINONFINLEVERAGE",
+        "Chicago Fed National Financial Conditions Non-Financial Leverage Subindex",
+    ),
     ("NFCICREDIT", "Chicago Fed National Financial Conditions Credit Subindex"),
     ("TEDRATE", "TED Spread"),
     ("BAMLH0A0HYM2", "ICE BofA US High Yield Index Option-Adjusted Spread"),
     ("BAMLC0A0CM", "ICE BofA US Corporate Index Option-Adjusted Spread"),
-    ("DRTSCILM", "Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to Large and Medium Firms"),
-    ("DRTSCIS", "Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to Small Firms"),
+    (
+        "DRTSCILM",
+        "Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to Large and Medium Firms",
+    ),
+    (
+        "DRTSCIS",
+        "Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to Small Firms",
+    ),
     ("SP500", "S&P 500"),
 ]
 
@@ -150,18 +186,27 @@ leading_indicators_series = [
     ("CFNAI", "Chicago Fed National Activity Index"),
     ("CFNAIDIFF", "Chicago Fed National Activity Index: Diffusion Index"),
     ("CFNAIMA3", "Chicago Fed National Activity Index: Three-Month Moving Average"),
-    ("AHETPI", "Average Hourly Earnings of Production and Nonsupervisory Employees, Total Private"),
+    (
+        "AHETPI",
+        "Average Hourly Earnings of Production and Nonsupervisory Employees, Total Private",
+    ),
     ("ICSA4WMA", "4-Week Moving Average of Initial Claims"),
     ("PAYEMS", "All Employees, Total Nonfarm"),
     ("HOUST", "Housing Starts: Total: New Privately Owned Housing Units Started"),
     ("PERMIT", "New Private Housing Units Authorized by Building Permits"),
-    ("T10Y3M", "10-Year Treasury Constant Maturity Minus 3-Month Treasury Constant Maturity"),
+    (
+        "T10Y3M",
+        "10-Year Treasury Constant Maturity Minus 3-Month Treasury Constant Maturity",
+    ),
 ]
 
 # Regional Economic Activity
 regional_indicators_series = [
     ("CFNAI", "Chicago Fed National Activity Index"),
-    ("GACDISA066MSFRBNY", "Empire State Manufacturing Survey: General Business Conditions"),
+    (
+        "GACDISA066MSFRBNY",
+        "Empire State Manufacturing Survey: General Business Conditions",
+    ),
     ("BPEA", "Business Outlook Survey: General Business Conditions"),
     ("USPHCI", "Recession Probabilities"),
     ("NAPM", "ISM Manufacturing: PMI Composite Index"),

@@ -13,9 +13,8 @@ from macro_agents.defs.assets.constants.fred_series_lists import (
     trade_series,
     financial_conditions_series,
     leading_indicators_series,
-    regional_indicators_series
+    regional_indicators_series,
 )
-
 
 
 fred_series_partition = dg.StaticPartitionsDefinition(
