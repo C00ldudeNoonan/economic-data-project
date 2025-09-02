@@ -54,13 +54,13 @@ fred_series_partition = dg.StaticPartitionsDefinition(
     automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
     description="Raw data from FRED API",
 )
-def fred_data_raw(
+def fred_raw(
     context: dg.AssetExecutionContext, fred: FredResource, md: MotherDuckResource
 ) -> dg.MaterializeResult:
     series_code = context.partition_key
 
     data = fred.get_fred_data(series_code)
-    md.upsert_data("fred_data_raw", data, ["date", "series_code"])
+    md.upsert_data("fred_raw", data, ["date", "series_code"])
 
     return dg.MaterializeResult(
         metadata={

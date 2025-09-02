@@ -106,4 +106,4 @@ class MarketStackResource(dg.ConfigurableResource):
         return pl.DataFrame(all_data) if all_data else pl.DataFrame()
 
 
-market_stack_resource = MarketStackResource(api_key=dg.EnvVar("MARKETSTACK_API_KEY"))
+marketstack_resource = MarketStackResource(api_key=dg.EnvVar("MARKETSTACK_API_KEY"))
