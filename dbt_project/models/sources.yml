@@ -5,22 +5,12 @@ sources:
     schema: main
     tables:
       # FRED Data
-      - name: fred_data_raw
+      - name: fred_raw
 
         
       # Housing Data
       - name: housing_inventory_raw
 
       - name: housing_pulse_raw
-
-        
-      # RDC Inventory Core Metrics
-      - name: RDC_Inventory_Core_Metrics_Country_History
-
-      - name: RDC_Inventory_Core_Metrics_County_History
-
-      - name: RDC_Inventory_Core_Metrics_Metro_History
-
-      - name: RDC_Inventory_Core_Metrics_Zip_History
-
-      - name: RDC_Inventory_Core_Metrics_State_History
+      # Treasury Yields Data
+      - name: treasury_yields_raw

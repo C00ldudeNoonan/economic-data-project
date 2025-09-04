@@ -19,3 +19,4 @@ tmpr_*
 tmpd_*
 .tmp_dagster_*
 *.csv
+*.log
