@@ -12,5 +12,13 @@ sources:
       - name: housing_inventory_raw
 
       - name: housing_pulse_raw
+      
       # Treasury Yields Data
       - name: treasury_yields_raw
+      
+      # MarketStack Data
+      - name: us_sector_etfs_raw
+      - name: currency_etfs_raw
+      - name: major_indices_raw
+      - name: fixed_income_etfs_raw
+      - name: global_markets_raw
