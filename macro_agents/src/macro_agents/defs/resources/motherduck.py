@@ -130,6 +130,19 @@ class MotherDuckResource(dg.ConfigurableResource):
             if conn:
                 conn.close()
 
+    def read_data(self, table_name: str) -> List[dict]:
+        """Read data from a table."""
+        conn = None
+        try:
+            conn = self.get_connection(read_only=False)
+            df = conn.execute(f"SELECT * FROM {table_name}")
+            data_dict = df.to_dicts()
+            return data_dict
+            conn.commit()
+        finally:
+            if conn:
+                conn.close()
+
 
 environment = os.getenv("ENVIRONMENT", "dev")
 
