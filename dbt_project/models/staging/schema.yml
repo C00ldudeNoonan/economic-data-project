@@ -18,19 +18,19 @@ models:
     description: >
       raw Treasury yield curve data scraped from Treasury.gov XML feed
 
-  - name: stg_us_sector_etfs
+  - name: stg_us_sectors
     description: >
       raw data from MarketStack API for US Sector ETFs
 
-  - name: stg_currency_etfs
+  - name: stg_currencies
     description: >
       raw data from MarketStack API for Currency ETFs
 
-  - name: stg_major_indices
+  - name: stg_major_indicies
     description: >
       raw data from MarketStack API for Major Indices
 
-  - name: stg_fixed_income_etfs
+  - name: stg_fixed_income 
     description: >
       raw data from MarketStack API for Fixed Income ETFs
 

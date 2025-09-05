@@ -1,6 +1,4 @@
 from datetime import timedelta
-import polars as pl
-from typing import Dict, Any
 import dagster as dg
 from datetime import datetime
 
@@ -63,7 +61,9 @@ def get_week_dates(partition_key: str) -> tuple[str, str]:
     description="Raw data from MarketStack API for US Sector ETFs",
 )
 def us_sector_etfs_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource, marketstack: MarketStackResource
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     # Extract partition dimensions
     ticker = context.partition_key.keys_by_dimension["ticker"]
@@ -101,7 +101,9 @@ def us_sector_etfs_raw(
     description="Raw data from MarketStack API for Currency ETFs",
 )
 def currency_etfs_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource, marketstack: MarketStackResource
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
@@ -133,7 +135,9 @@ def currency_etfs_raw(
     description="Raw data from MarketStack API for Major Indices",
 )
 def major_indices_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource, marketstack: MarketStackResource
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
@@ -165,7 +169,9 @@ def major_indices_raw(
     description="Raw data from MarketStack API for Fixed Income ETFs",
 )
 def fixed_income_etfs_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource, marketstack: MarketStackResource
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
@@ -197,7 +203,9 @@ def fixed_income_etfs_raw(
     description="Raw data from MarketStack API for Global Markets",
 )
 def global_markets_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource, marketstack: MarketStackResource
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
@@ -208,7 +216,9 @@ def global_markets_raw(
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    context.log.info(f"Fetched {df.shape[0]} rows for {ticker} from {start_date} to {end_date}")    
+    context.log.info(
+        f"Fetched {df.shape[0]} rows for {ticker} from {start_date} to {end_date}"
+    )
     context.log.info(f"DataFrame columns: {df.columns}")
     context.log.info(f"DataFrame head:\n{df.head()}")
     md.upsert_data("global_markets_raw", df, ["symbol", "date"])

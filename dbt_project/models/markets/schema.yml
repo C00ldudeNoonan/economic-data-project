@@ -1,0 +1,9 @@
+version: 2
+
+models:
+  - name: fred_series_grain
+    description: >
+      Contains historical real estate gain/loss data from FRED (Federal Reserve Economic Data).
+      This table tracks changes in real estate values over time, providing insights into
+      market trends and property appreciation/depreciation rates.
+

@@ -16,7 +16,7 @@ class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
         asset_path = dbt_resource_props["fqn"][1:-1]
         if asset_path:
             return "_".join(asset_path)
-        return "default"
+        return "dbt_seeds"
 
     def get_asset_key(self, dbt_resource_props):
         resource_type = dbt_resource_props["resource_type"]
@@ -35,10 +35,10 @@ class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
 environment = os.getenv("DBT_TARGET", "dev")
 
 
+# Find the project root (where dbt_project folder is located)
+project_root = Path(__file__).parent.parent.parent.parent.parent.parent.parent
 dbt_project = DbtProject(
-    project_dir=Path(__file__)
-    .joinpath("..", "..", "..", "..", "..", "dbt_project")
-    .resolve(),
+    project_dir=project_root / "dbt_project",
     target=environment,
 )
 

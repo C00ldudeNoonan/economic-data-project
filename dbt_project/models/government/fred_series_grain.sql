@@ -19,13 +19,13 @@ series_dates AS (
                 PARTITION BY series_code
                 ORDER BY date DESC
             )
-        AS previous_date,
+            AS previous_date,
         LAG(date, -3)
             OVER (
                 PARTITION BY series_code
                 ORDER BY date DESC
             )
-        AS two_events_ago
+            AS two_events_ago
     FROM {{ ref('stg_fred_series') }} AS s, date_bounds AS d
     WHERE s.date >= d.start_date AND s.date <= d.end_date
 )

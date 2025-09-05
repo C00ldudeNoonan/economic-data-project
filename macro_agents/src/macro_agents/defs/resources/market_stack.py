@@ -1,5 +1,4 @@
 import requests
-import json
 import polars as pl
 from typing import Dict, Any
 import dagster as dg

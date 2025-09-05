@@ -22,4 +22,4 @@ SELECT
     symbol,
     exchange,
     cast(date AS date) AS date
-FROM {{ source('staging', 'global_markets_raw') }}
+FROM {{ source('staging', 'us_sector_etfs_raw') }}
