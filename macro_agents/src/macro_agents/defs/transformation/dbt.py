@@ -36,7 +36,7 @@ environment = os.getenv("DBT_TARGET", "dev")
 
 
 # Find the project root (where dbt_project folder is located)
-project_root = Path(__file__).parent.parent.parent.parent.parent.parent.parent
+project_root = Path(__file__).parent.parent.parent.parent.parent.parent
 dbt_project = DbtProject(
     project_dir=project_root / "dbt_project",
     target=environment,

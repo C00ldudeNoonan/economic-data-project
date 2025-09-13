@@ -26,7 +26,7 @@ WITH base_data AS (
             WHEN adj_open > 0 THEN ((adj_close - adj_open) / adj_open) * 100 
             ELSE NULL 
         END as pct_change_adj
-    FROM {{ source('staging', 'us_sectors') }}
+    FROM {{ ref('stg_us_sectors') }}
     WHERE date IS NOT NULL 
         AND open IS NOT NULL 
         AND close IS NOT NULL

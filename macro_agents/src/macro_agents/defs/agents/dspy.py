@@ -2,7 +2,7 @@ import dagster as dg
 import dspy
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from .resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.motherduck import MotherDuckResource
 
 # Configure DSPy with OpenAI
 lm = dspy.LM("openai/gpt-4o-mini", api_key=dg.EnvVar("OPENAI_API_KEY"))
@@ -254,12 +254,12 @@ class FinancialAnalysisAgent:
     compute_kind="dspy",
 )
 def financial_analysis_asset(
-    context: dg.AssetExecutionContext, motherduck_resource: MotherDuckResource
+    context: dg.AssetExecutionContext, md: MotherDuckResource
 ) -> Dict[str, Any]:
     """Analyze financial data using AI agent"""
 
     # Create the financial analysis agent
-    agent = FinancialAnalysisAgent(motherduck_resource)
+    agent = FinancialAnalysisAgent(md)
 
     # Example analysis request - this could be parameterized
     analysis_request = """

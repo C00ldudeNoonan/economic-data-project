@@ -3,7 +3,7 @@ import dagster as dg
 from datetime import datetime
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
-from macro_agents.defs.assets.constants.market_stack_constants import (
+from macro_agents.defs.constants.market_stack_constants import (
     US_SECTOR_ETFS,
     CURRENCY_ETFS,
     MAJOR_INDICES_TICKERS,

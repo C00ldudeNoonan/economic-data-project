@@ -24,7 +24,7 @@ WITH base_data AS (
         CASE
             WHEN adj_open > 0 THEN ((adj_close - adj_open) / adj_open) * 100
         END AS pct_change_adj
-    FROM {{ source('staging', 'currencies_raw') }}
+    FROM {{ ref('stg_currency') }}
     WHERE
         date IS NOT NULL
         AND open IS NOT NULL
