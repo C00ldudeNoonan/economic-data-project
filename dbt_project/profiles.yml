@@ -1,10 +1,10 @@
 econ_database:
-  target: "{{ env_var('DBT_TARGET', 'dev') }}"  # Default to dev if not set
+  target: "{{ env_var('DBT_TARGET', 'local') }}"  # Default to local if not set
   outputs:
-    dev:  # Keep dev target for backwards compatibility
+    local:  # Keep local target for backwards compatibility
       type: duckdb
       schema: public
-      path: "../econ_data_platform/local.duckdb"
+      path: "../econ_data_project/local.duckdb"
       threads: 1
     
     prod:  # Keep prod target for backwards compatibility

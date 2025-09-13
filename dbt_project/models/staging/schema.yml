@@ -14,6 +14,30 @@ models:
     description: >
       raw data from biweekly housing pulse survey from the BLS (Bureau of labor statistics)
 
+  - name: stg_treasury_yields
+    description: >
+      raw Treasury yield curve data scraped from Treasury.gov XML feed
+
+  - name: stg_us_sectors
+    description: >
+      raw data from MarketStack API for US Sector ETFs
+
+  - name: stg_currencies
+    description: >
+      raw data from MarketStack API for Currency ETFs
+
+  - name: stg_major_indicies
+    description: >
+      raw data from MarketStack API for Major Indices
+
+  - name: stg_fixed_income 
+    description: >
+      raw data from MarketStack API for Fixed Income ETFs
+
+  - name: stg_global_markets
+    description: >
+      raw data from MarketStack API for Global Markets
+
 
   - name: stg_realtor_country_history
     description: >
