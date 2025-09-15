@@ -35,7 +35,7 @@ models:
       units over time. This table serves as the primary source for analyzing
       housing supply trends and seasonal patterns in the market.
 
-  - name: housing_mortgate_rates
+  - name: housing_mortgage_rates
     description: >
       Contains historical mortgage rate data from FRED (Federal Reserve Economic Data).
       This table tracks changes in mortgage rates over time, providing insights into

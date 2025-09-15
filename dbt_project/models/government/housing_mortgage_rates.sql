@@ -35,7 +35,7 @@ price AS (
 )
 
 SELECT
-    date,
+    rate.date,
     median_price_no_down_payment,
     median_price_20_pct_down_payment,
     mortgage_rate,

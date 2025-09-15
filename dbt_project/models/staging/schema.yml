@@ -22,11 +22,11 @@ models:
     description: >
       raw data from MarketStack API for US Sector ETFs
 
-  - name: stg_currencies
+  - name: stg_currency
     description: >
       raw data from MarketStack API for Currency ETFs
 
-  - name: stg_major_indicies
+  - name: stg_major_indices
     description: >
       raw data from MarketStack API for Major Indices
 
