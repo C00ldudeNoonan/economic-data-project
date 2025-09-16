@@ -1,22 +1,66 @@
-code,series_name
-BAMLH0A0HYM2,High Yield Bond Rate
-DJIA,Dow Jones Industrial Average
-DFF,Federal Funds Effective Rate
-MORTGAGE30US,30 year Mortgage Rate
-USAUCSFRCONDOSMSAMID,Zillow Housing Index
-DTWEXBGS,Dollar Index
-DGS10,10 year Treasury Rate
-USCONS,All Employees: Construction
-LFWA64TTUSM647S,Working-Age Population Total: From 15 to 64 Years
-EXHOSLUSM495S,Existing Home Sales
-MDSP,Mortgage Debt Service Payments as a Percent of Disposable Personal Income
-MSPUS,Median Sales Price of Houses Sold for the United States
-CDSP,Consumer Debt Service Payments as a Percent of Disposable Personal Income
-MEDDAYONMARUS,Median Days on The Market
-MEDLISPRIPERSQUFEEUS,Median Listing Price per Square Feet in the United States
-WPUIP2311102,Producer Price Index by Commodity: Inputs to Industries: Net Inputs to Single Family Residential Construction - Services
-TTLHH,Total Households
-TTLFHH,Total Family Households
-TTLHHM156N,Household Estimates
-T4232MM157NCEN,Merchant Wholesalers- Except Manufacturers' Sales Branches and Offices: Durable Goods: Furniture and Home Furnishings Inventories
-MEHOINUSA672N,Real Median Household Income in the United States
+code,series_name,category
+BAMLH0A0HYM2,High Yield Bond Rate,Growth
+DJIA,Dow Jones Industrial Average,Growth
+DFF,Federal Funds Effective Rate,Inflation
+MORTGAGE30US,30 year Mortgage Rate,Growth
+USAUCSFRCONDOSMSAMID,Zillow Housing Index,Inflation
+DTWEXBGS,Dollar Index,Inflation
+DGS10,10 year Treasury Rate,Growth
+USCONS,All Employees: Construction,Growth
+LFWA64TTUSM647S,Working-Age Population Total: From 15 to 64 Years,Growth
+EXHOSLUSM495S,Existing Home Sales,Growth
+MDSP,Mortgage Debt Service Payments as a Percent of Disposable Personal Income,Growth
+MSPUS,Median Sales Price of Houses Sold for the United States,Inflation
+CDSP,Consumer Debt Service Payments as a Percent of Disposable Personal Income,Growth
+MEDDAYONMARUS,Median Days on The Market,Growth
+MEDLISPRIPERSQUFEEUS,Median Listing Price per Square Feet in the United States,Inflation
+WPUIP2311102,Producer Price Index by Commodity: Inputs to Industries: Net Inputs to Single Family Residential Construction - Services,Inflation
+TTLHH,Total Households,Growth
+TTLFHH,Total Family Households,Growth
+TTLHHM156N,Household Estimates,Growth
+T4232MM157NCEN,Merchant Wholesalers- Except Manufacturers' Sales Branches and Offices: Durable Goods: Furniture and Home Furnishings Inventories,Growth
+MEHOINUSA672N,Real Median Household Income in the United States,Growth
+GDP,Gross Domestic Product,Growth
+GDPC1,Real Gross Domestic Product,Growth
+A939RX0Q048SBEA,Real Gross Domestic Product per Capita,Growth
+A191RL1Q225SBEA,Real Gross Domestic Product Percent Change from Preceding Period,Growth
+PAYEMS,All Employees Total Nonfarm,Growth
+MANEMP,All Employees Manufacturing,Growth
+CE16OV,Employment Level,Growth
+INDPRO,Industrial Production Total Index,Growth
+IPMAN,Industrial Production Manufacturing NAICS,Growth
+TCU,Capacity Utilization Total Index,Growth
+OPHNFB,Nonfarm Business Sector Labor Productivity Output per Hour for All Workers,Growth
+PRS85006091,Nonfarm Business Sector Labor Productivity Output per Hour for All Workers,Growth
+PRS84006091,Business Sector Labor Productivity Output per Hour for All Workers,Growth
+OPHMFG,Manufacturing Sector Labor Productivity Output per Hour for All Workers,Growth
+PCEC96,Real Personal Consumption Expenditures,Growth
+PCECC96,Real Personal Consumption Expenditures,Growth
+GPDI,Gross Private Domestic Investment,Growth
+RSXFS,Advance Retail Sales Retail Trade,Growth
+RRSFS,Advance Real Retail and Food Services Sales,Growth
+BOPGSTB,Trade Balance Goods and Services Balance of Payments Basis,Growth
+TTLCONS,Total Construction Spending Total Construction in the United States,Growth
+CPIAUCSL,Consumer Price Index for All Urban Consumers All Items in US City Average Seasonally Adjusted,Inflation
+CPIAUCNS,Consumer Price Index for All Urban Consumers All Items in US City Average Not Seasonally Adjusted,Inflation
+CPILFESL,Consumer Price Index for All Urban Consumers All Items Less Food and Energy in US City Average Seasonally Adjusted,Inflation
+CPILFENS,Consumer Price Index for All Urban Consumers All Items Less Food and Energy in US City Average Not Seasonally Adjusted,Inflation
+PCEPI,Personal Consumption Expenditures Chain-type Price Index,Inflation
+PCEPILFE,Personal Consumption Expenditures Excluding Food and Energy Chain-Type Price Index,Inflation
+MEDCPIM158SFRBCLE,Median Consumer Price Index,Inflation
+PCETRIM12M159SFRBDAL,Trimmed Mean PCE Inflation Rate 12-month,Inflation
+STICKCPIM159SFRBATL,Sticky Price Consumer Price Index,Inflation
+CORESTICKM159SFRBATL,Sticky Price Consumer Price Index less Food and Energy,Inflation
+PPIFIS,Producer Price Index by Commodity Final Demand Seasonally Adjusted,Inflation
+PPIFID,Producer Price Index by Commodity Final Demand Not Seasonally Adjusted,Inflation
+PPIACO,Producer Price Index by Commodity All Commodities Not Seasonally Adjusted,Inflation
+WPU01,Producer Price Index by Commodity Farm Products Not Seasonally Adjusted,Inflation
+PCUOMFGOMFG,Producer Price Index by Industry Total Manufacturing Industries Not Seasonally Adjusted,Inflation
+CUSR0000SA0L2,Consumer Price Index for All Urban Consumers All Items Less Shelter in US City Average Seasonally Adjusted,Inflation
+CUSR0000SAH1,Consumer Price Index for All Urban Consumers Shelter in US City Average Seasonally Adjusted,Inflation
+CUSR0000SACL1E,Consumer Price Index for All Urban Consumers Commodities Less Food and Energy Commodities in US City Average Seasonally Adjusted,Inflation
+CUSR0000SASLE,Consumer Price Index for All Urban Consumers Services Less Energy Services in US City Average Seasonally Adjusted,Inflation
+STICKCPIXSHLTRM159SFRBATL,Sticky Price Consumer Price Index less Shelter,Inflation
+ECIWAG,Employment Cost Index Wages and Salaries Private Industry Workers Seasonally Adjusted,Inflation
+ECIMANWAG,Employment Cost Index Wages and Salaries Private Industry Workers Manufacturing Seasonally Adjusted,Inflation
+ECICONWAG,Employment Cost Index Wages and Salaries Private Industry Workers Construction Seasonally Adjusted,Inflation

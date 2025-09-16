@@ -232,4 +232,4 @@ FROM final_metrics
 ORDER BY 
     time_period,
     asset_type,
-    symbol;
+    symbol
