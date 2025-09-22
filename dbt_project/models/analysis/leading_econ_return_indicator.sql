@@ -8,37 +8,40 @@
 -- Analysis of Economic Data Rate of Change vs Future Stock Returns
 WITH economic_changes AS (
   SELECT 
-    symbol,
-    month_date,
-    series_name,
-    category,
-    value as current_econ_value,
-    monthly_avg_close,
-    pct_change_q1_forward,
-    pct_change_q2_forward,
-    pct_change_q3_forward,
+    bha.symbol,
+    bha.month_date,
+    bha.series_name,
+    bha.category,
+    fsm.category as economic_category,
+    bha.value as current_econ_value,
+    bha.monthly_avg_close,
+    bha.pct_change_q1_forward,
+    bha.pct_change_q2_forward,
+    bha.pct_change_q3_forward,
     
     -- Calculate month-over-month change in economic data
-    LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date) as prev_econ_value,
+    LAG(bha.value, 1) OVER (PARTITION BY bha.symbol, bha.series_name ORDER BY bha.month_date) as prev_econ_value,
     
     -- Calculate rate of change (month-over-month %)
     CASE 
-      WHEN LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date) IS NOT NULL 
-           AND LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date) != 0
-      THEN ((value - LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date)) / 
-            LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date)) * 100
+      WHEN LAG(bha.value, 1) OVER (PARTITION BY bha.symbol, bha.series_name ORDER BY bha.month_date) IS NOT NULL 
+           AND LAG(bha.value, 1) OVER (PARTITION BY bha.symbol, bha.series_name ORDER BY bha.month_date) != 0
+      THEN ((bha.value - LAG(bha.value, 1) OVER (PARTITION BY bha.symbol, bha.series_name ORDER BY bha.month_date)) / 
+            LAG(bha.value, 1) OVER (PARTITION BY bha.symbol, bha.series_name ORDER BY bha.month_date)) * 100
       ELSE NULL
     END as econ_mom_change_pct,
     
     -- Calculate 3-month rolling average of economic change
-    AVG(value) OVER (
-      PARTITION BY symbol, series_name 
-      ORDER BY month_date 
+    AVG(bha.value) OVER (
+      PARTITION BY bha.symbol, bha.series_name 
+      ORDER BY bha.month_date 
       ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
     ) as econ_3mo_avg
     
-  FROM {{ ref('base_historical_analysis') }}
-  WHERE value IS NOT NULL
+  FROM {{ ref('base_historical_analysis') }} bha
+  LEFT JOIN {{ ref('fred_series_mapping') }} fsm
+    ON bha.series_name = fsm.series_name
+  WHERE bha.value IS NOT NULL
 ),
 
 correlation_analysis AS (
@@ -46,6 +49,7 @@ correlation_analysis AS (
     symbol,
     series_name,
     category,
+    economic_category,
     
     -- Basic correlation metrics between economic change and future returns
     COUNT(*) as observation_count,
@@ -70,7 +74,7 @@ correlation_analysis AS (
     
   FROM economic_changes
   WHERE econ_mom_change_pct IS NOT NULL
-  GROUP BY symbol, series_name, category
+  GROUP BY symbol, series_name, category, economic_category
 ),
 
 detailed_monthly_view AS (
@@ -78,6 +82,8 @@ detailed_monthly_view AS (
     symbol,
     month_date,
     series_name,
+    category,
+    economic_category,
     econ_mom_change_pct,
     pct_change_q1_forward,
     pct_change_q2_forward,
@@ -99,13 +105,15 @@ SELECT
   'Correlation Analysis' as analysis_type,
   symbol,
   series_name,
+  category,
+  economic_category,
   observation_count,
   ROUND(corr_econ_q1_returns, 4) as correlation_econ_vs_q1_returns,
   ROUND(corr_econ_q2_returns, 4) as correlation_econ_vs_q2_returns,
   ROUND(corr_econ_q3_returns, 4) as correlation_econ_vs_q3_returns,
   ROUND(avg_q1_return_when_econ_growing, 2) as avg_q1_return_econ_up,
   ROUND(avg_q1_return_when_econ_declining, 2) as avg_q1_return_econ_down,
-  ROUND(avg_q1_return_when_econ_growing - avg_q1_return_when_econ_declining, 2) as return_difference
+  ROUND(avg_q1_return_when_econ_declining, 2) as return_difference
 FROM correlation_analysis
 WHERE observation_count >= 10  -- Filter for meaningful sample sizes
 
@@ -116,6 +124,8 @@ SELECT
   'Quintile Analysis' as analysis_type,
   symbol,
   series_name,
+  category,
+  economic_category,
   NULL as observation_count,
   econ_change_quintile as correlation_econ_vs_q1_returns,
   NULL as correlation_econ_vs_q2_returns, 
@@ -124,5 +134,5 @@ SELECT
   COUNT(*) as avg_q1_return_econ_down,
   ROUND(AVG(econ_mom_change_pct), 2) as return_difference
 FROM detailed_monthly_view
-GROUP BY symbol, series_name, econ_change_quintile
+GROUP BY symbol, series_name, category, economic_category, econ_change_quintile
 HAVING COUNT(*) >= 3
