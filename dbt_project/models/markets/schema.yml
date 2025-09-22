@@ -33,3 +33,34 @@ models:
       over 12 weeks, 6 months, 1 year, and 5 year periods. Enables sector rotation 
       analysis and relative performance comparison across different market sectors.
 
+  - name: currency_analysis_return
+    description: >
+      Performance analysis of currency pairs across multiple time periods.
+      This model calculates key financial metrics including total returns, volatility, 
+      win rates, and trading activity statistics for major currency pairs over 12 weeks, 
+      6 months, 1 year, and 5 year periods. Provides insights into currency market 
+      trends and risk characteristics.
+
+  - name: global_markets_analysis_return    
+    description: >
+      Performance analysis of global market indices and securities across multiple time periods.
+      This model aggregates trading data to calculate comprehensive performance metrics 
+      including returns, volatility, win rates, and daily trading statistics for global 
+      markets over 12 weeks, 6 months, 1 year, and 5 year periods. Enables comparison 
+      of global market performance and risk profiles.
+
+  - name: major_indicies_analysis_return
+    description: >
+      Performance analysis of major stock market indices across multiple time periods.
+      This model calculates key performance indicators including total returns, daily 
+      average returns, volatility, win rates, and trading activity metrics for major 
+      indices like S&P 500, NASDAQ, and Dow Jones over 12 weeks, 6 months, 1 year, 
+      and 5 year periods. Provides comprehensive market performance insights.
+
+  - name: us_sector_analysis_return
+    description: >
+      Performance analysis of US sector-based indices and ETFs across multiple time periods.
+      This model aggregates sector performance data to calculate comprehensive metrics 
+      including returns, volatility, win rates, and trading statistics for US sectors 
+      over 12 weeks, 6 months, 1 year, and 5 year periods. Enables sector rotation 
+      analysis and relative performance comparison across different market sectors.

@@ -40,3 +40,9 @@ models:
       Contains historical mortgage rate data from FRED (Federal Reserve Economic Data).
       This table tracks changes in mortgage rates over time, providing insights into
       market trends and interest rate fluctuations. It uses the median sales price data from FRED and performs the calculations to get the mortgage rate and median monthly payment with and without a 20% down payment. 
+
+  - name: fred_quarterly_roc
+    description: >
+      Contains historical quarterly real estate gain/loss data from FRED (Federal Reserve Economic Data).
+      This table tracks changes in real estate values over time, providing insights into
+      market trends and property appreciation/depreciation rates.
