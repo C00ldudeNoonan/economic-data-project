@@ -94,7 +94,7 @@ WITH return_data as (
     'sector' as category
   FROM {{ ref('us_sector_analysis_return') }}
 
-),
+)
 
 SELECT 
   rt.symbol,

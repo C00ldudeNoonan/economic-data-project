@@ -1,8 +1,15 @@
+{{
+  config(
+    materialized='table',
+    description='Analysis of economic data rate of change vs future stock returns, providing correlation analysis and quintile performance insights'
+  )
+}}
+
 -- Analysis of Economic Data Rate of Change vs Future Stock Returns
 WITH economic_changes AS (
   SELECT 
     symbol,
-    year_month,
+    month_date,
     series_name,
     category,
     value as current_econ_value,
@@ -12,21 +19,21 @@ WITH economic_changes AS (
     pct_change_q3_forward,
     
     -- Calculate month-over-month change in economic data
-    LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY year_month) as prev_econ_value,
+    LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date) as prev_econ_value,
     
     -- Calculate rate of change (month-over-month %)
     CASE 
-      WHEN LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY year_month) IS NOT NULL 
-           AND LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY year_month) != 0
-      THEN ((value - LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY year_month)) / 
-            LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY year_month)) * 100
+      WHEN LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date) IS NOT NULL 
+           AND LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date) != 0
+      THEN ((value - LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date)) / 
+            LAG(value, 1) OVER (PARTITION BY symbol, series_name ORDER BY month_date)) * 100
       ELSE NULL
     END as econ_mom_change_pct,
     
     -- Calculate 3-month rolling average of economic change
     AVG(value) OVER (
       PARTITION BY symbol, series_name 
-      ORDER BY year_month 
+      ORDER BY month_date 
       ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
     ) as econ_3mo_avg
     
@@ -69,7 +76,7 @@ correlation_analysis AS (
 detailed_monthly_view AS (
   SELECT 
     symbol,
-    year_month,
+    month_date,
     series_name,
     econ_mom_change_pct,
     pct_change_q1_forward,
@@ -80,8 +87,8 @@ detailed_monthly_view AS (
     NTILE(5) OVER (PARTITION BY symbol, series_name ORDER BY econ_mom_change_pct) as econ_change_quintile,
     
     -- Lead/lag analysis - how does economic data relate to past and future returns
-    LAG(pct_change_q1_forward, 1) OVER (PARTITION BY symbol ORDER BY year_month) as prev_month_q1_return,
-    LEAD(pct_change_q1_forward, 1) OVER (PARTITION BY symbol ORDER BY year_month) as next_month_q1_return
+    LAG(pct_change_q1_forward, 1) OVER (PARTITION BY symbol ORDER BY month_date) as prev_month_q1_return,
+    LEAD(pct_change_q1_forward, 1) OVER (PARTITION BY symbol ORDER BY month_date) as next_month_q1_return
     
   FROM economic_changes
   WHERE econ_mom_change_pct IS NOT NULL
