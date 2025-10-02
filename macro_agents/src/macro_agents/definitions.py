@@ -8,6 +8,7 @@ from macro_agents.defs.transformation.dbt import dbt_cli_resource
 from macro_agents.defs.agents.analysis_agent import EconomicAnalyzer
 from macro_agents.defs.agents.economic_cycle_analyzer import EconomicCycleAnalyzer
 from macro_agents.defs.agents.asset_allocation_analyzer import AssetAllocationAnalyzer
+from macro_agents.defs.schedules import schedules, sensors, jobs
 
 defs = dg.Definitions.merge(
     dg.load_from_defs_folder(project_root=Path(__file__).parent.parent),
@@ -30,5 +31,8 @@ defs = dg.Definitions.merge(
                 openai_api_key=dg.EnvVar("OPENAI_API_KEY"),
             ),
         },
+        schedules=schedules,
+        sensors=sensors,
+        jobs=list(jobs.values()),
     ),
 )

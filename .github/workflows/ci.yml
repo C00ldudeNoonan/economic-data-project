@@ -87,10 +87,24 @@ jobs:
         cd macro_agents
         dg check defs
     
+    - name: Test Dagster schedules
+      run: |
+        cd macro_agents
+        dg schedule list
+        dg sensor list
+    
     - name: Test Dagster asset materialization (dry run)
       run: |
         cd macro_agents
         dg materialize --dry-run --select "*"
+    
+    - name: Test scheduled job execution (dry run)
+      run: |
+        cd macro_agents
+        dg job execute --dry-run monthly_sector_analysis_job
+        dg job execute --dry-run weekly_cycle_analysis_job
+        dg job execute --dry-run weekly_allocation_job
+        dg job execute --dry-run daily_monitoring_job
     
     - name: Test DBT models
       run: |
