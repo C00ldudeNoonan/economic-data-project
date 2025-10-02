@@ -1,5 +1,5 @@
 [sqlfluff]
-dialect = postgres
+dialect = duckdb
 templater = dbt
 
 [sqlfluff:templater:dbt]
