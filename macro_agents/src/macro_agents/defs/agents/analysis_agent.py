@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any, List
 import io
 import json
 from datetime import datetime
+from pathlib import Path
 import dagster as dg
 from pydantic import Field
 
@@ -140,7 +141,6 @@ class EconomicAnalyzer(dg.ConfigurableResource):
 @dg.asset(
     kinds={"dspy", "analysis"},
     description="Analyze economic indicators by sector using DSPy and write results to MotherDuck",
-    compute_kind="dspy",
 )
 def sector_inflation_analysis(
     context: dg.AssetExecutionContext,
@@ -212,7 +212,6 @@ def sector_inflation_analysis(
 @dg.asset(
     kinds={"dspy", "analysis"},
     description="Analyze inflation-specific economic indicators by sector using DSPy",
-    compute_kind="dspy",
 )
 def sector_inflation_specific_analysis(
     context: dg.AssetExecutionContext,
@@ -285,7 +284,7 @@ def sector_inflation_specific_analysis(
 
 # Define the Dagster definitions
 defs = dg.Definitions.merge(
-    dg.load_from_defs_folder(project_root=dg.Path(__file__).parent.parent),
+    dg.load_from_defs_folder(project_root=Path(__file__).parent.parent),
     dg.Definitions(
         resources={
             "md": MotherDuckResource(

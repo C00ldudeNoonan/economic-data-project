@@ -218,7 +218,6 @@ class AssetAllocationAnalyzer(dg.ConfigurableResource):
 @dg.asset(
     kinds={"dspy", "analysis", "asset_allocation"},
     description="Generate asset allocation recommendations based on economic cycle and market trend analysis",
-    compute_kind="dspy",
     deps=["economic_cycle_analysis"],
 )
 def asset_allocation_recommendations(
@@ -268,7 +267,6 @@ def asset_allocation_recommendations(
 @dg.asset(
     kinds={"dspy", "analysis", "custom_allocation"},
     description="Generate custom asset allocation recommendations with specific portfolio context",
-    compute_kind="dspy",
     deps=["economic_cycle_analysis"],
 )
 def custom_asset_allocation(

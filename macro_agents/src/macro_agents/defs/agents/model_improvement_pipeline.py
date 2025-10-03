@@ -402,7 +402,6 @@ class ModelImprovementPipeline(dg.ConfigurableResource):
 @dg.asset(
     kinds={"pipeline", "evaluation", "optimization", "scheduled"},
     description="Automated model improvement pipeline using DSPy evaluation and optimization",
-    compute_kind="python",
     tags={"schedule": "weekly", "execution_time": "sunday_2am_est", "pipeline_type": "model_improvement"},
 )
 def automated_model_improvement_pipeline(
@@ -459,7 +458,6 @@ def automated_model_improvement_pipeline(
 @dg.asset(
     kinds={"pipeline", "evaluation", "manual"},
     description="Manual model improvement pipeline for on-demand evaluation and optimization",
-    compute_kind="python",
 )
 def manual_model_improvement_pipeline(
     context: dg.AssetExecutionContext,

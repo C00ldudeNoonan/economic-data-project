@@ -461,7 +461,6 @@ class BacktestingEngine(dg.ConfigurableResource):
 @dg.asset(
     kinds={"backtesting", "analysis", "evaluation"},
     description="Run backtesting analysis on historical agent predictions",
-    compute_kind="python",
 )
 def backtest_agent_predictions(
     context: dg.AssetExecutionContext,
@@ -537,7 +536,6 @@ def backtest_agent_predictions(
 @dg.asset(
     kinds={"backtesting", "analysis", "batch_evaluation"},
     description="Run batch backtesting analysis on multiple historical predictions",
-    compute_kind="python",
 )
 def batch_backtest_analysis(
     context: dg.AssetExecutionContext,

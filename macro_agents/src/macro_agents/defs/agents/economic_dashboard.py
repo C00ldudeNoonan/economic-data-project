@@ -10,7 +10,6 @@ from macro_agents.defs.resources.motherduck import MotherDuckResource
 @dg.asset(
     kinds={"analysis", "dashboard", "summary", "scheduled", "daily"},
     description="Daily comprehensive economic dashboard combining all analyses and recommendations",
-    compute_kind="python",
     deps=["economic_cycle_analysis", "asset_allocation_recommendations", "integrated_economic_analysis"],
     tags={"schedule": "daily", "execution_time": "weekdays_6am_est", "analysis_type": "dashboard"},
 )
@@ -184,7 +183,6 @@ def economic_dashboard(
 @dg.asset(
     kinds={"analysis", "monitoring", "scheduled", "daily"},
     description="Daily monitoring of key economic indicators and market metrics for early warning signals",
-    compute_kind="python",
     tags={"schedule": "daily", "execution_time": "weekdays_6am_est", "analysis_type": "monitoring"},
 )
 def economic_monitoring_alerts(

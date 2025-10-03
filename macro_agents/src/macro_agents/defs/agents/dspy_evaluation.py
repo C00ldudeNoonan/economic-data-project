@@ -379,7 +379,6 @@ class PromptOptimizer(dg.ConfigurableResource):
 @dg.asset(
     kinds={"dspy", "evaluation", "optimization"},
     description="Evaluate and optimize financial prediction models using DSPy",
-    compute_kind="dspy",
 )
 def evaluate_and_optimize_model(
     context: dg.AssetExecutionContext,
@@ -466,7 +465,6 @@ def evaluate_and_optimize_model(
 @dg.asset(
     kinds={"dspy", "prediction", "optimized"},
     description="Generate optimized financial predictions using the improved model",
-    compute_kind="dspy",
     deps=[evaluate_and_optimize_model],
 )
 def optimized_financial_predictions(

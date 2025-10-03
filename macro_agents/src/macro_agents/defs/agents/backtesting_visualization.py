@@ -447,7 +447,6 @@ class BacktestingVisualizer(dg.ConfigurableResource):
 @dg.asset(
     kinds={"visualization", "reporting", "dashboard", "scheduled"},
     description="Generate comprehensive backtesting and model performance dashboard",
-    compute_kind="python",
     tags={"schedule": "daily", "execution_time": "weekdays_7am_est", "report_type": "performance_dashboard"},
 )
 def backtesting_performance_dashboard(

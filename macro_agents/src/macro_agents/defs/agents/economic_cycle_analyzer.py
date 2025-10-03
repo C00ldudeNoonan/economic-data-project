@@ -278,7 +278,6 @@ class EconomicCycleAnalyzer(dg.ConfigurableResource):
 @dg.asset(
     kinds={"dspy", "analysis", "economic_cycle"},
     description="Analyze current economic cycle position and provide asset allocation recommendations",
-    compute_kind="dspy",
 )
 def economic_cycle_analysis(
     context: dg.AssetExecutionContext,
@@ -326,7 +325,6 @@ def economic_cycle_analysis(
 @dg.asset(
     kinds={"dspy", "analysis", "integrated"},
     description="Integrated economic and market analysis combining cycle position with trend analysis",
-    compute_kind="dspy",
     deps=[economic_cycle_analysis],
 )
 def integrated_economic_analysis(
