@@ -9,6 +9,8 @@ from dataclasses import dataclass
 import re
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.agents.economic_cycle_analyzer import economic_cycle_analysis
+from macro_agents.defs.agents.asset_allocation_analyzer import asset_allocation_recommendations
 
 
 @dataclass
@@ -459,8 +461,10 @@ class BacktestingEngine(dg.ConfigurableResource):
 
 
 @dg.asset(
-    kinds={"backtesting", "analysis", "evaluation"},
+    kinds={"dspy", "duckdb"},
+    group_name="backtesting",
     description="Run backtesting analysis on historical agent predictions",
+    deps=[economic_cycle_analysis, asset_allocation_recommendations],
 )
 def backtest_agent_predictions(
     context: dg.AssetExecutionContext,
@@ -534,8 +538,10 @@ def backtest_agent_predictions(
 
 
 @dg.asset(
-    kinds={"backtesting", "analysis", "batch_evaluation"},
+    kinds={"dspy", "duckdb"},
+    group_name="backtesting",
     description="Run batch backtesting analysis on multiple historical predictions",
+    deps=[economic_cycle_analysis, asset_allocation_recommendations],
 )
 def batch_backtest_analysis(
     context: dg.AssetExecutionContext,

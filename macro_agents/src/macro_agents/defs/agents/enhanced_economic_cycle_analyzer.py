@@ -401,7 +401,8 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
 
 
 @dg.asset(
-    kinds={"dspy", "analysis", "enhanced", "evaluation_ready"},
+    kinds={"dspy", "duckdb"},
+    group_name="analysis",
     description="Enhanced economic cycle analysis with structured output for evaluation",
 )
 def enhanced_economic_cycle_analysis(

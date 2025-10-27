@@ -15,6 +15,8 @@ from macro_agents.defs.agents.dspy_evaluation import (
     FinancialPredictionModule
 )
 from macro_agents.defs.agents.backtesting import BacktestingEngine
+from macro_agents.defs.agents.enhanced_economic_cycle_analyzer import enhanced_economic_cycle_analysis
+from macro_agents.defs.agents.backtesting import batch_backtest_analysis
 
 
 class ModelImprovementPipeline(dg.ConfigurableResource):
@@ -400,8 +402,10 @@ class ModelImprovementPipeline(dg.ConfigurableResource):
 
 
 @dg.asset(
-    kinds={"pipeline", "evaluation", "optimization", "scheduled"},
+    kinds={"dspy", "duckdb"},
+    group_name="evaluation",
     description="Automated model improvement pipeline using DSPy evaluation and optimization",
+    deps=[enhanced_economic_cycle_analysis, batch_backtest_analysis],
     tags={"schedule": "weekly", "execution_time": "sunday_2am_est", "pipeline_type": "model_improvement"},
 )
 def automated_model_improvement_pipeline(
@@ -456,8 +460,10 @@ def automated_model_improvement_pipeline(
 
 
 @dg.asset(
-    kinds={"pipeline", "evaluation", "manual"},
+    kinds={"dspy", "duckdb"},
+    group_name="evaluation",
     description="Manual model improvement pipeline for on-demand evaluation and optimization",
+    deps=[enhanced_economic_cycle_analysis, batch_backtest_analysis],
 )
 def manual_model_improvement_pipeline(
     context: dg.AssetExecutionContext,

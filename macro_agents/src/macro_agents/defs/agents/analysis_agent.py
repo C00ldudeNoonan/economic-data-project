@@ -139,7 +139,8 @@ class EconomicAnalyzer(dg.ConfigurableResource):
 
 
 @dg.asset(
-    kinds={"dspy", "analysis"},
+    kinds={"dspy", "duckdb"},
+    group_name="analysis",
     description="Analyze economic indicators by sector using DSPy and write results to MotherDuck",
 )
 def sector_inflation_analysis(
@@ -180,6 +181,7 @@ def sector_inflation_analysis(
         sample_size=sample_size,
         metadata={
             "analysis_type": "sector_inflation",
+            "economic_category": "All",  # Add this line
             "source_table": source_table,
             "sampling_strategy": sampling_strategy,
             "dagster_run_id": context.run_id,
@@ -210,7 +212,8 @@ def sector_inflation_analysis(
 
 
 @dg.asset(
-    kinds={"dspy", "analysis"},
+    kinds={"dspy", "duckdb"},
+    group_name="analysis",
     description="Analyze inflation-specific economic indicators by sector using DSPy",
 )
 def sector_inflation_specific_analysis(
@@ -280,34 +283,3 @@ def sector_inflation_specific_analysis(
 
     context.log.info(f"Analysis complete: {result_metadata}")
     return result_metadata
-
-
-# Define the Dagster definitions
-defs = dg.Definitions.merge(
-    dg.load_from_defs_folder(project_root=Path(__file__).parent.parent),
-    dg.Definitions(
-        resources={
-            "md": MotherDuckResource(
-                environment=dg.EnvVar("ENVIRONMENT", "dev"),
-                md_token=dg.EnvVar("MOTHERDUCK_TOKEN")
-                if dg.EnvVar("ENVIRONMENT", "dev") != "dev"
-                else "",
-                md_database=dg.EnvVar("MOTHERDUCK_DATABASE")
-                if dg.EnvVar("ENVIRONMENT", "dev") != "dev"
-                else "dev",
-                md_schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA")
-                if dg.EnvVar("ENVIRONMENT", "dev") != "dev"
-                else "public",
-                local_path="local.duckdb",
-            ),
-            "fred": dg.EnvVar.resource("FRED_RESOURCE"),
-            "marketstack": dg.EnvVar.resource("MARKETSTACK_RESOURCE"),
-            "dbt": dg.EnvVar.resource("DBT_CLI_RESOURCE"),
-            "analyzer": EconomicAnalyzer(
-                model_name=dg.EnvVar.str("MODEL_NAME", default="gpt-4-turbo-preview"),
-                openai_api_key=dg.EnvVar("OPENAI_API_KEY"),
-            ),
-        },
-        assets=[sector_inflation_analysis, sector_inflation_specific_analysis],
-    ),
-)

@@ -5,22 +5,17 @@ from datetime import datetime, timedelta
 import dagster as dg
 from pydantic import Field
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from io import BytesIO
-import base64
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.agents.backtesting import backtest_agent_predictions, batch_backtest_analysis
 
 
 class BacktestingVisualizer(dg.ConfigurableResource):
     """Visualization and reporting for backtesting results."""
     
     def setup_for_execution(self, context) -> None:
-        """Initialize visualization settings."""
-        # Set up matplotlib style
-        plt.style.use('seaborn-v0_8')
-        sns.set_palette("husl")
+        """Initialize settings."""
+        pass
     
     def create_performance_dashboard(self, md_resource: MotherDuckResource,
                                    context: Optional[dg.AssetExecutionContext] = None) -> Dict[str, Any]:
@@ -74,13 +69,13 @@ class BacktestingVisualizer(dg.ConfigurableResource):
             except (json.JSONDecodeError, KeyError):
                 continue
         
-        # Create visualizations
+        # Create time series data for visualization
         dashboard_data = {
             "dashboard_timestamp": datetime.now().isoformat(),
             "total_backtests": len(performance_data),
             "performance_summary": self._calculate_performance_summary(performance_data),
             "accuracy_summary": self._calculate_accuracy_summary(accuracy_data),
-            "visualizations": self._create_visualizations(performance_data, accuracy_data),
+            "time_series_data": self._create_time_series_data(performance_data, accuracy_data),
             "recommendations": self._generate_recommendations(performance_data, accuracy_data)
         }
         
@@ -143,98 +138,71 @@ class BacktestingVisualizer(dg.ConfigurableResource):
             "low_accuracy_count": sum(1 for a in overall_accuracies if a < 0.4)
         }
     
-    def _create_visualizations(self, performance_data: List[Dict[str, Any]], 
-                             accuracy_data: List[Dict[str, Any]]) -> Dict[str, str]:
-        """Create visualization plots and return as base64 encoded images."""
-        visualizations = {}
+    def _create_time_series_data(self, performance_data: List[Dict[str, Any]], 
+                                accuracy_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Create time series data for visualization."""
+        time_series = {}
         
         try:
             # Performance over time
             if performance_data:
-                fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-                fig.suptitle('Backtesting Performance Dashboard', fontsize=16)
-                
-                # Returns over time
-                dates = [datetime.strptime(d["prediction_date"], '%Y-%m-%d') for d in performance_data]
+                dates = [d["prediction_date"] for d in performance_data]
                 returns = [d["total_return"] for d in performance_data]
-                
-                axes[0, 0].plot(dates, returns, marker='o', linewidth=2, markersize=4)
-                axes[0, 0].set_title('Total Returns Over Time')
-                axes[0, 0].set_ylabel('Return')
-                axes[0, 0].grid(True, alpha=0.3)
-                axes[0, 0].tick_params(axis='x', rotation=45)
-                
-                # Sharpe ratio distribution
                 sharpe_ratios = [d["sharpe_ratio"] for d in performance_data]
-                axes[0, 1].hist(sharpe_ratios, bins=10, alpha=0.7, edgecolor='black')
-                axes[0, 1].set_title('Sharpe Ratio Distribution')
-                axes[0, 1].set_xlabel('Sharpe Ratio')
-                axes[0, 1].set_ylabel('Frequency')
-                axes[0, 1].grid(True, alpha=0.3)
-                
-                # Accuracy over time
-                if accuracy_data:
-                    acc_dates = [datetime.strptime(d["prediction_date"], '%Y-%m-%d') for d in accuracy_data]
-                    accuracies = [d["overall_accuracy"] for d in accuracy_data]
-                    
-                    axes[1, 0].plot(acc_dates, accuracies, marker='s', color='green', linewidth=2, markersize=4)
-                    axes[1, 0].set_title('Prediction Accuracy Over Time')
-                    axes[1, 0].set_ylabel('Accuracy')
-                    axes[1, 0].set_ylim(0, 1)
-                    axes[1, 0].grid(True, alpha=0.3)
-                    axes[1, 0].tick_params(axis='x', rotation=45)
-                
-                # Win rate vs volatility scatter
                 win_rates = [d["win_rate"] for d in performance_data]
                 volatilities = [d["volatility"] for d in performance_data]
                 
-                scatter = axes[1, 1].scatter(volatilities, win_rates, c=returns, cmap='RdYlGn', alpha=0.7, s=60)
-                axes[1, 1].set_title('Win Rate vs Volatility')
-                axes[1, 1].set_xlabel('Volatility')
-                axes[1, 1].set_ylabel('Win Rate')
-                axes[1, 1].grid(True, alpha=0.3)
-                plt.colorbar(scatter, ax=axes[1, 1], label='Total Return')
+                time_series["returns_over_time"] = {
+                    "dates": dates,
+                    "returns": returns
+                }
                 
-                plt.tight_layout()
+                time_series["sharpe_ratios"] = {
+                    "dates": dates,
+                    "sharpe_ratios": sharpe_ratios
+                }
                 
-                # Convert to base64
-                buffer = BytesIO()
-                plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
-                buffer.seek(0)
-                image_base64 = base64.b64encode(buffer.getvalue()).decode()
-                visualizations["performance_dashboard"] = image_base64
-                plt.close()
+                time_series["win_rate_vs_volatility"] = {
+                    "volatilities": volatilities,
+                    "win_rates": win_rates,
+                    "returns": returns
+                }
+                
+                # Calculate rolling averages for trend analysis
+                if len(performance_data) > 5:
+                    window = min(5, len(performance_data) // 2)
+                    rolling_returns = np.convolve(returns, np.ones(window)/window, mode='valid').tolist()
+                    rolling_dates = dates[window-1:]
+                    
+                    time_series["performance_trend"] = {
+                        "rolling_dates": rolling_dates,
+                        "rolling_returns": rolling_returns,
+                        "individual_dates": dates,
+                        "individual_returns": returns,
+                        "window_size": window
+                    }
             
-            # Model improvement over time
-            if len(performance_data) > 5:
-                fig, ax = plt.subplots(figsize=(12, 6))
+            # Accuracy over time
+            if accuracy_data:
+                acc_dates = [d["prediction_date"] for d in accuracy_data]
+                accuracies = [d["overall_accuracy"] for d in accuracy_data]
+                overweight_accuracies = [d["overweight_accuracy"] for d in accuracy_data if d["overweight_accuracy"] > 0]
+                underweight_accuracies = [d["underweight_accuracy"] for d in accuracy_data if d["underweight_accuracy"] > 0]
                 
-                # Calculate rolling averages
-                window = min(5, len(performance_data) // 2)
-                rolling_returns = np.convolve(returns, np.ones(window)/window, mode='valid')
-                rolling_dates = dates[window-1:]
+                time_series["accuracy_over_time"] = {
+                    "dates": acc_dates,
+                    "overall_accuracy": accuracies
+                }
                 
-                ax.plot(rolling_dates, rolling_returns, label=f'Rolling Average ({window} periods)', linewidth=3)
-                ax.plot(dates, returns, alpha=0.3, label='Individual Returns')
-                ax.set_title('Model Performance Trend')
-                ax.set_ylabel('Return')
-                ax.legend()
-                ax.grid(True, alpha=0.3)
-                ax.tick_params(axis='x', rotation=45)
-                
-                plt.tight_layout()
-                
-                buffer = BytesIO()
-                plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
-                buffer.seek(0)
-                image_base64 = base64.b64encode(buffer.getvalue()).decode()
-                visualizations["performance_trend"] = image_base64
-                plt.close()
+                time_series["position_accuracy"] = {
+                    "overweight_accuracy": overweight_accuracies,
+                    "underweight_accuracy": underweight_accuracies
+                }
             
         except Exception as e:
-            visualizations["error"] = f"Visualization creation failed: {str(e)}"
+            time_series["error"] = f"Time series data creation failed: {str(e)}"
         
-        return visualizations
+        return time_series
     
     def _generate_recommendations(self, performance_data: List[Dict[str, Any]], 
                                 accuracy_data: List[Dict[str, Any]]) -> List[str]:
@@ -445,8 +413,10 @@ class BacktestingVisualizer(dg.ConfigurableResource):
 
 
 @dg.asset(
-    kinds={"visualization", "reporting", "dashboard", "scheduled"},
+    kinds={"dspy", "duckdb"},
+    group_name="backtesting",
     description="Generate comprehensive backtesting and model performance dashboard",
+    deps=[backtest_agent_predictions, batch_backtest_analysis],
     tags={"schedule": "daily", "execution_time": "weekdays_7am_est", "report_type": "performance_dashboard"},
 )
 def backtesting_performance_dashboard(
@@ -457,8 +427,8 @@ def backtesting_performance_dashboard(
     """
     Asset that generates comprehensive backtesting and model performance dashboard.
     
-    This asset creates visualizations and reports showing:
-    - Performance metrics over time
+    This asset creates reports showing:
+    - Performance metrics over time (structured time series data)
     - Prediction accuracy trends
     - Model improvement recommendations
     - Risk and return analysis
@@ -466,7 +436,7 @@ def backtesting_performance_dashboard(
     Scheduled to run daily on weekdays at 7 AM EST.
     
     Returns:
-        Dictionary with dashboard data and visualization metadata
+        Dictionary with dashboard data including time series data and performance summaries
     """
     context.log.info("Generating backtesting performance dashboard...")
     
@@ -492,16 +462,22 @@ def backtesting_performance_dashboard(
         context=context
     )
     
-    # Return summary
+    # Return summary with structured data for visualization
+    time_series_data = dashboard_data.get("time_series_data", {})
     result_metadata = {
         "dashboard_generated": True,
         "dashboard_timestamp": combined_dashboard["dashboard_timestamp"],
         "total_backtests": dashboard_data.get("total_backtests", 0),
         "performance_summary_available": "performance_summary" in dashboard_data,
-        "visualizations_created": len(dashboard_data.get("visualizations", {})),
+        "time_series_data_keys": list(time_series_data.keys()),
+        "time_series_data": time_series_data,
+        "performance_summary": dashboard_data.get("performance_summary", {}),
+        "accuracy_summary": dashboard_data.get("accuracy_summary", {}),
+        "recommendations": dashboard_data.get("recommendations", []),
         "recommendations_count": len(dashboard_data.get("recommendations", [])),
         "model_health_score": evaluation_report.get("model_health_score", 0),
         "improvement_trend": evaluation_report.get("improvement_trend", {}).get("trend", "unknown"),
+        "improvement_trend_details": evaluation_report.get("improvement_trend", {}),
         "output_tables": [
             "backtesting_dashboard",
             "model_evaluation_report", 

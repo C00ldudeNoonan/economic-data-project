@@ -7,6 +7,8 @@ import dagster as dg
 from pydantic import Field
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.agents.economic_cycle_analyzer import economic_cycle_analysis
+from macro_agents.defs.agents.asset_allocation_analyzer import asset_allocation_recommendations
 
 
 class AssetAllocationSignature(dspy.Signature):
@@ -216,9 +218,10 @@ class AssetAllocationAnalyzer(dg.ConfigurableResource):
 
 
 @dg.asset(
-    kinds={"dspy", "analysis", "asset_allocation"},
+    kinds={"dspy", "duckdb"},
+    group_name="allocation",
     description="Generate asset allocation recommendations based on economic cycle and market trend analysis",
-    deps=["economic_cycle_analysis"],
+    deps=[economic_cycle_analysis],
 )
 def asset_allocation_recommendations(
     context: dg.AssetExecutionContext,
@@ -265,9 +268,10 @@ def asset_allocation_recommendations(
 
 
 @dg.asset(
-    kinds={"dspy", "analysis", "custom_allocation"},
+    kinds={"dspy", "duckdb"},
+    group_name="allocation",
     description="Generate custom asset allocation recommendations with specific portfolio context",
-    deps=["economic_cycle_analysis"],
+    deps=[economic_cycle_analysis],
 )
 def custom_asset_allocation(
     context: dg.AssetExecutionContext,

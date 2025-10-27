@@ -7,6 +7,7 @@ import os
 import io
 import json
 from datetime import datetime
+import time
 
 
 class MotherDuckResource(dg.ConfigurableResource):
@@ -29,26 +30,41 @@ class MotherDuckResource(dg.ConfigurableResource):
             return self.local_path
         return f"md:?motherduck_token={self.md_token}"
 
-    def get_connection(self, read_only: bool = False) -> duckdb.DuckDBPyConnection:
+    def get_connection(self) -> duckdb.DuckDBPyConnection:
         """Create a database connection."""
-        conn = duckdb.connect(self.db_connection, read_only=read_only)
-        if self.environment != "dev":
-            # Create database if it doesn't exist
-            try:
-                conn.execute(f"CREATE DATABASE IF NOT EXISTS {self.md_database}")
-            except Exception:
-                # Database might already exist or we might not have permissions
-                pass
-            # Use the database
-            conn.execute(f"USE {self.md_database}")
-            try:
-                conn.execute(f"CREATE SCHEMA IF NOT EXISTS {self.md_schema}")
-            except Exception:
-                pass
-            conn.execute(f"USE {self.md_database}.{self.md_schema}")
+        conn = None
+        try:
+            conn = duckdb.connect(self.db_connection)
+            if self.environment != "dev":
+                # Create database if it doesn't exist
+                try:
+                    conn.execute(f"CREATE DATABASE IF NOT EXISTS {self.md_database}")
+                except Exception:
+                    # Database might already exist or we might not have permissions
+                    pass
+                # Use the database
+                conn.execute(f"USE {self.md_database}")
+                try:
+                    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {self.md_schema}")
+                except Exception:
+                    pass
+                conn.execute(f"USE {self.md_database}.{self.md_schema}")
 
-        conn.commit()
-        return conn
+            conn.commit()
+            return conn
+        except duckdb.ConnectionException as e:
+            if "different configuration" in str(e):
+                # Wait for connections to close
+                import time
+                time.sleep(0.5)
+                # Retry once
+                try:
+                    conn = duckdb.connect(self.db_connection)
+                    conn.commit()
+                    return conn
+                except:
+                    raise e
+            raise
 
     def drop_create_duck_db_table(
         self, table_name: str, df: Union[pl.DataFrame, duckdb.DuckDBPyRelation]
@@ -56,7 +72,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         """Drop and recreate a table with the provided DataFrame data."""
         conn = None
         try:
-            conn = self.get_connection(read_only=False)
+            conn = self.get_connection()
             conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM df")
             conn.commit()
@@ -83,7 +99,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         """Upsert data into a table based on key columns."""
         conn = None
         try:
-            conn = self.get_connection(read_only=False)
+            conn = self.get_connection()
 
             # Log the data types for debugging
             print(
@@ -137,7 +153,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         """Read data from a table."""
         conn = None
         try:
-            conn = self.get_connection(read_only=True)
+            conn = self.get_connection()
             df = conn.execute(f"SELECT * FROM {table_name}")
             data_dict = df.to_dicts()
             return data_dict
@@ -151,7 +167,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         query = f"SELECT DISTINCT {column} FROM {table_name} WHERE {column} IS NOT NULL ORDER BY {column}"
         conn = None
         try:
-            conn = self.get_connection(read_only=True)
+            conn = self.get_connection()
             result = conn.execute(query).pl()
             return result[column].to_list()
         finally:
@@ -228,7 +244,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         # Execute query and convert to CSV
         conn = None
         try:
-            conn = self.get_connection(read_only=True)
+            conn = self.get_connection()
             df = conn.execute(query).pl()
             csv_buffer = io.StringIO()
             df.write_csv(csv_buffer)
@@ -250,7 +266,7 @@ class MotherDuckResource(dg.ConfigurableResource):
 
         conn = None
         try:
-            conn = self.get_connection(read_only=False)
+            conn = self.get_connection()
 
             # Check if table exists
             try:
@@ -287,7 +303,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         """Execute a SQL query and return results as Polars DataFrame."""
         conn = None
         try:
-            conn = self.get_connection(read_only=read_only)
+            conn = self.get_connection()
             result = conn.execute(query)
             return result.pl()
         finally:
@@ -298,7 +314,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         """Check if a table exists in the database."""
         conn = None
         try:
-            conn = self.get_connection(read_only=True)
+            conn = self.get_connection()
             conn.execute(f"SELECT 1 FROM {table_name} LIMIT 1")
             return True
         except:

@@ -59,11 +59,10 @@ class FinancialPredictionModule(dspy.Module):
         )
 
 
-class FinancialMetrics(dspy.Metric):
+class FinancialMetrics:
     """Custom DSPy metrics for financial prediction evaluation."""
     
     def __init__(self):
-        super().__init__()
         self.name = "Financial Prediction Metrics"
     
     def __call__(self, gts: List[Dict[str, Any]], preds: List[Dict[str, Any]], **kwargs) -> float:
@@ -377,7 +376,8 @@ class PromptOptimizer(dg.ConfigurableResource):
 
 
 @dg.asset(
-    kinds={"dspy", "evaluation", "optimization"},
+    kinds={"dspy"},
+    group_name="evaluation",
     description="Evaluate and optimize financial prediction models using DSPy",
 )
 def evaluate_and_optimize_model(
@@ -463,7 +463,8 @@ def evaluate_and_optimize_model(
 
 
 @dg.asset(
-    kinds={"dspy", "prediction", "optimized"},
+    kinds={"dspy"},
+    group_name="prediction",
     description="Generate optimized financial predictions using the improved model",
     deps=[evaluate_and_optimize_model],
 )

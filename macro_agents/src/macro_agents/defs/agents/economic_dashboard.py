@@ -5,12 +5,18 @@ from datetime import datetime
 import dagster as dg
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.agents.economic_cycle_analyzer import (
+    economic_cycle_analysis,
+    integrated_economic_analysis
+)
+from macro_agents.defs.agents.asset_allocation_analyzer import asset_allocation_recommendations
 
 
 @dg.asset(
-    kinds={"analysis", "dashboard", "summary", "scheduled", "daily"},
+    kinds={"dspy", "duckdb"},
+    group_name="dashboard",
     description="Daily comprehensive economic dashboard combining all analyses and recommendations",
-    deps=["economic_cycle_analysis", "asset_allocation_recommendations", "integrated_economic_analysis"],
+    deps=[economic_cycle_analysis, asset_allocation_recommendations, integrated_economic_analysis],
     tags={"schedule": "daily", "execution_time": "weekdays_6am_est", "analysis_type": "dashboard"},
 )
 def economic_dashboard(
@@ -181,7 +187,8 @@ def economic_dashboard(
 
 
 @dg.asset(
-    kinds={"analysis", "monitoring", "scheduled", "daily"},
+    kinds={"dspy", "duckdb"},
+    group_name="dashboard",
     description="Daily monitoring of key economic indicators and market metrics for early warning signals",
     tags={"schedule": "daily", "execution_time": "weekdays_6am_est", "analysis_type": "monitoring"},
 )

@@ -125,7 +125,8 @@ class EconomicCycleAnalyzer(dg.ConfigurableResource):
         ORDER BY series_name, month DESC
         """
         
-        df = md_resource.execute_query(query, read_only=True)
+        # Don't use read_only=True for local files to avoid connection conflicts
+        df = md_resource.execute_query(query)
         csv_buffer = df.write_csv()
         return csv_buffer
 
@@ -159,7 +160,8 @@ class EconomicCycleAnalyzer(dg.ConfigurableResource):
         ORDER BY asset_type, time_period, total_return_pct DESC
         """
         
-        df = md_resource.execute_query(query, read_only=True)
+        # Don't use read_only=True for local files to avoid connection conflicts
+        df = md_resource.execute_query(query)
         csv_buffer = df.write_csv()
         return csv_buffer
 
@@ -276,7 +278,8 @@ class EconomicCycleAnalyzer(dg.ConfigurableResource):
 
 
 @dg.asset(
-    kinds={"dspy", "analysis", "economic_cycle"},
+    kinds={"dspy", "duckdb"},
+    group_name="analysis",
     description="Analyze current economic cycle position and provide asset allocation recommendations",
 )
 def economic_cycle_analysis(
@@ -323,7 +326,8 @@ def economic_cycle_analysis(
 
 
 @dg.asset(
-    kinds={"dspy", "analysis", "integrated"},
+    kinds={"dspy", "duckdb"},
+    group_name="analysis",
     description="Integrated economic and market analysis combining cycle position with trend analysis",
     deps=[economic_cycle_analysis],
 )
@@ -351,7 +355,7 @@ def integrated_economic_analysis(
     ORDER BY analysis_type
     """
     
-    df = md.execute_query(query, read_only=True)
+    df = md.execute_query(query)
     
     if df.is_empty():
         context.log.warning("No previous cycle analysis found, running new analysis...")
