@@ -299,12 +299,15 @@ class MotherDuckResource(dg.ConfigurableResource):
             if conn:
                 conn.close()
 
-    def execute_query(self, query: str, read_only: bool = True) -> pl.DataFrame:
+    def execute_query(self, query: str, read_only: bool = True, params: Optional[List[Any]] = None) -> pl.DataFrame:
         """Execute a SQL query and return results as Polars DataFrame."""
         conn = None
         try:
             conn = self.get_connection()
-            result = conn.execute(query)
+            if params:
+                result = conn.execute(query, params)
+            else:
+                result = conn.execute(query)
             return result.pl()
         finally:
             if conn:

@@ -97,6 +97,18 @@ class PredictionExtractor:
                     'rationale': f"{percentage}% allocation"
                 })
         
+        # If no recommendations found with patterns, try to extract any mentioned symbols
+        if not recommendations:
+            # Look for any mentioned symbols in the text
+            for symbol in asset_symbols:
+                if symbol in analysis_text:
+                    recommendations.append({
+                        'symbol': symbol,
+                        'action': 'MENTIONED',
+                        'confidence': 'low',
+                        'rationale': f"Symbol {symbol} mentioned in analysis"
+                    })
+        
         return recommendations
 
 
@@ -179,7 +191,7 @@ class BacktestingEngine(dg.ConfigurableResource):
         query = """
         SELECT analysis_content, analysis_type, analysis_timestamp
         FROM economic_cycle_analysis
-        WHERE analysis_timestamp <= ?
+        WHERE DATE(analysis_timestamp) <= ?
         ORDER BY analysis_timestamp DESC
         LIMIT 2
         """
@@ -203,7 +215,7 @@ class BacktestingEngine(dg.ConfigurableResource):
         query = """
         SELECT analysis_content
         FROM asset_allocation_recommendations
-        WHERE analysis_timestamp <= ?
+        WHERE DATE(analysis_timestamp) <= ?
         ORDER BY analysis_timestamp DESC
         LIMIT 1
         """
@@ -307,20 +319,30 @@ class BacktestingEngine(dg.ConfigurableResource):
         if context:
             context.log.info(f"Running backtest for prediction date: {prediction_date}")
         
-        # Calculate end date
-        pred_dt = datetime.strptime(prediction_date, '%Y-%m-%d')
+        # Calculate end date - handle both string and date inputs
+        if isinstance(prediction_date, str):
+            pred_dt = datetime.strptime(prediction_date, '%Y-%m-%d')
+        elif isinstance(prediction_date, datetime.date):
+            pred_dt = datetime.combine(prediction_date, datetime.min.time())
+        else:
+            # Convert to string first, then parse
+            pred_dt = datetime.strptime(str(prediction_date), '%Y-%m-%d')
+        
         end_dt = pred_dt + timedelta(days=prediction_horizon_days)
         end_date = end_dt.strftime('%Y-%m-%d')
         
+        # Convert prediction_date to string for the database queries
+        prediction_date_str = pred_dt.strftime('%Y-%m-%d')
+        
         # Get historical analysis
-        analysis = self.get_historical_analysis(md_resource, prediction_date)
+        analysis = self.get_historical_analysis(md_resource, prediction_date_str)
         if not analysis:
-            raise ValueError(f"No analysis found for date {prediction_date}")
+            raise ValueError(f"No analysis found for date {prediction_date_str}")
         
         # Get asset allocation recommendations
-        allocation_analysis = self.get_asset_allocation_analysis(md_resource, prediction_date)
+        allocation_analysis = self.get_asset_allocation_analysis(md_resource, prediction_date_str)
         if not allocation_analysis:
-            raise ValueError(f"No asset allocation analysis found for date {prediction_date}")
+            raise ValueError(f"No asset allocation analysis found for date {prediction_date_str}")
         
         # Extract predictions
         extractor = PredictionExtractor()
@@ -337,7 +359,7 @@ class BacktestingEngine(dg.ConfigurableResource):
         
         # Get historical prices
         price_data = self.get_historical_prices(
-            md_resource, symbols, prediction_date, end_date
+            md_resource, symbols, prediction_date_str, end_date
         )
         
         if price_data.is_empty():
@@ -345,7 +367,7 @@ class BacktestingEngine(dg.ConfigurableResource):
         
         # Calculate actual returns
         calculator = PerformanceCalculator()
-        actual_returns = calculator.calculate_returns(price_data, prediction_date, end_date)
+        actual_returns = calculator.calculate_returns(price_data, prediction_date_str, end_date)
         
         # Calculate performance metrics
         returns_list = list(actual_returns.values())
@@ -356,7 +378,7 @@ class BacktestingEngine(dg.ConfigurableResource):
         
         # Create backtest result
         result = BacktestResult(
-            prediction_date=prediction_date,
+            prediction_date=prediction_date_str,
             prediction_horizon_days=prediction_horizon_days,
             predicted_assets=predicted_assets,
             actual_returns=actual_returns,
@@ -575,9 +597,52 @@ def batch_backtest_analysis(
     if df.is_empty():
         raise ValueError("No historical analysis found for batch backtesting")
     
-    prediction_dates = [row[0] for row in df.iter_rows()]
+    prediction_dates = [str(row[0]) for row in df.iter_rows()]
     
     context.log.info(f"Found {len(prediction_dates)} prediction dates for batch backtesting")
+    
+    context.log.info(f"Sample prediction dates: {prediction_dates[:3]}")
+
+    # Test the first prediction date
+    if prediction_dates:
+        test_date = prediction_dates[0]
+        context.log.info(f"Testing data availability for date: {test_date}")
+        
+        # Test analysis data
+        test_analysis = backtesting_engine.get_historical_analysis(md, test_date)
+        context.log.info(f"Analysis data available: {test_analysis is not None}")
+        
+        # Test allocation data
+        test_allocation = backtesting_engine.get_asset_allocation_analysis(md, test_date)
+        context.log.info(f"Allocation data available: {test_allocation is not None}")
+        
+        if test_allocation:
+            context.log.info(f"Sample allocation text: {test_allocation[:200]}...")
+            # Test extraction
+            extractor = PredictionExtractor()
+            test_recommendations = extractor.extract_asset_recommendations(test_allocation)
+            context.log.info(f"Extracted recommendations: {len(test_recommendations)}")
+            if test_recommendations:
+                context.log.info(f"Sample recommendation: {test_recommendations[0]}")
+    
+    # Add this right after context.log.info("Starting batch backtesting analysis...")
+    # Around line 582
+
+    # Validate that all required tables exist with data
+    validation_query = """
+    SELECT 
+        (SELECT COUNT(*) FROM economic_cycle_analysis) as cycle_count,
+        (SELECT COUNT(*) FROM asset_allocation_recommendations) as allocation_count,
+        (SELECT COUNT(*) FROM us_sector_etfs_raw) as sectors_count,
+        (SELECT COUNT(*) FROM major_indices_raw) as indices_count
+    """
+    validation_df = md.execute_query(validation_query, read_only=True)
+    if not validation_df.is_empty():
+        row = validation_df[0]
+        context.log.info(f"Data availability - Cycle: {row[0]}, Allocation: {row[1]}, Sectors: {row[2]}, Indices: {row[3]}")
+        
+        if row[0] == 0 or row[1] == 0:
+            raise ValueError(f"Missing required analysis data - Cycle: {row[0]}, Allocation: {row[1]}")
     
     # Run backtests for each date
     batch_results = []
@@ -604,6 +669,8 @@ def batch_backtest_analysis(
             
         except Exception as e:
             context.log.warning(f"Failed to backtest {pred_date}: {str(e)}")
+            context.log.warning(f"Exception type: {type(e).__name__}")
+            context.log.warning(f"Exception details: {str(e)}")
             continue
     
     if not batch_results:

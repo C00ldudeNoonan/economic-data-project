@@ -8,7 +8,6 @@ from pydantic import Field
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.agents.economic_cycle_analyzer import economic_cycle_analysis
-from macro_agents.defs.agents.asset_allocation_analyzer import asset_allocation_recommendations
 
 
 class AssetAllocationSignature(dspy.Signature):

@@ -45,12 +45,14 @@ inflation_series = [
 # Interest Rates & Yield Curve
 interest_rates_series = [
     ("FEDFUNDS", "Effective Federal Funds Rate"),
+    ("DFF", "Federal Funds Effective Rate"),  # ADDED: Alternative Fed Funds Rate
     ("TB3MS", "3-Month Treasury Constant Maturity Rate"),
     ("TB6MS", "6-Month Treasury Constant Maturity Rate"),
     ("TB1YR", "1-Year Treasury Constant Maturity Rate"),
     ("TB2YR", "2-Year Treasury Constant Maturity Rate"),
     ("TB5YR", "5-Year Treasury Constant Maturity Rate"),
     ("TB10YR", "10-Year Treasury Constant Maturity Rate"),
+    ("DGS10", "10 year Treasury Rate"),  # ADDED: Alternative 10-Year Treasury Rate
     ("TB30YR", "30-Year Treasury Constant Maturity Rate"),
     (
         "T10Y2Y",
@@ -133,6 +135,7 @@ housing_series = [
     ("NHSDPTS", "New Home Sales in the United States"),
     ("MORTGAGE30US", "30-Year Fixed Rate Mortgage Average in the United States"),
     ("COMPUTSA", "New Private Housing Units Under Construction"),
+    ("USAUCSFRCONDOSMSAMID", "Zillow Housing Index"),  # ADDED: Zillow Housing Index
 ]
 
 # International Trade & Global Linkages
@@ -174,6 +177,7 @@ financial_conditions_series = [
         "Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to Small Firms",
     ),
     ("SP500", "S&P 500"),
+    ("DJIA", "Dow Jones Industrial Average"),  # ADDED: Dow Jones Industrial Average
 ]
 
 # ============================================================================

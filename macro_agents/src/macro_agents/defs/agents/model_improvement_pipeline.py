@@ -14,9 +14,8 @@ from macro_agents.defs.agents.dspy_evaluation import (
     FinancialMetrics,
     FinancialPredictionModule
 )
-from macro_agents.defs.agents.backtesting import BacktestingEngine
+from macro_agents.defs.agents.backtesting import BacktestingEngine, batch_backtest_analysis
 from macro_agents.defs.agents.enhanced_economic_cycle_analyzer import enhanced_economic_cycle_analysis
-from macro_agents.defs.agents.backtesting import batch_backtest_analysis
 
 
 class ModelImprovementPipeline(dg.ConfigurableResource):
