@@ -34,11 +34,48 @@ class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
 
 environment = os.getenv("DBT_TARGET", "dev")
 
+# Find the dbt_project directory
+# First, check if explicitly set via environment variable
+dbt_project_dir = os.getenv("DBT_PROJECT_DIR")
+if dbt_project_dir:
+    dbt_project_dir = Path(dbt_project_dir).resolve()
+    if not dbt_project_dir.exists():
+        raise FileNotFoundError(f"DBT_PROJECT_DIR environment variable points to non-existent path: {dbt_project_dir}")
+else:
+    # Use working directory (set by Dagster Cloud or current directory) to find repo root
+    # For Dagster Cloud: working_directory is ./macro_agents, so repo root is parent
+    # For local dev: depends on where script is run from
+    current_dir = Path.cwd()
+    possible_dbt_project_paths = [
+        # Primary: For Dagster Cloud with working_directory: ./macro_agents
+        # Current dir should be macro_agents/, so go up one level to repo root
+        current_dir.parent / "dbt_project",
+        # Alternative: if already at repo root
+        current_dir / "dbt_project",
+        # For local dev when running from macro_agents directory
+        current_dir.parent.parent / "dbt_project",
+    ]
 
-# Find the project root (where dbt_project folder is located)
-project_root = Path(__file__).parent.parent.parent.parent.parent.parent
+    dbt_project_dir = None
+    for path in possible_dbt_project_paths:
+        abs_path = path.resolve()
+        if abs_path.exists() and abs_path.is_dir():
+            dbt_project_dir = abs_path
+            break
+
+    if dbt_project_dir is None:
+        # Provide helpful error with actual paths tried
+        tried_paths = [str(p.resolve()) for p in possible_dbt_project_paths]
+        raise FileNotFoundError(
+            f"Could not find dbt_project directory.\n"
+            f"Current working directory: {current_dir.resolve()}\n"
+            f"Tried paths: {tried_paths}\n"
+            f"Please ensure dbt_project directory exists relative to the repository root, "
+            f"or set DBT_PROJECT_DIR environment variable."
+        )
+
 dbt_project = DbtProject(
-    project_dir=project_root / "dbt_project",
+    project_dir=dbt_project_dir,
     target=environment,
 )
 
