@@ -2,6 +2,7 @@ locations:
   - location_name: macro_agents
     code_source:
       module_name: macro_agents.definitions
+    working_directory: ./macro_agents
     build:
-      directory: .
+      directory: ./macro_agents
 
