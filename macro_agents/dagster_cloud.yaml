@@ -1,0 +1,7 @@
+locations:
+  - location_name: macro_agents
+    code_source:
+      module_name: macro_agents.definitions
+    build:
+      directory: .
+
