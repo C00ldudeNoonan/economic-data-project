@@ -39,3 +39,72 @@ pre-pr:
 	@echo "11. Running SQL linting..."
 	sqlfluff lint ./dbt_project/models --disable-progress-bar --processes 4
 	@echo "✅ All pre-PR checks completed successfully!"
+
+# GitHub Actions Local Testing (requires act and Docker)
+.PHONY: act-simulate act-list act-test act-test-run act-test-setup act-test-setup-dry act-test-job act-test-python act-validate help-act
+
+act-simulate:
+	@echo "🚀 Running full GitHub Actions CI/CD pipeline simulation..."
+	@echo "⚠️  This requires Docker to be running"
+	@echo ""
+	@echo "Validating workflow syntax first..."
+	@act -l --container-architecture linux/amd64 > /dev/null && echo "✅ Workflow syntax is valid!" || (echo "❌ Workflow syntax error!" && exit 1)
+	@echo ""
+	@echo "Running complete workflow..."
+	@act push --container-architecture linux/amd64
+
+act-list:
+	@echo "Listing available GitHub Actions workflows..."
+	act -l
+
+act-validate:
+	@echo "Validating GitHub Actions workflow syntax..."
+	@act -l > /dev/null && echo "✅ Workflow syntax is valid!" || echo "❌ Workflow syntax error!"
+
+act-test:
+	@echo "Testing GitHub Actions workflow (dry run)..."
+	@echo "Use 'make act-simulate' to actually run the workflow (requires Docker)"
+	act -n
+
+act-test-run:
+	@echo "Running GitHub Actions workflow (requires Docker to be running)..."
+	act push --container-architecture linux/amd64
+
+act-test-setup:
+	@echo "Testing setup job (extracts Python versions from pyproject.toml)..."
+	act -j setup --container-architecture linux/amd64
+
+act-test-setup-dry:
+	@echo "Testing setup job (dry run)..."
+	act -j setup -n
+
+act-test-job:
+	@echo "Testing specific job (usage: make act-test-job JOB=test)"
+	@if [ -z "$(JOB)" ]; then \
+		echo "❌ Please specify a job name: make act-test-job JOB=<job-name>"; \
+		echo "Available jobs: setup, test, integration-test, security-scan, build, deploy"; \
+		exit 1; \
+	fi
+	act -j $(JOB) --container-architecture linux/amd64
+
+act-test-python:
+	@echo "Testing test job with Python 3.11..."
+	act -j test --matrix python-version:3.11 --container-architecture linux/amd64
+
+help-act:
+	@echo "GitHub Actions Local Testing Commands:"
+	@echo ""
+	@echo "  make act-simulate          - 🚀 Run full CI/CD pipeline simulation (main command)"
+	@echo ""
+	@echo "Other commands:"
+	@echo "  make act-list              - List all available workflows and jobs"
+	@echo "  make act-validate          - Validate workflow syntax"
+	@echo "  make act-test              - Dry run of the workflow"
+	@echo "  make act-test-run          - Actually run the workflow (needs Docker)"
+	@echo "  make act-test-setup        - Test the setup job"
+	@echo "  make act-test-setup-dry    - Test the setup job (dry run)"
+	@echo "  make act-test-job JOB=name - Test a specific job"
+	@echo "  make act-test-python       - Test test job with Python 3.11"
+	@echo ""
+	@echo "Note: Most commands require Docker to be running."
+	@echo "See .github/ACT_USAGE.md for more details."
