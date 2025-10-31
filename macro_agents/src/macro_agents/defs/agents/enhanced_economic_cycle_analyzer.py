@@ -1,26 +1,24 @@
 import dspy
-import polars as pl
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List
 import json
 from datetime import datetime
 import dagster as dg
 from pydantic import Field
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
-from macro_agents.defs.agents.dspy_evaluation import FinancialPredictionSignature, FinancialPredictionModule
 
 
 class EnhancedEconomicCycleAnalysisSignature(dspy.Signature):
     """Enhanced economic cycle analysis with structured output for better evaluation."""
-    
+
     economic_data: str = dspy.InputField(
         desc="CSV data containing latest economic indicators with current values and percentage changes over 3m, 6m, 1y periods"
     )
-    
+
     market_data: str = dspy.InputField(
         desc="CSV data containing recent market performance across different asset classes and sectors"
     )
-    
+
     analysis: str = dspy.OutputField(
         desc="""Structured economic cycle analysis including:
         1. Current Economic Cycle Position (Early/Expansion/Late/Recession with confidence level 0-1)
@@ -39,15 +37,15 @@ class EnhancedEconomicCycleAnalysisSignature(dspy.Signature):
 
 class EnhancedMarketTrendAnalysisSignature(dspy.Signature):
     """Enhanced market trend analysis with structured output."""
-    
+
     market_performance: str = dspy.InputField(
         desc="CSV data containing detailed market performance metrics across sectors and asset classes"
     )
-    
+
     economic_context: str = dspy.InputField(
         desc="Economic cycle analysis results providing context for market interpretation"
     )
-    
+
     trend_analysis: str = dspy.OutputField(
         desc="""Structured market trend analysis including:
         1. Momentum Analysis with quantitative scores
@@ -65,29 +63,31 @@ class EnhancedMarketTrendAnalysisSignature(dspy.Signature):
 
 class EnhancedEconomicCycleModule(dspy.Module):
     """Enhanced economic cycle module with better structure for evaluation."""
-    
+
     def __init__(self):
         super().__init__()
         self.analyze_cycle = dspy.ChainOfThought(EnhancedEconomicCycleAnalysisSignature)
-    
+
     def forward(self, economic_data: str, market_data: str):
         return self.analyze_cycle(economic_data=economic_data, market_data=market_data)
 
 
 class EnhancedMarketTrendModule(dspy.Module):
     """Enhanced market trend module with better structure for evaluation."""
-    
+
     def __init__(self):
         super().__init__()
         self.analyze_trends = dspy.ChainOfThought(EnhancedMarketTrendAnalysisSignature)
-    
+
     def forward(self, market_performance: str, economic_context: str):
-        return self.analyze_trends(market_performance=market_performance, economic_context=economic_context)
+        return self.analyze_trends(
+            market_performance=market_performance, economic_context=economic_context
+        )
 
 
 class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
     """Enhanced economic cycle analyzer with DSPy evaluation integration."""
-    
+
     model_name: str = Field(
         default="gpt-4-turbo-preview", description="LLM model to use for analysis"
     )
@@ -95,32 +95,32 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
     use_optimized_prompts: bool = Field(
         default=False, description="Whether to use optimized prompts from evaluation"
     )
-    
+
     def setup_for_execution(self, context) -> None:
         """Initialize DSPy when the resource is used."""
         # Initialize DSPy
         lm = dspy.LM(model=self.model_name, api_key=self.openai_api_key)
         dspy.settings.configure(lm=lm)
-        
+
         # Initialize analyzers
         self._cycle_analyzer = EnhancedEconomicCycleModule()
         self._trend_analyzer = EnhancedMarketTrendModule()
-        
+
         # Load optimized prompts if available
         if self.use_optimized_prompts:
             self._load_optimized_prompts()
-    
+
     def _load_optimized_prompts(self):
         """Load optimized prompts from evaluation results."""
         # This would load the optimized prompts from the database
         # For now, we'll use the default prompts
         pass
-    
+
     @property
     def cycle_analyzer(self):
         """Get economic cycle analyzer."""
         return self._cycle_analyzer
-    
+
     @property
     def trend_analyzer(self):
         """Get market trend analyzer."""
@@ -142,7 +142,7 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
         WHERE current_value IS NOT NULL
         ORDER BY series_name, month DESC
         """
-        
+
         df = md_resource.execute_query(query, read_only=True)
         csv_buffer = df.write_csv()
         return csv_buffer
@@ -176,7 +176,7 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
         WHERE time_period IN ('12_weeks', '6_months', '1_year')
         ORDER BY asset_type, time_period, total_return_pct DESC
         """
-        
+
         df = md_resource.execute_query(query, read_only=True)
         csv_buffer = df.write_csv()
         return csv_buffer
@@ -184,37 +184,37 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
     def analyze_economic_cycle(
         self,
         md_resource: MotherDuckResource,
-        context: Optional[dg.AssetExecutionContext] = None
+        context: Optional[dg.AssetExecutionContext] = None,
     ) -> Dict[str, Any]:
         """Analyze current economic cycle position and provide recommendations."""
         if context:
             context.log.info("Gathering economic data...")
-        
+
         # Get economic and market data
         economic_data = self.get_economic_data(md_resource)
         market_data = self.get_market_data(md_resource)
-        
+
         if context:
             context.log.info("Running enhanced economic cycle analysis...")
-        
+
         # Run cycle analysis
         cycle_result = self.cycle_analyzer(
-            economic_data=economic_data,
-            market_data=market_data
+            economic_data=economic_data, market_data=market_data
         )
-        
+
         # Run trend analysis with economic context
         if context:
             context.log.info("Running enhanced market trend analysis...")
-        
+
         trend_result = self.trend_analyzer(
-            market_performance=market_data,
-            economic_context=cycle_result.analysis
+            market_performance=market_data, economic_context=cycle_result.analysis
         )
-        
+
         # Parse structured recommendations
-        structured_recommendations = self._parse_structured_recommendations(cycle_result.analysis)
-        
+        structured_recommendations = self._parse_structured_recommendations(
+            cycle_result.analysis
+        )
+
         # Format results
         analysis_timestamp = datetime.now()
         result = {
@@ -228,10 +228,10 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
             "structured_recommendations": structured_recommendations,
             "data_sources": {
                 "economic_data_table": "fred_series_latest_aggregates",
-                "market_data_table": "us_sector_summary"
-            }
+                "market_data_table": "us_sector_summary",
+            },
         }
-        
+
         return result
 
     def _parse_structured_recommendations(self, analysis_text: str) -> Dict[str, Any]:
@@ -242,17 +242,17 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
             "underweight_assets": [],
             "market_outlook": "neutral",
             "confidence_score": 0.5,
-            "key_risks": []
+            "key_risks": [],
         }
-        
+
         try:
             # Try to extract JSON from the analysis text
             import re
-            
+
             # Look for JSON patterns in the analysis
             json_pattern = r'\{[^{}]*"overweight_assets"[^{}]*\}'
             json_matches = re.findall(json_pattern, analysis_text, re.DOTALL)
-            
+
             if json_matches:
                 # Try to parse the JSON
                 for match in json_matches:
@@ -262,15 +262,15 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
                         break
                     except json.JSONDecodeError:
                         continue
-            
+
             # Fallback: extract using regex patterns
             if not recommendations["overweight_assets"]:
                 recommendations = self._extract_recommendations_regex(analysis_text)
-                
-        except Exception as e:
+
+        except Exception:
             # Fallback to regex extraction
             recommendations = self._extract_recommendations_regex(analysis_text)
-        
+
         return recommendations
 
     def _extract_recommendations_regex(self, analysis_text: str) -> Dict[str, Any]:
@@ -281,79 +281,117 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
             "underweight_assets": [],
             "market_outlook": "neutral",
             "confidence_score": 0.5,
-            "key_risks": []
+            "key_risks": [],
         }
-        
+
         # Common asset symbols
         asset_symbols = [
-            'XLK', 'XLC', 'XLY', 'XLF', 'XLI', 'XLU', 'XLP', 'XLRE', 'XLB', 'XLE', 'XLV',
-            'SPY', 'QQQ', 'DIA', 'IWM', 'VIX',
-            'CWB', 'HYG', 'LQD', 'TIP', 'GOVT', 'MUB',
-            'FXE', 'FXY', 'FXB', 'FXC', 'FXA', 'CEW', 'ETHE', 'IBIT'
+            "XLK",
+            "XLC",
+            "XLY",
+            "XLF",
+            "XLI",
+            "XLU",
+            "XLP",
+            "XLRE",
+            "XLB",
+            "XLE",
+            "XLV",
+            "SPY",
+            "QQQ",
+            "DIA",
+            "IWM",
+            "VIX",
+            "CWB",
+            "HYG",
+            "LQD",
+            "TIP",
+            "GOVT",
+            "MUB",
+            "FXE",
+            "FXY",
+            "FXB",
+            "FXC",
+            "FXA",
+            "CEW",
+            "ETHE",
+            "IBIT",
         ]
-        
+
         # Extract OVERWEIGHT recommendations
-        overweight_pattern = r'(?:OVERWEIGHT|LONG):\s*([^.\n]+)'
-        overweight_matches = re.findall(overweight_pattern, analysis_text, re.IGNORECASE)
-        
+        overweight_pattern = r"(?:OVERWEIGHT|LONG):\s*([^.\n]+)"
+        overweight_matches = re.findall(
+            overweight_pattern, analysis_text, re.IGNORECASE
+        )
+
         for match in overweight_matches:
             symbols_found = [symbol for symbol in asset_symbols if symbol in match]
             for symbol in symbols_found:
-                recommendations["overweight_assets"].append({
-                    "symbol": symbol,
-                    "confidence": 0.7,
-                    "expected_return": 0.03,
-                    "rationale": match.strip()
-                })
-        
+                recommendations["overweight_assets"].append(
+                    {
+                        "symbol": symbol,
+                        "confidence": 0.7,
+                        "expected_return": 0.03,
+                        "rationale": match.strip(),
+                    }
+                )
+
         # Extract UNDERWEIGHT recommendations
-        underweight_pattern = r'(?:UNDERWEIGHT|SHORT):\s*([^.\n]+)'
-        underweight_matches = re.findall(underweight_pattern, analysis_text, re.IGNORECASE)
-        
+        underweight_pattern = r"(?:UNDERWEIGHT|SHORT):\s*([^.\n]+)"
+        underweight_matches = re.findall(
+            underweight_pattern, analysis_text, re.IGNORECASE
+        )
+
         for match in underweight_matches:
             symbols_found = [symbol for symbol in asset_symbols if symbol in match]
             for symbol in symbols_found:
-                recommendations["underweight_assets"].append({
-                    "symbol": symbol,
-                    "confidence": 0.7,
-                    "expected_return": -0.02,
-                    "rationale": match.strip()
-                })
-        
+                recommendations["underweight_assets"].append(
+                    {
+                        "symbol": symbol,
+                        "confidence": 0.7,
+                        "expected_return": -0.02,
+                        "rationale": match.strip(),
+                    }
+                )
+
         # Extract market outlook
-        if re.search(r'(?:bullish|positive|optimistic)', analysis_text, re.IGNORECASE):
+        if re.search(r"(?:bullish|positive|optimistic)", analysis_text, re.IGNORECASE):
             recommendations["market_outlook"] = "bullish"
-        elif re.search(r'(?:bearish|negative|pessimistic)', analysis_text, re.IGNORECASE):
+        elif re.search(
+            r"(?:bearish|negative|pessimistic)", analysis_text, re.IGNORECASE
+        ):
             recommendations["market_outlook"] = "bearish"
-        
+
         # Extract confidence score
-        confidence_match = re.search(r'confidence[:\s]+(\d+(?:\.\d+)?)', analysis_text, re.IGNORECASE)
+        confidence_match = re.search(
+            r"confidence[:\s]+(\d+(?:\.\d+)?)", analysis_text, re.IGNORECASE
+        )
         if confidence_match:
             recommendations["confidence_score"] = float(confidence_match.group(1))
-        
+
         return recommendations
 
     def format_cycle_analysis_as_json(
-        self,
-        analysis_result: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None
+        self, analysis_result: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """Format cycle analysis results as JSON records."""
         json_results = []
-        
+
         # Create separate records for cycle analysis and trend analysis
         cycle_record = {
             "analysis_type": "enhanced_economic_cycle",
             "analysis_content": analysis_result["economic_cycle_analysis"],
-            "structured_recommendations": json.dumps(analysis_result["structured_recommendations"]),
+            "structured_recommendations": json.dumps(
+                analysis_result["structured_recommendations"]
+            ),
             "analysis_timestamp": analysis_result["analysis_timestamp"],
             "analysis_date": analysis_result["analysis_date"],
             "analysis_time": analysis_result["analysis_time"],
             "model_name": analysis_result["model_name"],
             "use_optimized_prompts": analysis_result["use_optimized_prompts"],
-            "data_sources": analysis_result["data_sources"]
+            "data_sources": analysis_result["data_sources"],
         }
-        
+
         trend_record = {
             "analysis_type": "enhanced_market_trends",
             "analysis_content": analysis_result["market_trend_analysis"],
@@ -362,14 +400,14 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
             "analysis_time": analysis_result["analysis_time"],
             "model_name": analysis_result["model_name"],
             "use_optimized_prompts": analysis_result["use_optimized_prompts"],
-            "data_sources": analysis_result["data_sources"]
+            "data_sources": analysis_result["data_sources"],
         }
-        
+
         # Add metadata if provided
         if metadata:
             cycle_record.update(metadata)
             trend_record.update(metadata)
-        
+
         json_results.extend([cycle_record, trend_record])
         return json_results
 
@@ -379,7 +417,7 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
         analysis_result: Dict[str, Any],
         output_table: str = "enhanced_economic_cycle_analysis",
         if_exists: str = "append",
-        context: Optional[dg.AssetExecutionContext] = None
+        context: Optional[dg.AssetExecutionContext] = None,
     ) -> None:
         """Write cycle analysis results to database."""
         # Format results as JSON
@@ -387,16 +425,16 @@ class EnhancedEconomicCycleAnalyzer(dg.ConfigurableResource):
             analysis_result,
             metadata={
                 "dagster_run_id": context.run_id if context else None,
-                "dagster_asset_key": str(context.asset_key) if context else None
-            }
+                "dagster_asset_key": str(context.asset_key) if context else None,
+            },
         )
-        
+
         # Write to database
         md_resource.write_results_to_table(
             json_results,
             output_table=output_table,
             if_exists=if_exists,
-            context=context
+            context=context,
         )
 
 
@@ -412,21 +450,20 @@ def enhanced_economic_cycle_analysis(
 ) -> Dict[str, Any]:
     """
     Asset that performs enhanced economic cycle analysis with structured output.
-    
+
     This enhanced version provides structured recommendations that can be
     easily evaluated and optimized using DSPy's evaluation framework.
-    
+
     Returns:
         Dictionary with enhanced analysis metadata and structured recommendations
     """
     context.log.info("Starting enhanced economic cycle analysis...")
-    
+
     # Run comprehensive analysis
     analysis_result = enhanced_cycle_analyzer.analyze_economic_cycle(
-        md_resource=md,
-        context=context
+        md_resource=md, context=context
     )
-    
+
     # Write results to database
     context.log.info("Writing enhanced cycle analysis results to database...")
     enhanced_cycle_analyzer.write_cycle_analysis_to_table(
@@ -434,9 +471,9 @@ def enhanced_economic_cycle_analysis(
         analysis_result=analysis_result,
         output_table="enhanced_economic_cycle_analysis",
         if_exists="append",
-        context=context
+        context=context,
     )
-    
+
     # Return metadata
     result_metadata = {
         "analysis_completed": True,
@@ -444,15 +481,22 @@ def enhanced_economic_cycle_analysis(
         "model_name": analysis_result["model_name"],
         "use_optimized_prompts": analysis_result["use_optimized_prompts"],
         "structured_recommendations": analysis_result["structured_recommendations"],
-        "overweight_assets_count": len(analysis_result["structured_recommendations"]["overweight_assets"]),
-        "underweight_assets_count": len(analysis_result["structured_recommendations"]["underweight_assets"]),
-        "market_outlook": analysis_result["structured_recommendations"]["market_outlook"],
-        "confidence_score": analysis_result["structured_recommendations"]["confidence_score"],
+        "overweight_assets_count": len(
+            analysis_result["structured_recommendations"]["overweight_assets"]
+        ),
+        "underweight_assets_count": len(
+            analysis_result["structured_recommendations"]["underweight_assets"]
+        ),
+        "market_outlook": analysis_result["structured_recommendations"][
+            "market_outlook"
+        ],
+        "confidence_score": analysis_result["structured_recommendations"][
+            "confidence_score"
+        ],
         "output_table": "enhanced_economic_cycle_analysis",
         "records_written": 2,  # cycle analysis + trend analysis
-        "data_sources": analysis_result["data_sources"]
+        "data_sources": analysis_result["data_sources"],
     }
-    
+
     context.log.info(f"Enhanced economic cycle analysis complete: {result_metadata}")
     return result_metadata
-
