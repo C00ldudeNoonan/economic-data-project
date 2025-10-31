@@ -31,6 +31,9 @@ dependencies = [
 dev = [
     "dagster-webserver", 
     "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+    "mypy",
     "ruff",
 ]
  

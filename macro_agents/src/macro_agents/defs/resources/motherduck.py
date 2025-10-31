@@ -5,9 +5,6 @@ from typing import List, Union, Optional, Dict, Any
 from pydantic import Field
 import os
 import io
-import json
-from datetime import datetime
-import time
 
 
 class MotherDuckResource(dg.ConfigurableResource):
@@ -56,6 +53,7 @@ class MotherDuckResource(dg.ConfigurableResource):
             if "different configuration" in str(e):
                 # Wait for connections to close
                 import time
+
                 time.sleep(0.5)
                 # Retry once
                 try:
@@ -299,7 +297,9 @@ class MotherDuckResource(dg.ConfigurableResource):
             if conn:
                 conn.close()
 
-    def execute_query(self, query: str, read_only: bool = True, params: Optional[List[Any]] = None) -> pl.DataFrame:
+    def execute_query(
+        self, query: str, read_only: bool = True, params: Optional[List[Any]] = None
+    ) -> pl.DataFrame:
         """Execute a SQL query and return results as Polars DataFrame."""
         conn = None
         try:

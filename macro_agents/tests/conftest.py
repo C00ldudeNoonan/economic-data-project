@@ -23,9 +23,7 @@ def temp_duckdb_file():
 def motherduck_resource(temp_duckdb_file):
     """Create a MotherDuck resource for testing."""
     return MotherDuckResource(
-        md_token="test_token",
-        environment="dev",
-        local_path=temp_duckdb_file
+        md_token="test_token", environment="dev", local_path=temp_duckdb_file
     )
 
 
@@ -39,7 +37,7 @@ def sample_economic_data():
         "pct_change_3m": [0.01, 0.02, -0.01],
         "pct_change_6m": [0.02, 0.04, -0.02],
         "pct_change_1y": [0.03, 0.06, -0.05],
-        "date_grain": ["Monthly", "Monthly", "Monthly"]
+        "date_grain": ["Monthly", "Monthly", "Monthly"],
     }
 
 
@@ -52,7 +50,7 @@ def sample_market_data():
         "time_period": ["12_weeks", "12_weeks", "12_weeks"],
         "total_return_pct": [10.0, 15.0, 8.0],
         "volatility_pct": [20.0, 25.0, 18.0],
-        "win_rate_pct": [60.0, 65.0, 55.0]
+        "win_rate_pct": [60.0, 65.0, 55.0],
     }
 
 

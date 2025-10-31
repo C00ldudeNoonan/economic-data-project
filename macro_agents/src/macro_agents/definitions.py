@@ -7,7 +7,9 @@ from macro_agents.defs.resources.market_stack import marketstack_resource
 from macro_agents.defs.transformation.dbt import dbt_cli_resource
 from macro_agents.defs.agents.analysis_agent import EconomicAnalyzer
 from macro_agents.defs.agents.economic_cycle_analyzer import EconomicCycleAnalyzer
-from macro_agents.defs.agents.enhanced_economic_cycle_analyzer import EnhancedEconomicCycleAnalyzer
+from macro_agents.defs.agents.enhanced_economic_cycle_analyzer import (
+    EnhancedEconomicCycleAnalyzer,
+)
 from macro_agents.defs.agents.asset_allocation_analyzer import AssetAllocationAnalyzer
 from macro_agents.defs.agents.dspy_evaluation import FinancialEvaluator, PromptOptimizer
 from macro_agents.defs.agents.backtesting import BacktestingEngine
