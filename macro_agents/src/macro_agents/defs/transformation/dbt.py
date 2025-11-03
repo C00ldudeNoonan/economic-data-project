@@ -49,10 +49,14 @@ else:
     repo_root = current_file.parent.parent.parent.parent.parent
     
     # The dbt_project should be at the repo root
+    # But in Dagster Cloud, it's copied into the working directory (macro_agents)
+    # Check working directory first since that's where it will be in deployment
     possible_dbt_project_paths = [
-        repo_root / "dbt_project",
-        # Also check relative to working directory (for local dev)
+        # First check working directory (for Dagster Cloud with copied dbt_project)
         Path.cwd() / "dbt_project",
+        # Then check repo root (for local dev)
+        repo_root / "dbt_project",
+        # Also check parent of working directory
         Path.cwd().parent / "dbt_project",
     ]
 
