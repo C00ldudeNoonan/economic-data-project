@@ -8,7 +8,6 @@ import os
 from unittest.mock import Mock, patch
 from macro_agents.definitions import defs
 from macro_agents.defs.resources.motherduck import MotherDuckResource
-from macro_agents.defs.agents.analysis_agent import EconomicAnalyzer
 
 
 class TestDagsterDefinitions:

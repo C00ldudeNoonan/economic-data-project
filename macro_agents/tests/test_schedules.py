@@ -4,7 +4,7 @@ Tests for scheduled execution and scheduling configuration.
 
 from datetime import datetime
 import pytz
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from macro_agents.defs.schedules import (
     monthly_sector_analysis_schedule,
