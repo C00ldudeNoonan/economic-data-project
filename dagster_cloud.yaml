@@ -5,5 +5,3 @@ locations:
     working_directory: ./macro_agents
     build:
       directory: ./macro_agents
-    env_vars:
-      DBT_PROJECT_DIR: ../dbt_project

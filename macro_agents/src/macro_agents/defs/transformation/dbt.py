@@ -42,18 +42,18 @@ if dbt_project_dir:
     if not dbt_project_dir.exists():
         raise FileNotFoundError(f"DBT_PROJECT_DIR environment variable points to non-existent path: {dbt_project_dir}")
 else:
-    # Use working directory (set by Dagster Cloud or current directory) to find repo root
-    # For Dagster Cloud: working_directory is ./macro_agents, so repo root is parent
-    # For local dev: depends on where script is run from
-    current_dir = Path.cwd()
+    # Use the module's file location to find repo root
+    # This file is at: macro_agents/src/macro_agents/defs/transformation/dbt.py
+    # Repo root is 4 levels up from this file
+    current_file = Path(__file__).resolve()
+    repo_root = current_file.parent.parent.parent.parent.parent
+    
+    # The dbt_project should be at the repo root
     possible_dbt_project_paths = [
-        # Primary: For Dagster Cloud with working_directory: ./macro_agents
-        # Current dir should be macro_agents/, so go up one level to repo root
-        current_dir.parent / "dbt_project",
-        # Alternative: if already at repo root
-        current_dir / "dbt_project",
-        # For local dev when running from macro_agents directory
-        current_dir.parent.parent / "dbt_project",
+        repo_root / "dbt_project",
+        # Also check relative to working directory (for local dev)
+        Path.cwd() / "dbt_project",
+        Path.cwd().parent / "dbt_project",
     ]
 
     dbt_project_dir = None
@@ -68,7 +68,9 @@ else:
         tried_paths = [str(p.resolve()) for p in possible_dbt_project_paths]
         raise FileNotFoundError(
             f"Could not find dbt_project directory.\n"
-            f"Current working directory: {current_dir.resolve()}\n"
+            f"Current working directory: {Path.cwd().resolve()}\n"
+            f"Module file location: {current_file}\n"
+            f"Repo root (calculated): {repo_root}\n"
             f"Tried paths: {tried_paths}\n"
             f"Please ensure dbt_project directory exists relative to the repository root, "
             f"or set DBT_PROJECT_DIR environment variable."
