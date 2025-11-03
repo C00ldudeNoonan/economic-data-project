@@ -6,6 +6,7 @@ import pytest
 import yaml
 from pathlib import Path
 
+
 # Skip this test in CI - documentation check, brittle
 @pytest.mark.skip_ci
 def test_all_dbt_models_have_descriptions():
