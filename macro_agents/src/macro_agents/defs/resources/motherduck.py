@@ -31,7 +31,25 @@ class MotherDuckResource(dg.ConfigurableResource):
         """Create a database connection."""
         conn = None
         try:
-            conn = duckdb.connect(self.db_connection)
+            # If it's a local file path and the file exists but is empty/invalid, delete it
+            if (
+                self.environment == "dev"
+                and self.local_path
+                and os.path.exists(self.local_path)
+            ):
+                try:
+                    # Try to connect - if it fails with IO error, delete the file
+                    conn = duckdb.connect(self.db_connection)
+                except duckdb.IOException:
+                    # File exists but is not a valid DuckDB file, delete it
+                    os.remove(self.local_path)
+                    conn = duckdb.connect(self.db_connection)
+                except Exception:
+                    # For other errors, try connecting normally
+                    conn = duckdb.connect(self.db_connection)
+            else:
+                conn = duckdb.connect(self.db_connection)
+
             if self.environment != "dev":
                 # Create database if it doesn't exist
                 try:
