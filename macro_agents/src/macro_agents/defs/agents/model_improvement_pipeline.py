@@ -108,23 +108,6 @@ class ModelImprovementPipeline(dg.ConfigurableResource):
             params=[start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")],
         )
 
-        # Get market trend analysis
-        trend_query = """
-        SELECT 
-            analysis_content,
-            analysis_timestamp
-        FROM enhanced_economic_cycle_analysis
-        WHERE analysis_type = 'enhanced_market_trends'
-        AND analysis_timestamp BETWEEN ? AND ?
-        ORDER BY analysis_timestamp
-        """
-
-        trend_df = md_resource.execute_query(
-            trend_query,
-            read_only=True,
-            params=[start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")],
-        )
-
         # Get backtest results for actual returns
         backtest_query = """
         SELECT 

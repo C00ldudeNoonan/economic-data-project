@@ -87,10 +87,6 @@ class TestResourceIntegration:
                 md_token="test_token", environment="dev", local_path=tmp_file.name
             )
 
-            analyzer = EconomicAnalyzer(
-                model_name="gpt-4-turbo-preview", openai_api_key="test_key"
-            )
-
             # Create test data
             test_df = pl.DataFrame(
                 {

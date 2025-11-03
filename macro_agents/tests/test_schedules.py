@@ -121,7 +121,6 @@ class TestDataFreshnessSensor:
         )
 
         sensor = create_data_freshness_sensor()
-        context = Mock()
 
         # This would need to be tested with actual sensor execution
         # For now, just verify the sensor is created
@@ -138,7 +137,6 @@ class TestDataFreshnessSensor:
         )
 
         sensor = create_data_freshness_sensor()
-        context = Mock()
 
         # This would need to be tested with actual sensor execution
         # For now, just verify the sensor is created

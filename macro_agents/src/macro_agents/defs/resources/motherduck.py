@@ -5,7 +5,6 @@ from typing import List, Union, Optional, Dict, Any
 from pydantic import Field
 import os
 import io
-import re
 
 
 class MotherDuckResource(dg.ConfigurableResource):
@@ -61,7 +60,7 @@ class MotherDuckResource(dg.ConfigurableResource):
                     conn = duckdb.connect(self.db_connection)
                     conn.commit()
                     return conn
-                except:
+                except Exception:
                     raise e
             raise
 
