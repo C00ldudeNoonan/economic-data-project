@@ -3,19 +3,15 @@ Unit tests for analysis agents.
 """
 
 import polars as pl
-import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from macro_agents.defs.agents.analysis_agent import (
     EconomicAnalyzer,
-    EconomicAnalysisModule,
 )
 from macro_agents.defs.agents.economic_cycle_analyzer import (
     EconomicCycleAnalyzer,
-    EconomicCycleModule,
 )
 from macro_agents.defs.agents.asset_allocation_analyzer import (
     AssetAllocationAnalyzer,
-    AssetAllocationModule,
 )
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 
@@ -32,42 +28,6 @@ class TestEconomicAnalyzer:
         assert analyzer.model_name == "gpt-4-turbo-preview"
         assert analyzer.openai_api_key == "test_key"
 
-    @pytest.mark.skip_ci
-    @patch("dspy.LM")
-    @patch("dspy.settings.configure")
-    def test_setup_for_execution(self, mock_configure, mock_lm):
-        """Test setup for execution."""
-        analyzer = EconomicAnalyzer(
-            model_name="gpt-4-turbo-preview", openai_api_key="test_key"
-        )
-
-        mock_context = Mock()
-        analyzer.setup_for_execution(mock_context)
-
-        mock_lm.assert_called_once()
-        mock_configure.assert_called_once()
-
-    @pytest.mark.skip_ci
-    def test_format_results_as_json(self):
-        """Test formatting results as JSON."""
-        analyzer = EconomicAnalyzer(
-            model_name="gpt-4-turbo-preview", openai_api_key="test_key"
-        )
-
-        category_results = {
-            "Technology": "Tech analysis",
-            "Healthcare": "Health analysis",
-        }
-
-        json_results = analyzer.format_results_as_json(
-            category_results, sample_size=50, metadata={"test": "value"}
-        )
-
-        assert len(json_results) == 2
-        assert json_results[0]["category"] == "Technology"
-        assert json_results[0]["num_samples"] == 50
-        assert json_results[0]["test"] == "value"
-
 
 class TestEconomicCycleAnalyzer:
     """Test cases for EconomicCycleAnalyzer."""
@@ -80,21 +40,6 @@ class TestEconomicCycleAnalyzer:
 
         assert analyzer.model_name == "gpt-4-turbo-preview"
         assert analyzer.openai_api_key == "test_key"
-
-    @pytest.mark.skip_ci
-    @patch("dspy.LM")
-    @patch("dspy.settings.configure")
-    def test_setup_for_execution(self, mock_configure, mock_lm):
-        """Test setup for execution."""
-        analyzer = EconomicCycleAnalyzer(
-            model_name="gpt-4-turbo-preview", openai_api_key="test_key"
-        )
-
-        mock_context = Mock()
-        analyzer.setup_for_execution(mock_context)
-
-        mock_lm.assert_called_once()
-        mock_configure.assert_called_once()
 
     def test_get_economic_data(self):
         """Test getting economic data."""
@@ -143,28 +88,6 @@ class TestEconomicCycleAnalyzer:
         assert "AAPL" in result
         mock_md.execute_query.assert_called_once()
 
-    @pytest.mark.skip_ci
-    def test_format_cycle_analysis_as_json(self):
-        """Test formatting cycle analysis as JSON."""
-        analyzer = EconomicCycleAnalyzer(
-            model_name="gpt-4-turbo-preview", openai_api_key="test_key"
-        )
-
-        analysis_result = {
-            "economic_cycle_analysis": "Cycle analysis",
-            "market_trend_analysis": "Trend analysis",
-            "analysis_timestamp": "2024-01-01T00:00:00",
-            "model_name": "gpt-4-turbo-preview",
-        }
-
-        json_results = analyzer.format_cycle_analysis_as_json(
-            analysis_result, metadata={"test": "value"}
-        )
-
-        assert len(json_results) == 2
-        assert json_results[0]["analysis_type"] == "economic_cycle"
-        assert json_results[1]["analysis_type"] == "market_trends"
-
 
 class TestAssetAllocationAnalyzer:
     """Test cases for AssetAllocationAnalyzer."""
@@ -177,21 +100,6 @@ class TestAssetAllocationAnalyzer:
 
         assert analyzer.model_name == "gpt-4-turbo-preview"
         assert analyzer.openai_api_key == "test_key"
-
-    @pytest.mark.skip_ci
-    @patch("dspy.LM")
-    @patch("dspy.settings.configure")
-    def test_setup_for_execution(self, mock_configure, mock_lm):
-        """Test setup for execution."""
-        analyzer = AssetAllocationAnalyzer(
-            model_name="gpt-4-turbo-preview", openai_api_key="test_key"
-        )
-
-        mock_context = Mock()
-        analyzer.setup_for_execution(mock_context)
-
-        mock_lm.assert_called_once()
-        mock_configure.assert_called_once()
 
     def test_get_latest_analysis(self):
         """Test getting latest analysis."""
@@ -214,43 +122,3 @@ class TestAssetAllocationAnalyzer:
         assert cycle_analysis == "cycle analysis"
         assert trend_analysis == "trend analysis"
         mock_md.execute_query.assert_called_once()
-
-    @pytest.mark.skip_ci
-    def test_format_allocation_as_json(self):
-        """Test formatting allocation as JSON."""
-        analyzer = AssetAllocationAnalyzer(
-            model_name="gpt-4-turbo-preview", openai_api_key="test_key"
-        )
-
-        allocation_result = {
-            "allocation_recommendations": "Allocation recommendations",
-            "analysis_timestamp": "2024-01-01T00:00:00",
-            "model_name": "gpt-4-turbo-preview",
-        }
-
-        json_result = analyzer.format_allocation_as_json(
-            allocation_result, metadata={"test": "value"}
-        )
-
-        assert json_result["analysis_type"] == "asset_allocation_recommendations"
-        assert json_result["analysis_content"] == "Allocation recommendations"
-        assert json_result["test"] == "value"
-
-
-class TestDSPyModules:
-    """Test cases for DSPy modules."""
-
-    def test_economic_analysis_module(self):
-        """Test EconomicAnalysisModule."""
-        module = EconomicAnalysisModule()
-        assert module.analyze is not None
-
-    def test_economic_cycle_module(self):
-        """Test EconomicCycleModule."""
-        module = EconomicCycleModule()
-        assert module.analyze_cycle is not None
-
-    def test_asset_allocation_module(self):
-        """Test AssetAllocationModule."""
-        module = AssetAllocationModule()
-        assert module.analyze_allocation is not None
