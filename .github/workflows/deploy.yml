@@ -47,6 +47,15 @@ jobs:
         run: |
           cp -r project-repo/dbt_project project-repo/macro_agents/dbt_project
 
+      - name: Generate dbt manifest.json
+        if: steps.prerun.outputs.result == 'pex-deploy'
+        run: |
+          cd project-repo/macro_agents/dbt_project
+          # Install dbt dependencies first if needed
+          dbt deps || true
+          # Generate the manifest.json file
+          dbt parse --target prod || dbt parse
+
       - name: Python Executable Deploy
         if: steps.prerun.outputs.result == 'pex-deploy'
         uses: dagster-io/dagster-cloud-action/actions/build_deploy_python_executable@v1.12.0
