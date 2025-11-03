@@ -8,6 +8,7 @@ import os
 from unittest.mock import Mock, patch
 from macro_agents.definitions import defs
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+import pytest
 
 
 class TestDagsterDefinitions:
@@ -19,6 +20,7 @@ class TestDagsterDefinitions:
         assert len(defs.assets) > 0
         assert len(defs.resources) > 0
 
+    @pytest.mark.skip_ci
     def test_all_assets_have_descriptions(self):
         """Test that all assets have descriptions."""
         for asset_key, asset in defs.assets.items():

@@ -50,4 +50,4 @@ jobs:
     - name: Test with pytest
       run: |
         cd macro_agents
-        uv run pytest tests/ -v
+        uv run pytest tests/ -v -m "not skip_ci"

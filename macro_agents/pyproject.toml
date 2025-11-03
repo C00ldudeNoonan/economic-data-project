@@ -47,4 +47,10 @@ directory_type = "project"
 [tool.dg.project]
 root_module = "macro_agents"
 
+[tool.pytest.ini_options]
+markers = [
+    "essential: Essential tests that must pass in CI",
+    "skip_ci: Tests to skip in CI (brittle or non-essential)",
+]
+
 

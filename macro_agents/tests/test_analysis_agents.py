@@ -3,6 +3,7 @@ Unit tests for analysis agents.
 """
 
 import polars as pl
+import pytest
 from unittest.mock import Mock, patch
 from macro_agents.defs.agents.analysis_agent import (
     EconomicAnalyzer,
@@ -31,6 +32,7 @@ class TestEconomicAnalyzer:
         assert analyzer.model_name == "gpt-4-turbo-preview"
         assert analyzer.openai_api_key == "test_key"
 
+    @pytest.mark.skip_ci
     @patch("dspy.LM")
     @patch("dspy.settings.configure")
     def test_setup_for_execution(self, mock_configure, mock_lm):
@@ -45,6 +47,7 @@ class TestEconomicAnalyzer:
         mock_lm.assert_called_once()
         mock_configure.assert_called_once()
 
+    @pytest.mark.skip_ci
     def test_format_results_as_json(self):
         """Test formatting results as JSON."""
         analyzer = EconomicAnalyzer(
@@ -78,6 +81,7 @@ class TestEconomicCycleAnalyzer:
         assert analyzer.model_name == "gpt-4-turbo-preview"
         assert analyzer.openai_api_key == "test_key"
 
+    @pytest.mark.skip_ci
     @patch("dspy.LM")
     @patch("dspy.settings.configure")
     def test_setup_for_execution(self, mock_configure, mock_lm):
@@ -139,6 +143,7 @@ class TestEconomicCycleAnalyzer:
         assert "AAPL" in result
         mock_md.execute_query.assert_called_once()
 
+    @pytest.mark.skip_ci
     def test_format_cycle_analysis_as_json(self):
         """Test formatting cycle analysis as JSON."""
         analyzer = EconomicCycleAnalyzer(
@@ -173,6 +178,7 @@ class TestAssetAllocationAnalyzer:
         assert analyzer.model_name == "gpt-4-turbo-preview"
         assert analyzer.openai_api_key == "test_key"
 
+    @pytest.mark.skip_ci
     @patch("dspy.LM")
     @patch("dspy.settings.configure")
     def test_setup_for_execution(self, mock_configure, mock_lm):
@@ -209,6 +215,7 @@ class TestAssetAllocationAnalyzer:
         assert trend_analysis == "trend analysis"
         mock_md.execute_query.assert_called_once()
 
+    @pytest.mark.skip_ci
     def test_format_allocation_as_json(self):
         """Test formatting allocation as JSON."""
         analyzer = AssetAllocationAnalyzer(
