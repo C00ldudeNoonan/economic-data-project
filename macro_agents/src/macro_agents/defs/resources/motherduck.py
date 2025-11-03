@@ -5,6 +5,7 @@ from typing import List, Union, Optional, Dict, Any
 from pydantic import Field
 import os
 import io
+import re
 
 
 class MotherDuckResource(dg.ConfigurableResource):
@@ -270,7 +271,7 @@ class MotherDuckResource(dg.ConfigurableResource):
             try:
                 conn.execute(f"SELECT 1 FROM {output_table} LIMIT 1")
                 table_exists = True
-            except:
+            except Exception:
                 table_exists = False
 
             if table_exists and if_exists == "fail":
@@ -320,7 +321,7 @@ class MotherDuckResource(dg.ConfigurableResource):
             conn = self.get_connection()
             conn.execute(f"SELECT 1 FROM {table_name} LIMIT 1")
             return True
-        except:
+        except Exception:
             return False
         finally:
             if conn:

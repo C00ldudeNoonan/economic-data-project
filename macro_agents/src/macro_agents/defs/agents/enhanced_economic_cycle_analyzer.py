@@ -1,6 +1,7 @@
 import dspy
 from typing import Optional, Dict, Any, List
 import json
+import re
 from datetime import datetime
 import dagster as dg
 from pydantic import Field

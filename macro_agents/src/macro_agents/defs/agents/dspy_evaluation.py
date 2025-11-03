@@ -1,6 +1,7 @@
 import dspy
 from typing import Optional, Dict, Any, List
 import json
+import re
 from datetime import datetime, timedelta
 import dagster as dg
 from pydantic import Field
@@ -371,7 +372,7 @@ class PromptOptimizer(dg.ConfigurableResource):
         )
 
         # Optimize the module
-        optimized_module = optimizer.compile(
+        optimizer.compile(
             module, trainset=training_examples, valset=validation_examples
         )
 

@@ -315,7 +315,6 @@ class TestScheduleDependencies:
             "economic_cycle_analysis" in defs.assets
             and "asset_allocation_recommendations" in defs.assets
         ):
-            cycle_asset = defs.assets["economic_cycle_analysis"]
             allocation_asset = defs.assets["asset_allocation_recommendations"]
 
             # Allocation should depend on cycle analysis
