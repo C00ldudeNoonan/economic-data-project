@@ -42,6 +42,11 @@ jobs:
           ref: ${{ github.head_ref }}
           path: project-repo
 
+      - name: Copy dbt_project into macro_agents for deployment
+        if: steps.prerun.outputs.result == 'pex-deploy'
+        run: |
+          cp -r project-repo/dbt_project project-repo/macro_agents/dbt_project
+
       - name: Python Executable Deploy
         if: steps.prerun.outputs.result == 'pex-deploy'
         uses: dagster-io/dagster-cloud-action/actions/build_deploy_python_executable@v1.12.0
