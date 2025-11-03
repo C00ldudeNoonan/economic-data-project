@@ -33,7 +33,6 @@ class TestMotherDuckResource:
         assert resource.md_token == "test_token"
         assert resource.db_connection == "md:?motherduck_token=test_token"
 
-
     def test_table_exists(self):
         """Test table existence check."""
         with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp_file:
@@ -69,4 +68,3 @@ class TestMarketStackResource:
         """Test MarketStackResource initialization."""
         resource = MarketStackResource(api_key="test_key")
         assert resource.api_key == "test_key"
-
