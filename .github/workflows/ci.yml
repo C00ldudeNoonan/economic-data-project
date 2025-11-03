@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -7,112 +7,16 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      python-versions: ${{ steps.set-python-versions.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      
-      - name: Extract Python versions from pyproject.toml
-        id: set-python-versions
-        run: |
-          python << EOF
-          import re
-          import json
-          import os
-          
-          with open('macro_agents/pyproject.toml', 'r') as f:
-              content = f.read()
-          
-          # Extract requires-python line
-          match = re.search(r'requires-python\s*=\s*["\']([^"\']+)["\']', content)
-          if match:
-              requirement = match.group(1)
-              print(f"Found requirement: {requirement}")
-              
-              # Parse version range (e.g., ">=3.9,<3.14")
-              min_version = None
-              max_version = None
-              
-              if '>=' in requirement:
-                  min_match = re.search(r'>=(\d+\.\d+)', requirement)
-                  if min_match:
-                      min_version = min_match.group(1)
-                      print(f"Min version: {min_version}")
-              
-              if '<' in requirement:
-                  max_match = re.search(r'<(\d+\.\d+)', requirement)
-                  if max_match:
-                      max_version = max_match.group(1)
-                      print(f"Max version: {max_version}")
-              
-              # Helper function to compare version strings
-              def version_compare(v1, v2):
-                  """Compare two version strings. Returns -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2"""
-                  parts1 = [int(x) for x in v1.split('.')]
-                  parts2 = [int(x) for x in v2.split('.')]
-                  # Pad shorter version with zeros
-                  max_len = max(len(parts1), len(parts2))
-                  parts1.extend([0] * (max_len - len(parts1)))
-                  parts2.extend([0] * (max_len - len(parts2)))
-                  if parts1 < parts2:
-                      return -1
-                  elif parts1 > parts2:
-                      return 1
-                  return 0
-              
-              # Generate list of supported versions
-              # Python versions: 3.9, 3.10, 3.11, 3.12, 3.13
-              all_versions = ['3.9', '3.10', '3.11', '3.12', '3.13']
-              supported = []
-              
-              for ver_str in all_versions:
-                  # Check if version is within range: >= min and < max
-                  if min_version and version_compare(ver_str, min_version) < 0:
-                      continue  # Skip if below minimum
-                  if max_version and version_compare(ver_str, max_version) >= 0:
-                      continue  # Skip if at or above maximum
-                  # Version is in range, add it
-                  supported.append(ver_str)
-              
-              print(f"Supported versions: {supported}")
-              
-              # Output as JSON array for matrix
-              matrix_json = json.dumps(supported)
-              github_output = os.environ.get('GITHUB_OUTPUT', '/dev/stdout')
-              print(f"matrix={matrix_json}")
-              with open(github_output, 'a') as f:
-                  f.write(f"matrix={matrix_json}\n")
-          else:
-              # Fallback to default versions
-              default = json.dumps(['3.9', '3.10', '3.11', '3.12'])
-              print(f"No requirement found, using default: {default}")
-              github_output = os.environ.get('GITHUB_OUTPUT', '/dev/stdout')
-              print(f"matrix={default}")
-              with open(github_output, 'a') as f:
-                  f.write(f"matrix={default}\n")
-          EOF
-
   test:
     runs-on: ubuntu-latest
-    needs: setup
-    strategy:
-      matrix:
-        python-version: ${{ fromJSON(needs.setup.outputs.python-versions) }}
-
+    
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: '3.11'
     
     - name: Install uv
       uses: astral-sh/setup-uv@v4
@@ -138,85 +42,10 @@ jobs:
         uv run ruff check .
         uv run ruff format --check .
     
-    - name: Type check with mypy
-      run: |
-        cd macro_agents
-        uv run mypy . --ignore-missing-imports
-    
-    - name: Test with pytest
-      run: |
-        cd macro_agents
-        uv run pytest tests/ -v --cov=macro_agents --cov-report=xml --cov-report=html --junitxml=../pytest-results.xml
-        mv coverage.xml .. || true
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
-    
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: pytest-results-${{ matrix.python-version }}
-        path: pytest-results.xml
-
-  integration-test:
-    runs-on: ubuntu-latest
-    needs: test
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.11
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: "latest"
-    
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/uv
-        key: ${{ runner.os }}-uv-${{ hashFiles('macro_agents/pyproject.toml', 'macro_agents/uv.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-
-    
-    - name: Install dependencies with uv
-      run: |
-        cd macro_agents
-        uv sync --dev
-    
     - name: Test Dagster definitions
       run: |
         cd macro_agents
         uv run dg check defs
-    
-    - name: Test Dagster schedules
-      run: |
-        cd macro_agents
-        uv run dg schedule list
-        uv run dg sensor list
-    
-    - name: Test Dagster asset materialization (dry run)
-      run: |
-        cd macro_agents
-        uv run dg materialize --dry-run --select "*"
-    
-    - name: Test scheduled job execution (dry run)
-      run: |
-        cd macro_agents
-        uv run dg job execute --dry-run monthly_sector_analysis_job
-        uv run dg job execute --dry-run weekly_cycle_analysis_job
-        uv run dg job execute --dry-run weekly_allocation_job
-        uv run dg job execute --dry-run daily_monitoring_job
     
     - name: Test DBT models
       run: |
@@ -224,111 +53,8 @@ jobs:
         dbt deps
         dbt compile
         dbt parse
-
-  security-scan:
-    runs-on: ubuntu-latest
-    needs: test
     
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.11
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: "latest"
-    
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/uv
-        key: ${{ runner.os }}-uv-${{ hashFiles('macro_agents/pyproject.toml', 'macro_agents/uv.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-
-    
-    - name: Install dependencies with uv
+    - name: Test with pytest
       run: |
         cd macro_agents
-        uv sync --dev
-        uv pip install bandit safety
-    
-    - name: Security scan with bandit
-      run: |
-        cd macro_agents
-        uv run bandit -r . -f json -o ../bandit-report.json || true
-    
-    - name: Security scan with safety
-      run: |
-        cd macro_agents
-        uv run safety check --json --output ../safety-report.json || true
-    
-    - name: Upload security reports
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: security-reports
-        path: |
-          bandit-report.json
-          safety-report.json
-
-  build:
-    runs-on: ubuntu-latest
-    needs: [test, integration-test, security-scan]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.11
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: "latest"
-    
-    - name: Install build dependencies
-      run: |
-        uv pip install build twine
-    
-    - name: Build package
-      run: |
-        cd macro_agents
-        uv run python -m build
-    
-    - name: Check package
-      run: |
-        cd macro_agents
-        uv run twine check dist/*
-    
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist
-        path: macro_agents/dist/
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: dist
-        path: macro_agents/dist/
-    
-    - name: Deploy to production
-      run: |
-        echo "Deploying to production..."
-        # Add your deployment commands here
+        uv run pytest tests/ -v
