@@ -49,10 +49,10 @@ jobs:
     
     - name: Test DBT models
       run: |
-        cd dbt_project
-        dbt deps
-        dbt compile
-        dbt parse
+        cd macro_agents
+        uv run dbt deps --project-dir ../dbt_project
+        uv run dbt compile --project-dir ../dbt_project
+        uv run dbt parse --project-dir ../dbt_project
     
     - name: Test with pytest
       run: |
