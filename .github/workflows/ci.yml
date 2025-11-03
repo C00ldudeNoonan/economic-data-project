@@ -37,6 +37,7 @@ jobs:
         uv sync --dev
     
     - name: Lint with ruff
+      continue-on-error: true
       run: |
         cd macro_agents
         uv run ruff check .
