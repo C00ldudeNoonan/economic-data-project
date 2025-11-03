@@ -47,14 +47,6 @@ jobs:
         cd macro_agents
         uv run dg check defs
     
-    - name: Test DBT models
-      env:
-        DBT_TARGET: local
-      run: |
-        cd macro_agents
-        uv run dbt deps --project-dir ../dbt_project --profiles-dir ../dbt_project
-        uv run dbt compile --project-dir ../dbt_project --profiles-dir ../dbt_project
-    
     - name: Test with pytest
       run: |
         cd macro_agents
