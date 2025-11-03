@@ -32,7 +32,7 @@ class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
         return dg.AutomationCondition.eager()
 
 
-environment = os.getenv("DBT_TARGET", "dev")
+environment = os.getenv("DBT_TARGET", "local")
 
 # Find the dbt_project directory
 # First, check if explicitly set via environment variable
