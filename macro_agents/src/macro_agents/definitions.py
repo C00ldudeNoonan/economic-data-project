@@ -1,6 +1,5 @@
 from pathlib import Path
 import dagster as dg
-import os
 
 from macro_agents.defs.resources.motherduck import motherduck_resource
 from macro_agents.defs.resources.fred import fred_resource
@@ -18,6 +17,7 @@ from macro_agents.defs.agents.model_improvement_pipeline import ModelImprovement
 from macro_agents.defs.agents.backtesting_visualization import BacktestingVisualizer
 from macro_agents.defs.schedules import schedules, sensors, jobs
 
+
 # Find the project root by looking for pyproject.toml
 # In local dev: use __file__ relative path
 # In Dagster Cloud: use working directory (where pyproject.toml is bundled)
@@ -26,14 +26,15 @@ def find_project_root():
     cwd = Path.cwd()
     if (cwd / "pyproject.toml").exists():
         return cwd
-    
+
     # Try __file__ relative path (for local dev)
     file_root = Path(__file__).parent.parent
     if (file_root / "pyproject.toml").exists():
         return file_root
-    
+
     # Fallback: use __file__ relative path anyway
     return file_root
+
 
 project_root = find_project_root()
 

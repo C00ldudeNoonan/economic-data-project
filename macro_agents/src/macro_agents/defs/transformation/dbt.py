@@ -40,14 +40,16 @@ dbt_project_dir = os.getenv("DBT_PROJECT_DIR")
 if dbt_project_dir:
     dbt_project_dir = Path(dbt_project_dir).resolve()
     if not dbt_project_dir.exists():
-        raise FileNotFoundError(f"DBT_PROJECT_DIR environment variable points to non-existent path: {dbt_project_dir}")
+        raise FileNotFoundError(
+            f"DBT_PROJECT_DIR environment variable points to non-existent path: {dbt_project_dir}"
+        )
 else:
     # Use the module's file location to find repo root
     # This file is at: macro_agents/src/macro_agents/defs/transformation/dbt.py
     # Repo root is 4 levels up from this file
     current_file = Path(__file__).resolve()
     repo_root = current_file.parent.parent.parent.parent.parent
-    
+
     # The dbt_project should be at the repo root
     # But in Dagster Cloud, it's copied into the working directory (macro_agents)
     # Check working directory first since that's where it will be in deployment
