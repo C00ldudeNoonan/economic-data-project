@@ -1,0 +1,91 @@
+version: 2
+
+models:
+  - name: energy_commodities_summary
+    description: "Summary statistics for energy commodities across different time periods"
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+      - name: time_period
+        description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+      - name: total_return_pct
+        description: "Total return percentage for the period"
+      - name: volatility_pct
+        description: "Annualized volatility percentage"
+      - name: win_rate_pct
+        description: "Percentage of days with positive price changes"
+
+  - name: input_commodities_summary
+    description: "Summary statistics for input/industrial commodities across different time periods"
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+      - name: time_period
+        description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+      - name: total_return_pct
+        description: "Total return percentage for the period"
+      - name: volatility_pct
+        description: "Annualized volatility percentage"
+
+  - name: agriculture_commodities_summary
+    description: "Summary statistics for agricultural commodities across different time periods"
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+      - name: time_period
+        description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+      - name: total_return_pct
+        description: "Total return percentage for the period"
+      - name: volatility_pct
+        description: "Annualized volatility percentage"
+
+  - name: energy_commodities_analysis_return
+    description: "Energy commodities monthly/quarterly aggregation with forward-looking returns"
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+      - name: monthly_avg_price
+        description: "Average price for the month"
+      - name: quarterly_avg_price
+        description: "Average price for the quarter"
+      - name: pct_change_q1_forward
+        description: "Percentage change 1 quarter forward"
+      - name: pct_change_q2_forward
+        description: "Percentage change 2 quarters forward"
+      - name: pct_change_q3_forward
+        description: "Percentage change 3 quarters forward"
+      - name: pct_change_q4_forward
+        description: "Percentage change 4 quarters forward"
+
+  - name: input_commodities_analysis_return
+    description: "Input commodities monthly/quarterly aggregation with forward-looking returns"
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+      - name: monthly_avg_price
+        description: "Average price for the month"
+      - name: quarterly_avg_price
+        description: "Average price for the quarter"
+
+  - name: agriculture_commodities_analysis_return
+    description: "Agriculture commodities monthly/quarterly aggregation with forward-looking returns"
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+      - name: monthly_avg_price
+        description: "Average price for the month"
+      - name: quarterly_avg_price
+        description: "Average price for the quarter"
+

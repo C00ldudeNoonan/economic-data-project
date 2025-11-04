@@ -34,8 +34,6 @@ class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
 
 environment = os.getenv("DBT_TARGET", "local")
 
-# Find the dbt_project directory
-# First, check if explicitly set via environment variable
 dbt_project_dir = os.getenv("DBT_PROJECT_DIR")
 if dbt_project_dir:
     dbt_project_dir = Path(dbt_project_dir).resolve()
@@ -44,21 +42,11 @@ if dbt_project_dir:
             f"DBT_PROJECT_DIR environment variable points to non-existent path: {dbt_project_dir}"
         )
 else:
-    # Use the module's file location to find repo root
-    # This file is at: macro_agents/src/macro_agents/defs/transformation/dbt.py
-    # Repo root is 4 levels up from this file
     current_file = Path(__file__).resolve()
     repo_root = current_file.parent.parent.parent.parent.parent
-
-    # The dbt_project should be at the repo root
-    # But in Dagster Cloud, it's copied into the working directory (macro_agents)
-    # Check working directory first since that's where it will be in deployment
     possible_dbt_project_paths = [
-        # First check working directory (for Dagster Cloud with copied dbt_project)
         Path.cwd() / "dbt_project",
-        # Then check repo root (for local dev)
         repo_root / "dbt_project",
-        # Also check parent of working directory
         Path.cwd().parent / "dbt_project",
     ]
 
@@ -70,7 +58,6 @@ else:
             break
 
     if dbt_project_dir is None:
-        # Provide helpful error with actual paths tried
         tried_paths = [str(p.resolve()) for p in possible_dbt_project_paths]
         raise FileNotFoundError(
             f"Could not find dbt_project directory.\n"

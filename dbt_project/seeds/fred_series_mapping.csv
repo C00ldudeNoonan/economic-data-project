@@ -1,66 +1,149 @@
 code,series_name,category
-BAMLH0A0HYM2,High Yield Bond Rate,Growth
-DJIA,Dow Jones Industrial Average,Growth
-DFF,Federal Funds Effective Rate,Inflation
-MORTGAGE30US,30 year Mortgage Rate,Growth
-USAUCSFRCONDOSMSAMID,Zillow Housing Index,Inflation
-DTWEXBGS,Dollar Index,Inflation
-DGS10,10 year Treasury Rate,Growth
-USCONS,All Employees: Construction,Growth
-LFWA64TTUSM647S,Working-Age Population Total: From 15 to 64 Years,Growth
-EXHOSLUSM495S,Existing Home Sales,Growth
-MDSP,Mortgage Debt Service Payments as a Percent of Disposable Personal Income,Growth
-MSPUS,Median Sales Price of Houses Sold for the United States,Inflation
+A191RL1Q225SBEA,Real Gross Domestic Product Percent Change from Preceding Period,Growth
+A939RX0Q048SBEA,Real Gross Domestic Product Per Capita,Growth
+AAA10Y,Moody's Seasoned Aaa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity,Growth
+AHETPI,"Average Hourly Earnings of Production and Nonsupervisory Employees, Total Private",Growth
+BAA10Y,Moody's Seasoned Baa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity,Growth
+BAMLC0A0CM,ICE BofA US Corporate Index Option-Adjusted Spread,Growth
+BAMLH0A0HYM2,ICE BofA US High Yield Index Option-Adjusted Spread,Growth
+BOPGSTB,"Trade Balance: Goods and Services, Balance of Payments Basis",Growth
+BPEA,Business Outlook Survey: General Business Conditions,Growth
+BUSLOANS,"Commercial and Industrial Loans, All Commercial Banks",Growth
+CAPUTLG2211S,Capacity Utilization: Manufacturing,Growth
 CDSP,Consumer Debt Service Payments as a Percent of Disposable Personal Income,Growth
-MEDDAYONMARUS,Median Days on The Market,Growth
-MEDLISPRIPERSQUFEEUS,Median Listing Price per Square Feet in the United States,Inflation
-WPUIP2311102,Producer Price Index by Commodity: Inputs to Industries: Net Inputs to Single Family Residential Construction - Services,Inflation
-TTLHH,Total Households,Growth
-TTLFHH,Total Family Households,Growth
-TTLHHM156N,Household Estimates,Growth
-T4232MM157NCEN,Merchant Wholesalers- Except Manufacturers' Sales Branches and Offices: Durable Goods: Furniture and Home Furnishings Inventories,Growth
-MEHOINUSA672N,Real Median Household Income in the United States,Growth
+CE16OV,Employment Level,Growth
+CFNAI,Chicago Fed National Activity Index,Growth
+CFNAIDIFF,Chicago Fed National Activity Index: Diffusion Index,Growth
+CFNAIMA3,Chicago Fed National Activity Index: Three-Month Moving Average,Growth
+CIVPART,Labor Force Participation Rate,Growth
+COMPUTSA,New Private Housing Units Under Construction,Growth
+CORESTICKM159SFRBATL,Sticky Price Consumer Price Index less Food and Energy,Inflation
+CPIAUCNS,Consumer Price Index for All Urban Consumers All Items in US City Average Not Seasonally Adjusted,Inflation
+CPIAUCSL,Consumer Price Index for All Urban Consumers: All Items,Inflation
+CPIENGSL,Consumer Price Index for All Urban Consumers: Energy,Inflation
+CPIFABSL,Consumer Price Index for All Urban Consumers: Food and Beverages,Inflation
+CPILFENS,Consumer Price Index for All Urban Consumers All Items Less Food and Energy in US City Average Not Seasonally Adjusted,Inflation
+CPILFESL,Consumer Price Index for All Urban Consumers: All Items Less Food and Energy,Inflation
+CSCICP03USM665S,Consumer Opinion Surveys: Confidence Indicators: Composite Indicators: OECD Indicator for the United States,Growth
+CSUSHPISA,S&P/Case-Shiller U.S. National Home Price Index,Growth
+CUSR0000SA0L2,Consumer Price Index for All Urban Consumers All Items Less Shelter in US City Average Seasonally Adjusted,Inflation
+CUSR0000SACL1E,Consumer Price Index for All Urban Consumers Commodities Less Food and Energy Commodities in US City Average Seasonally Adjusted,Inflation
+CUSR0000SAH1,Consumer Price Index for All Urban Consumers Shelter in US City Average Seasonally Adjusted,Inflation
+CUSR0000SASLE,Consumer Price Index for All Urban Consumers Services Less Energy Services in US City Average Seasonally Adjusted,Inflation
+DFF,Federal Funds Effective Rate,Growth
+DGS10,10 year Treasury Rate,Growth
+DJIA,Dow Jones Industrial Average,Growth
+DRTSCILM,Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to Large and Medium Firms,Growth
+DRTSCIS,Net Percentage of Domestic Banks Tightening Standards for Commercial and Industrial Loans to Small Firms,Growth
+DSPIC96,Real Disposable Personal Income,Growth
+DTWEXAFEGS,Nominal Advanced Foreign Economies U.S. Dollar Index,Growth
+DTWEXBGS,Nominal Broad U.S. Dollar Index,Growth
+DTWEXEMEGS,Nominal Emerging Markets U.S. Dollar Index,Growth
+ECICONWAG,Employment Cost Index Wages and Salaries Private Industry Workers Construction Seasonally Adjusted,Inflation
+ECIMANWAG,Employment Cost Index Wages and Salaries Private Industry Workers Manufacturing Seasonally Adjusted,Inflation
+ECIWAG,Employment Cost Index Wages and Salaries Private Industry Workers Seasonally Adjusted,Inflation
+EMRATIO,Employment-Population Ratio,Growth
+EXCHUS,China / U.S. Foreign Exchange Rate,Growth
+EXHOSLUSM495S,Existing Home Sales,Growth
+EXJPUS,Japan / U.S. Foreign Exchange Rate,Growth
+EXPGS,Exports of Goods and Services,Growth
+EXUSEU,U.S. / Euro Foreign Exchange Rate,Growth
+EXUSUK,U.S. / U.K. Foreign Exchange Rate,Growth
+FEDFUNDS,Effective Federal Funds Rate,Growth
+GACDISA066MSFRBNY,Empire State Manufacturing Survey: General Business Conditions,Growth
 GDP,Gross Domestic Product,Growth
 GDPC1,Real Gross Domestic Product,Growth
-A939RX0Q048SBEA,Real Gross Domestic Product per Capita,Growth
-A191RL1Q225SBEA,Real Gross Domestic Product Percent Change from Preceding Period,Growth
-PAYEMS,All Employees Total Nonfarm,Growth
-MANEMP,All Employees Manufacturing,Growth
-CE16OV,Employment Level,Growth
-INDPRO,Industrial Production Total Index,Growth
+GDPC96,Real Gross Domestic Product (Seasonally Adjusted Annual Rate),Growth
+GDPDEF,Gross Domestic Product: Implicit Price Deflator,Growth
+GDPPOT,Real Potential Gross Domestic Product,Growth
+GPDI,Gross Private Domestic Investment,Growth
+HOUST,Housing Starts: Total: New Privately Owned Housing Units Started,Growth
+HOUST1F,New Privately-Owned Housing Units Started: Single-Family Units,Growth
+ICSA,Initial Claims,Growth
+ICSA4WMA,4-Week Moving Average of Initial Claims,Growth
+IMPGS,Imports of Goods and Services,Growth
+INDPRO,Industrial Production Index,Growth
 IPMAN,Industrial Production Manufacturing NAICS,Growth
-TCU,Capacity Utilization Total Index,Growth
-OPHNFB,Nonfarm Business Sector Labor Productivity Output per Hour for All Workers,Growth
-PRS85006091,Nonfarm Business Sector Labor Productivity Output per Hour for All Workers,Growth
-PRS84006091,Business Sector Labor Productivity Output per Hour for All Workers,Growth
+JTSJOL,Job Openings: Total Nonfarm,Growth
+JTSQUR,Job Openings and Labor Turnover Survey: Quits Rate,Growth
+LFWA64TTUSM647S,Working-Age Population Total: From 15 to 64 Years,Growth
+M1SL,M1 Money Stock,Growth
+M2SL,M2 Money Stock,Growth
+MANEMP,All Employees Manufacturing,Growth
+MDSP,Mortgage Debt Service Payments as a Percent of Disposable Personal Income,Growth
+MEDCPIM158SFRBCLE,Median Consumer Price Index,Inflation
+MEDDAYONMARUS,Median Days on The Market,Growth
+MEDLISPRIPERSQUFEEUS,Median Listing Price per Square Feet in the United States,Inflation
+MEHOINUSA672N,Real Median Household Income in the United States,Growth
+MORTGAGE15US,15-Year Fixed Rate Mortgage Average in the United States,Growth
+MORTGAGE30US,30-Year Fixed Rate Mortgage Average in the United States,Growth
+MSACSR,Monthly Supply of New Houses in the United States,Growth
+MSPUS,Median Sales Price of Houses Sold for the United States,Inflation
+NAPM,ISM Manufacturing: PMI Composite Index,Growth
+NAPMEI,ISM Manufacturing: Employment Index,Growth
+NAPMII,ISM Manufacturing: Inventories Index,Growth
+NAPMNOI,ISM Manufacturing: New Orders Index,Growth
+NAPMPRI,ISM Manufacturing: Prices Index,Growth
+NAPMSDI,ISM Manufacturing: Supplier Deliveries Index,Growth
+NFCI,Chicago Fed National Financial Conditions Index,Growth
+NFCICREDIT,Chicago Fed National Financial Conditions Credit Subindex,Growth
+NFCINONFINLEVERAGE,Chicago Fed National Financial Conditions Non-Financial Leverage Subindex,Growth
+NHSDPTS,New Home Sales in the United States,Growth
+NYGDPMKTPCDWLD,"GDP per capita, PPP (current international $)",Growth
 OPHMFG,Manufacturing Sector Labor Productivity Output per Hour for All Workers,Growth
+OPHNFB,Nonfarm Business Sector Labor Productivity Output per Hour for All Workers,Growth
+PAYEMS,"All Employees, Total Nonfarm",Growth
+PCE,Personal Consumption Expenditures,Growth
 PCEC96,Real Personal Consumption Expenditures,Growth
 PCECC96,Real Personal Consumption Expenditures,Growth
-GPDI,Gross Private Domestic Investment,Growth
-RSXFS,Advance Retail Sales Retail Trade,Growth
-RRSFS,Advance Real Retail and Food Services Sales,Growth
-BOPGSTB,Trade Balance Goods and Services Balance of Payments Basis,Growth
-TTLCONS,Total Construction Spending Total Construction in the United States,Growth
-CPIAUCSL,Consumer Price Index for All Urban Consumers All Items in US City Average Seasonally Adjusted,Inflation
-CPIAUCNS,Consumer Price Index for All Urban Consumers All Items in US City Average Not Seasonally Adjusted,Inflation
-CPILFESL,Consumer Price Index for All Urban Consumers All Items Less Food and Energy in US City Average Seasonally Adjusted,Inflation
-CPILFENS,Consumer Price Index for All Urban Consumers All Items Less Food and Energy in US City Average Not Seasonally Adjusted,Inflation
-PCEPI,Personal Consumption Expenditures Chain-type Price Index,Inflation
-PCEPILFE,Personal Consumption Expenditures Excluding Food and Energy Chain-Type Price Index,Inflation
-MEDCPIM158SFRBCLE,Median Consumer Price Index,Inflation
+PCEDG,Personal Consumption Expenditures: Durable Goods,Growth
+PCEND,Personal Consumption Expenditures: Nondurable Goods,Growth
+PCEPI,Personal Consumption Expenditures: Chain-type Price Index,Inflation
+PCEPILFE,Personal Consumption Expenditures Excluding Food and Energy (Core PCE Price Index),Inflation
 PCETRIM12M159SFRBDAL,Trimmed Mean PCE Inflation Rate 12-month,Inflation
-STICKCPIM159SFRBATL,Sticky Price Consumer Price Index,Inflation
-CORESTICKM159SFRBATL,Sticky Price Consumer Price Index less Food and Energy,Inflation
-PPIFIS,Producer Price Index by Commodity Final Demand Seasonally Adjusted,Inflation
-PPIFID,Producer Price Index by Commodity Final Demand Not Seasonally Adjusted,Inflation
-PPIACO,Producer Price Index by Commodity All Commodities Not Seasonally Adjusted,Inflation
-WPU01,Producer Price Index by Commodity Farm Products Not Seasonally Adjusted,Inflation
 PCUOMFGOMFG,Producer Price Index by Industry Total Manufacturing Industries Not Seasonally Adjusted,Inflation
-CUSR0000SA0L2,Consumer Price Index for All Urban Consumers All Items Less Shelter in US City Average Seasonally Adjusted,Inflation
-CUSR0000SAH1,Consumer Price Index for All Urban Consumers Shelter in US City Average Seasonally Adjusted,Inflation
-CUSR0000SACL1E,Consumer Price Index for All Urban Consumers Commodities Less Food and Energy Commodities in US City Average Seasonally Adjusted,Inflation
-CUSR0000SASLE,Consumer Price Index for All Urban Consumers Services Less Energy Services in US City Average Seasonally Adjusted,Inflation
+PERMIT,New Private Housing Units Authorized by Building Permits,Growth
+PI,Personal Income,Growth
+PPIACO,Producer Price Index by Commodity: All Commodities,Inflation
+PPIFID,Producer Price Index by Commodity Final Demand Not Seasonally Adjusted,Inflation
+PPIFIS,Producer Price Index by Commodity Final Demand Seasonally Adjusted,Inflation
+PRS84006091,Business Sector Labor Productivity Output per Hour for All Workers,Growth
+PRS85006091,Nonfarm Business Sector Labor Productivity Output per Hour for All Workers,Growth
+PSAVERT,Personal Saving Rate,Growth
+RHORUSQ156N,Homeownership Rate in the United States,Growth
+RRSFS,Advance Real Retail and Food Services Sales,Growth
+RSXFS,"Advance Retail Sales: Retail and Food Services, Total",Growth
+SP500,S&P 500,Growth
+STICKCPIM159SFRBATL,Sticky Price Consumer Price Index,Inflation
 STICKCPIXSHLTRM159SFRBATL,Sticky Price Consumer Price Index less Shelter,Inflation
-ECIWAG,Employment Cost Index Wages and Salaries Private Industry Workers Seasonally Adjusted,Inflation
-ECIMANWAG,Employment Cost Index Wages and Salaries Private Industry Workers Manufacturing Seasonally Adjusted,Inflation
-ECICONWAG,Employment Cost Index Wages and Salaries Private Industry Workers Construction Seasonally Adjusted,Inflation
+T10Y2Y,10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity,Growth
+T10Y3M,10-Year Treasury Constant Maturity Minus 3-Month Treasury Constant Maturity,Growth
+T10YIE,10-Year Breakeven Inflation Rate,Inflation
+T4232MM157NCEN,Merchant Wholesalers- Except Manufacturers' Sales Branches and Offices: Durable Goods: Furniture and Home Furnishings Inventories,Growth
+T5YIE,5-Year Breakeven Inflation Rate,Inflation
+T5YIFR,"5-Year, 5-Year Forward Inflation Expectation Rate",Inflation
+TB10YR,10-Year Treasury Constant Maturity Rate,Growth
+TB1YR,1-Year Treasury Constant Maturity Rate,Growth
+TB2YR,2-Year Treasury Constant Maturity Rate,Growth
+TB30YR,30-Year Treasury Constant Maturity Rate,Growth
+TB3MS,3-Month Treasury Constant Maturity Rate,Growth
+TB5YR,5-Year Treasury Constant Maturity Rate,Growth
+TB6MS,6-Month Treasury Constant Maturity Rate,Growth
+TCU,Capacity Utilization: Total Industry,Growth
+TEDRATE,TED Spread,Growth
+TOTALSL,Total Consumer Loans at All Commercial Banks,Growth
+TTLCONS,Total Construction Spending Total Construction in the United States,Growth
+TTLFHH,Total Family Households,Growth
+TTLHH,Total Households,Growth
+TTLHHM156N,Household Estimates,Growth
+U6RATE,"Total Unemployed, Plus All Marginally Attached Workers Plus Total Employed Part Time",Growth
+UMCSENT,University of Michigan: Consumer Sentiment,Growth
+UNEMPLOY,Unemployed,Growth
+UNRATE,Unemployment Rate,Growth
+USAUCSFRCONDOSMSAMID,Zillow Housing Index,Growth
+USCONS,All Employees: Construction,Growth
+USPHCI,Recession Probabilities,Growth
+USSLIND,Leading Index for the United States,Growth
+VIXCLS,CBOE Volatility Index: VIX,Growth
+WPU01,Producer Price Index by Commodity Farm Products Not Seasonally Adjusted,Inflation
+WPUIP2311102,Producer Price Index by Commodity: Inputs to Industries: Net Inputs to Single Family Residential Construction - Services,Inflation

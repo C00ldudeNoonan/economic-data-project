@@ -1,77 +1,48 @@
 import dagster as dg
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.resources.fred import FredResource
-
-
-fred_series_partition = dg.StaticPartitionsDefinition(
-    [
-        "BAMLH0A0HYM2",
-        "DJIA",
-        "DFF",
-        "MORTGAGE30US",
-        "USAUCSFRCONDOSMSAMID",
-        "DTWEXBGS",
-        "DGS10",
-        "USCONS",
-        "LFWA64TTUSM647S",
-        "EXHOSLUSM495S",
-        "MDSP",
-        "MSPUS",
-        "CDSP",
-        "MEDDAYONMARUS",
-        "MEDLISPRIPERSQUFEEUS",
-        "WPUIP2311102",
-        "TTLHH",
-        "TTLFHH",
-        "TTLHHM156N",
-        "T4232MM157NCEN",
-        "MEHOINUSA672N",
-        "GDP",
-        "GDPC1",
-        "A939RX0Q048SBEA",
-        "A191RL1Q225SBEA",
-        "PAYEMS",
-        "MANEMP",
-        "CE16OV",
-        "INDPRO",
-        "IPMAN",
-        "TCU",
-        "OPHNFB",
-        "PRS85006091",
-        "PRS84006091",
-        "OPHMFG",
-        "PCEC96",
-        "PCECC96",
-        "GPDI",
-        "RSXFS",
-        "RRSFS",
-        "BOPGSTB",
-        "TTLCONS",
-        "CPIAUCSL",
-        "CPIAUCNS",
-        "CPILFESL",
-        "CPILFENS",
-        "PCEPI",
-        "PCEPILFE",
-        "MEDCPIM158SFRBCLE",
-        "PCETRIM12M159SFRBDAL",
-        "STICKCPIM159SFRBATL",
-        "CORESTICKM159SFRBATL",
-        "PPIFIS",
-        "PPIFID",
-        "PPIACO",
-        "WPU01",
-        "PCUOMFGOMFG",
-        "CUSR0000SA0L2",
-        "CUSR0000SAH1",
-        "CUSR0000SACL1E",
-        "CUSR0000SASLE",
-        "STICKCPIXSHLTRM159SFRBATL",
-        "ECIWAG",
-        "ECIMANWAG",
-        "ECICONWAG",
-    ]
+from macro_agents.defs.constants.fred_series_lists import (
+    labor_market_series,
+    inflation_series,
+    interest_rates_series,
+    money_credit_series,
+    gdp_production_series,
+    consumer_series,
+    housing_series,
+    trade_series,
+    financial_conditions_series,
+    leading_indicators_series,
+    regional_indicators_series,
 )
+
+
+# Combine all series lists and extract unique series codes
+_all_series_lists = [
+    labor_market_series,
+    inflation_series,
+    interest_rates_series,
+    money_credit_series,
+    gdp_production_series,
+    consumer_series,
+    housing_series,
+    trade_series,
+    financial_conditions_series,
+    leading_indicators_series,
+    regional_indicators_series,
+]
+
+# Extract series codes (first element of each tuple) and deduplicate
+_all_series_codes = []
+for series_list in _all_series_lists:
+    for series_tuple in series_list:
+        series_code = series_tuple[0]
+        if series_code not in _all_series_codes:
+            _all_series_codes.append(series_code)
+
+# Sort for consistency
+_all_series_codes.sort()
+
+fred_series_partition = dg.StaticPartitionsDefinition(_all_series_codes)
 
 
 @dg.asset(
