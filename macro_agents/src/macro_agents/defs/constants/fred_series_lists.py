@@ -45,23 +45,7 @@ inflation_series = [
 # Interest Rates & Yield Curve
 interest_rates_series = [
     ("FEDFUNDS", "Effective Federal Funds Rate"),
-    ("DFF", "Federal Funds Effective Rate"),  # ADDED: Alternative Fed Funds Rate
-    ("TB3MS", "3-Month Treasury Constant Maturity Rate"),
-    ("TB6MS", "6-Month Treasury Constant Maturity Rate"),
-    ("TB1YR", "1-Year Treasury Constant Maturity Rate"),
-    ("TB2YR", "2-Year Treasury Constant Maturity Rate"),
-    ("TB5YR", "5-Year Treasury Constant Maturity Rate"),
-    ("TB10YR", "10-Year Treasury Constant Maturity Rate"),
-    ("DGS10", "10 year Treasury Rate"),  # ADDED: Alternative 10-Year Treasury Rate
-    ("TB30YR", "30-Year Treasury Constant Maturity Rate"),
-    (
-        "T10Y2Y",
-        "10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity",
-    ),
-    (
-        "T10Y3M",
-        "10-Year Treasury Constant Maturity Minus 3-Month Treasury Constant Maturity",
-    ),
+    ("DFF", "Federal Funds Effective Rate"),  
 ]
 
 # Money Supply & Credit
@@ -194,7 +178,6 @@ leading_indicators_series = [
         "AHETPI",
         "Average Hourly Earnings of Production and Nonsupervisory Employees, Total Private",
     ),
-    ("ICSA4WMA", "4-Week Moving Average of Initial Claims"),
     ("PAYEMS", "All Employees, Total Nonfarm"),
     ("HOUST", "Housing Starts: Total: New Privately Owned Housing Units Started"),
     ("PERMIT", "New Private Housing Units Authorized by Building Permits"),
@@ -211,12 +194,5 @@ regional_indicators_series = [
         "GACDISA066MSFRBNY",
         "Empire State Manufacturing Survey: General Business Conditions",
     ),
-    ("BPEA", "Business Outlook Survey: General Business Conditions"),
     ("USPHCI", "Recession Probabilities"),
-    ("NAPM", "ISM Manufacturing: PMI Composite Index"),
-    ("NAPMPRI", "ISM Manufacturing: Prices Index"),
-    ("NAPMEI", "ISM Manufacturing: Employment Index"),
-    ("NAPMII", "ISM Manufacturing: Inventories Index"),
-    ("NAPMNOI", "ISM Manufacturing: New Orders Index"),
-    ("NAPMSDI", "ISM Manufacturing: Supplier Deliveries Index"),
 ]

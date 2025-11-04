@@ -41,11 +41,11 @@ CURRENCY_ETFS = [
 # Energy commodities (requires premium plan)
 ENERGY_COMMODITIES = [
     "brent",
-    "crude oil",
+    "crude_oil",
     "gasoline",
     "coal",
-    "heating oil",
-    "natural gas",
+    "heating_oil",
+    "natural_gas",
 ]
 
 # Industrial input commodities (requires premium plan)
@@ -77,12 +77,12 @@ AGRICULTURE_COMMODITIES = [
     "corn",
     "wheat",
     "soybeans",
-    "feeder cattle",
-    "live cattle",
+    "feeder_cattle",
+    "live_cattle",
     "sugar",
     "cotton",
     "poultry",
-    "eggs us",
+    "eggs_us",
 ]
 
 # Global market ETFs
