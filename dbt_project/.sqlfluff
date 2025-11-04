@@ -1,9 +1,6 @@
 [sqlfluff]
 dialect = duckdb
-templater = dbt
+# Note: templater setting must be in root .sqlfluff file, not in subdirectories
 
-[sqlfluff:templater:dbt]
-project_dir = .
-profiles_dir = .
-profile = econ_database
+# Additional SQLFluff rules can be specified here if needed
 

@@ -278,7 +278,7 @@ def energy_commodities_raw(
 
     # Fetch data from MarketStack API
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
-    
+
     # Log DataFrame info for debugging
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
     if df.shape[0] > 0:
@@ -320,7 +320,7 @@ def input_commodities_raw(
     )
 
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
-    
+
     # Log DataFrame info for debugging
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
     if df.shape[0] > 0:
@@ -362,7 +362,7 @@ def agriculture_commodities_raw(
     )
 
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
-    
+
     # Log DataFrame info for debugging
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
     if df.shape[0] > 0:

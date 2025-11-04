@@ -5,9 +5,9 @@
 SELECT
     commodity_name,
     commodity_unit,
-    CAST(commodity_price AS DECIMAL) AS price,
-    CAST(date AS date) AS date
+    cast(commodity_price AS decimal) AS price,
+    cast(date AS date) AS date
 FROM {{ source('staging', 'energy_commodities_raw') }}
-WHERE commodity_price IS NOT NULL
-  AND date IS NOT NULL
-
+WHERE
+    commodity_price IS NOT NULL
+    AND date IS NOT NULL

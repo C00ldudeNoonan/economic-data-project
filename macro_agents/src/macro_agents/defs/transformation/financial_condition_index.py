@@ -259,6 +259,49 @@ def fetch_financial_data(motherduck_resource: MotherDuckResource) -> pl.DataFram
     return merged_df
 
 
+def load_fci_weights(motherduck_resource: MotherDuckResource) -> Dict[str, List[float]]:
+    """
+    Load FCI weights from the fci_weights_config table.
+
+    Returns:
+        Dictionary with component names as keys and weight lists as values
+    """
+    query = """
+    SELECT 
+        period,
+        FFR,
+        "10yr",
+        mortgage,
+        tripleb,
+        equity,
+        housing,
+        dollar
+    FROM fci_weights_config
+    ORDER BY period
+    """
+
+    weights_df = motherduck_resource.execute_query(query, read_only=True)
+
+    if len(weights_df) == 0:
+        raise ValueError(
+            "No weights found in fci_weights_config table. Make sure fci_weights_config asset is materialized."
+        )
+
+    # Convert DataFrame to dictionary format expected by calculate_fci_scores
+    weights_dict = {
+        "period": weights_df["period"].to_list(),
+        "FFR": weights_df["FFR"].to_list(),
+        "10yr": weights_df["10yr"].to_list(),
+        "mortgage": weights_df["mortgage"].to_list(),
+        "tripleb": weights_df["tripleb"].to_list(),
+        "equity": weights_df["equity"].to_list(),
+        "housing": weights_df["housing"].to_list(),
+        "dollar": weights_df["dollar"].to_list(),
+    }
+
+    return weights_dict
+
+
 def calculate_weighted_score(values: List[float], weights: List[float]) -> float:
     """
     Calculate weighted score using the provided weights.
@@ -339,13 +382,8 @@ def calculate_fci_scores(
 @dg.asset(
     kinds={"duckdb"},
     group_name="transformation",
-    deps=[dg.AssetKey(["stg_fred_series"])],
+    deps=[dg.AssetKey(["stg_fred_series"]), dg.AssetKey(["fci_weights_config"])],
     description="Financial Conditions Index calculated from FRED economic indicators using weighted rolling windows",
-    tags={
-        "schedule": "daily",
-        "execution_time": "weekdays_6am_est",
-        "analysis_type": "financial_index",
-    },
 )
 def financial_conditions_index(
     context: dg.AssetExecutionContext,
@@ -366,7 +404,9 @@ def financial_conditions_index(
     Each component is weighted using a 12-month rolling window with specific weights
     to create a comprehensive measure of financial market conditions.
 
-    This asset depends on the dbt model 'stg_fred_series' to be materialized first.
+    This asset depends on:
+    - The dbt model 'stg_fred_series' to be materialized first
+    - The 'fci_weights_config' asset to provide the weighting scheme
 
     Returns:
         MaterializeResult with metadata about the FCI calculation
@@ -374,115 +414,10 @@ def financial_conditions_index(
     context.log.info("Starting Financial Conditions Index calculation...")
 
     try:
-        # Define the weights for FCI calculation
-        weights = {
-            "period": list(range(4, 17)),
-            "FFR": [
-                0.099943944,
-                0.068578534,
-                0.050928985,
-                0.030388756,
-                0.025687511,
-                0.020009094,
-                0.015811759,
-                0.011351882,
-                0.007392853,
-                0.003964395,
-                0.001711082,
-                0.000393424,
-                0.000128902,
-            ],
-            "10yr": [
-                -0.008148666,
-                -0.014000342,
-                -0.018387348,
-                -0.021524343,
-                -0.023217226,
-                -0.024365968,
-                -0.025223595,
-                -0.025907416,
-                -0.026403294,
-                -0.02669953,
-                -0.020122033,
-                -0.013446104,
-                -0.006723265,
-            ],
-            "mortgage": [
-                0.217427793,
-                0.14524869,
-                0.119052555,
-                0.077495153,
-                0.062434293,
-                0.045143184,
-                0.03369689,
-                0.02483504,
-                0.018457125,
-                0.013733173,
-                0.008657804,
-                0.004898748,
-                0.002101614,
-            ],
-            "tripleb": [
-                0.079267719,
-                0.091179148,
-                0.098643896,
-                0.100472542,
-                0.10064806,
-                0.099579542,
-                0.097660772,
-                0.09535261,
-                0.092766486,
-                0.090084434,
-                0.066538625,
-                0.043675043,
-                0.021503906,
-            ],
-            "equity": [
-                -0.021318565,
-                -0.020215983,
-                -0.018436156,
-                -0.016157903,
-                -0.014443706,
-                -0.01302431,
-                -0.011752768,
-                -0.010660868,
-                -0.009703574,
-                -0.008865985,
-                -0.006342937,
-                -0.004042458,
-                -0.001937252,
-            ],
-            "housing": [
-                -0.03222844,
-                -0.031273991,
-                -0.029701866,
-                -0.026759405,
-                -0.019779925,
-                -0.013423982,
-                -0.006051851,
-                0.000769171,
-                0.004236312,
-                0.006672419,
-                0.007860665,
-                0.008861208,
-                0.009192217,
-            ],
-            "dollar": [
-                0.048,
-                0.048,
-                0.045,
-                0.039,
-                0.031,
-                0.023,
-                0.017,
-                0.012,
-                0.008,
-                0.005,
-                0.002,
-                0,
-                0,
-            ],
-        }
+        # Load weights from fci_weights_config table
+        context.log.info("Loading FCI weights from fci_weights_config table...")
+        weights = load_fci_weights(md)
+        context.log.info(f"Loaded weights for {len(weights.get('period', []))} periods")
 
         context.log.info("Fetching financial data from stg_fred_series...")
 

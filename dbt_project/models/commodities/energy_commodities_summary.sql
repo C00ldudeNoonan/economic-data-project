@@ -15,10 +15,11 @@ WITH base_data AS (
         ) AS price_change,
         -- Calculate percentage changes
         CASE
-            WHEN LAG(price) OVER (
-                PARTITION BY commodity_name
-                ORDER BY date
-            ) > 0
+            WHEN
+                LAG(price) OVER (
+                    PARTITION BY commodity_name
+                    ORDER BY date
+                ) > 0
                 THEN (
                     (price - LAG(price) OVER (
                         PARTITION BY commodity_name
@@ -32,9 +33,10 @@ WITH base_data AS (
                 * 100
         END AS pct_change
     FROM {{ ref('stg_energy_commodities') }}
-    WHERE price IS NOT NULL
-      AND date IS NOT NULL
-      AND price > 0
+    WHERE
+        price IS NOT NULL
+        AND date IS NOT NULL
+        AND price > 0
 ),
 
 -- Define date boundaries for different periods
@@ -60,8 +62,9 @@ filtered_data AS (
         END AS time_period
     FROM base_data AS bd
     CROSS JOIN date_boundaries AS db
-    WHERE bd.trade_date >= db.five_years_ago
-      AND bd.price_change IS NOT NULL
+    WHERE
+        bd.trade_date >= db.five_years_ago
+        AND bd.price_change IS NOT NULL
 ),
 
 -- Get first and last prices for each period
@@ -138,11 +141,13 @@ combined_results AS (
         ep.period_end_price
     FROM aggregated_results AS ar
     LEFT JOIN start_prices AS sp
-        ON ar.commodity_name = sp.commodity_name
-        AND ar.time_period = sp.time_period
+        ON
+            ar.commodity_name = sp.commodity_name
+            AND ar.time_period = sp.time_period
     LEFT JOIN end_prices AS ep
-        ON ar.commodity_name = ep.commodity_name
-        AND ar.time_period = ep.time_period
+        ON
+            ar.commodity_name = ep.commodity_name
+            AND ar.time_period = ep.time_period
 ),
 
 -- Calculate final metrics
@@ -188,4 +193,3 @@ SELECT
     ROUND(period_end_price, 2) AS period_end_price
 FROM final_metrics
 ORDER BY time_period, commodity_name
-

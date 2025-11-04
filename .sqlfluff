@@ -1,0 +1,16 @@
+[sqlfluff]
+dialect = duckdb
+templater = dbt
+# Allow longer lines for complex SQL (default is 80)
+max_line_length = 120
+
+[sqlfluff:templater:dbt]
+project_dir = dbt_project
+profiles_dir = dbt_project
+profile = econ_database
+
+[sqlfluff:rules:layout.long_lines]
+# Ignore long lines in comments and certain clauses
+ignore_comment_lines = True
+ignore_comment_clauses = True
+

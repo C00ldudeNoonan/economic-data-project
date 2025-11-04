@@ -109,4 +109,3 @@ SELECT
     ) AS pct_change_q4_forward
 FROM with_forward_quarters
 ORDER BY commodity_name, commodity_unit, month_date
-
