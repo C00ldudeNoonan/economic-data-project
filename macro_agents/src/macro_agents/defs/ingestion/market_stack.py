@@ -9,11 +9,14 @@ from macro_agents.defs.constants.market_stack_constants import (
     MAJOR_INDICES_TICKERS,
     FIXED_INCOME_ETFS,
     GLOBAL_MARKETS,
+    ENERGY_COMMODITIES,
+    INPUT_COMMODITIES,
+    AGRICULTURE_COMMODITIES,
 )
 from macro_agents.defs.resources.market_stack import MarketStackResource
 
 
-weekly_partitions = dg.WeeklyPartitionsDefinition(start_date="2020-01-01")
+weekly_partitions = dg.WeeklyPartitionsDefinition(start_date="2012-01-01")
 
 us_sector_etfs_static = dg.StaticPartitionsDefinition(US_SECTOR_ETFS)
 currency_etfs_static = dg.StaticPartitionsDefinition(CURRENCY_ETFS)
@@ -40,6 +43,23 @@ fixed_income_etfs_partitions = dg.MultiPartitionsDefinition(
 
 global_markets_partitions = dg.MultiPartitionsDefinition(
     {"ticker": global_markets_static, "date": weekly_partitions}
+)
+
+# Commodities partitions
+energy_commodities_static = dg.StaticPartitionsDefinition(ENERGY_COMMODITIES)
+input_commodities_static = dg.StaticPartitionsDefinition(INPUT_COMMODITIES)
+agriculture_commodities_static = dg.StaticPartitionsDefinition(AGRICULTURE_COMMODITIES)
+
+energy_commodities_partitions = dg.MultiPartitionsDefinition(
+    {"commodity": energy_commodities_static, "date": weekly_partitions}
+)
+
+input_commodities_partitions = dg.MultiPartitionsDefinition(
+    {"commodity": input_commodities_static, "date": weekly_partitions}
+)
+
+agriculture_commodities_partitions = dg.MultiPartitionsDefinition(
+    {"commodity": agriculture_commodities_static, "date": weekly_partitions}
 )
 
 
@@ -160,7 +180,6 @@ def major_indices_raw(
     )
 
 
-# Fixed Income ETFs Asset
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
@@ -227,6 +246,136 @@ def global_markets_raw(
         metadata={
             "rows": df.shape[0],
             "ticker": ticker,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
+
+
+# Energy Commodities Asset
+@dg.asset(
+    group_name="ingestion",
+    kinds={"polars", "duckdb"},
+    partitions_def=energy_commodities_partitions,
+    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
+    description="Raw data from MarketStack API for Energy Commodities",
+)
+def energy_commodities_raw(
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    marketstack: MarketStackResource,
+) -> dg.MaterializeResult:
+    # Extract partition dimensions
+    commodity = context.partition_key.keys_by_dimension["commodity"]
+    date_partition = context.partition_key.keys_by_dimension["date"]
+
+    # Get week start and end dates
+    start_date, end_date = get_week_dates(date_partition)
+
+    context.log.info(
+        f"Fetching data for commodity: {commodity}, week: {start_date} to {end_date}"
+    )
+
+    # Fetch data from MarketStack API
+    df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
+    
+    # Log DataFrame info for debugging
+    context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
+    if df.shape[0] > 0:
+        context.log.info(f"DataFrame columns: {df.columns}")
+        context.log.info(f"DataFrame head:\n{df.head()}")
+        md.upsert_data("energy_commodities_raw", df, ["commodity_name", "date"])
+    else:
+        context.log.warning(f"No data returned for commodity: {commodity}")
+
+    return dg.MaterializeResult(
+        metadata={
+            "rows": df.shape[0],
+            "commodity": commodity,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
+
+
+# Input Commodities Asset
+@dg.asset(
+    group_name="ingestion",
+    kinds={"polars", "duckdb"},
+    partitions_def=input_commodities_partitions,
+    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
+    description="Raw data from MarketStack API for Input/Industrial Commodities",
+)
+def input_commodities_raw(
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    marketstack: MarketStackResource,
+) -> dg.MaterializeResult:
+    commodity = context.partition_key.keys_by_dimension["commodity"]
+    date_partition = context.partition_key.keys_by_dimension["date"]
+    start_date, end_date = get_week_dates(date_partition)
+
+    context.log.info(
+        f"Fetching data for commodity: {commodity}, week: {start_date} to {end_date}"
+    )
+
+    df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
+    
+    # Log DataFrame info for debugging
+    context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
+    if df.shape[0] > 0:
+        context.log.info(f"DataFrame columns: {df.columns}")
+        context.log.info(f"DataFrame head:\n{df.head()}")
+        md.upsert_data("input_commodities_raw", df, ["commodity_name", "date"])
+    else:
+        context.log.warning(f"No data returned for commodity: {commodity}")
+
+    return dg.MaterializeResult(
+        metadata={
+            "rows": df.shape[0],
+            "commodity": commodity,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
+
+
+# Agriculture Commodities Asset
+@dg.asset(
+    group_name="ingestion",
+    kinds={"polars", "duckdb"},
+    partitions_def=agriculture_commodities_partitions,
+    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
+    description="Raw data from MarketStack API for Agricultural Commodities",
+)
+def agriculture_commodities_raw(
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    marketstack: MarketStackResource,
+) -> dg.MaterializeResult:
+    commodity = context.partition_key.keys_by_dimension["commodity"]
+    date_partition = context.partition_key.keys_by_dimension["date"]
+    start_date, end_date = get_week_dates(date_partition)
+
+    context.log.info(
+        f"Fetching data for commodity: {commodity}, week: {start_date} to {end_date}"
+    )
+
+    df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
+    
+    # Log DataFrame info for debugging
+    context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
+    if df.shape[0] > 0:
+        context.log.info(f"DataFrame columns: {df.columns}")
+        context.log.info(f"DataFrame head:\n{df.head()}")
+        md.upsert_data("agriculture_commodities_raw", df, ["commodity_name", "date"])
+    else:
+        context.log.warning(f"No data returned for commodity: {commodity}")
+
+    return dg.MaterializeResult(
+        metadata={
+            "rows": df.shape[0],
+            "commodity": commodity,
             "start_date": start_date,
             "end_date": end_date,
         }

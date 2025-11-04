@@ -22,3 +22,6 @@ sources:
       - name: major_indices_raw
       - name: fixed_income_etfs_raw
       - name: global_markets_raw
+      - name: energy_commodities_raw
+      - name: input_commodities_raw
+      - name: agriculture_commodities_raw
