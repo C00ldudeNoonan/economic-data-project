@@ -45,7 +45,7 @@ inflation_series = [
 # Interest Rates & Yield Curve
 interest_rates_series = [
     ("FEDFUNDS", "Effective Federal Funds Rate"),
-    ("DFF", "Federal Funds Effective Rate"),  
+    ("DFF", "Federal Funds Effective Rate"),
 ]
 
 # Money Supply & Credit
