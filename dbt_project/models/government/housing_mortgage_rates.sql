@@ -53,7 +53,7 @@ SELECT
     ) AS monthly_payment_no_down_payment
 FROM rate
 INNER JOIN price ON rate.date = price.date
-ORDER BY date ASC
+ORDER BY rate.date ASC
 
 
 -- median mortagate payment

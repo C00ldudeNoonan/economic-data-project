@@ -38,11 +38,11 @@ all_months AS (
     SELECT
         db.series_code,
         db.series_name,
-        db.month_date,
+        months.month_date,
         CONCAT(
-            EXTRACT(YEAR FROM db.month_date),
+            EXTRACT(YEAR FROM months.month_date),
             '-',
-            EXTRACT(MONTH FROM db.month_date)
+            EXTRACT(MONTH FROM months.month_date)
         ) AS year_month
     FROM date_bounds AS db
     CROSS JOIN (
@@ -54,7 +54,7 @@ all_months AS (
             )
         ) AS month_date
     ) AS months
-    WHERE db.month_date >= db.min_date AND db.month_date <= db.max_date
+    WHERE months.month_date >= db.min_date AND months.month_date <= db.max_date
 ),
 
 data_with_gaps AS (

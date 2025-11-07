@@ -60,7 +60,7 @@ INPUT_COMMODITIES = [
     "lumber",
     "titanium",
     "zinc",
-    "iron ore",
+    "iron_ore",
     "gallium",
     "germanium",
     "manganese",
