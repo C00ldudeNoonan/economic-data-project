@@ -1,7 +1,3 @@
-"""
-Scheduled execution configuration for economic analysis assets.
-"""
-
 import dagster as dg
 from dagster import ScheduleDefinition, DefaultSensorStatus
 from datetime import datetime
@@ -48,10 +44,6 @@ weekly_replication_schedule = ScheduleDefinition(
     job_name="weekly_replication_job",
     description="Weekly replication of tables from MotherDuck to BigQuery every Sunday at 2 AM EST",
 )
-
-# Note: weekly_ingestion_schedule removed because ingestion assets have incompatible
-# partition definitions. Use weekly_ingestion_sensor instead, which handles partition
-# selection dynamically for different asset types.
 
 
 def create_data_freshness_sensor():
@@ -205,7 +197,7 @@ def create_ingestion_sensor():
             # These don't have compatible partitions, so materialize them individually
             non_market_stack_assets = [
                 "fred_raw",
-                "bls_raw", 
+                "bls_raw",
                 "treasury_yields_raw",
                 "housing_inventory_raw",
                 "housing_pulse_raw",

@@ -13,148 +13,119 @@ streams:
   # Staging Models
   # ============================================
   main.stg_fred_series:
-    primary_key: "series_name,date"
+    primary_key: ["series_name", "date"]
   
   main.stg_housing_inventory:
-    primary_key: "date,region"
+    primary_key: ["time", "series_name"]
   
-  main.stg_housing_pulse:
-    primary_key: "date,region"
+#  main.stg_housing_pulse:
+    # primary_key: ["date", "region"]
   
   main.stg_treasury_yields:
-    primary_key: "date,maturity"
+    primary_key: ["date", "yield_type"]
   
   main.stg_us_sectors:
-    primary_key: "symbol,date"
+    primary_key: ["symbol", "date"]
   
   main.stg_currency:
-    primary_key: "symbol,date"
+    primary_key: ["symbol", "date"]
   
   main.stg_major_indices:
-    primary_key: "symbol,date"
+    primary_key: ["symbol", "date"]
   
   main.stg_fixed_income:
-    primary_key: "symbol,date"
+    primary_key: ["symbol", "date"]
   
   main.stg_global_markets:
-    primary_key: "symbol,date"
+    primary_key: ["symbol", "date"]
   
   main.stg_energy_commodities:
-    primary_key: "symbol,date"
+    primary_key: ["commodity_name", "date"]
   
   main.stg_input_commodities:
-    primary_key: "symbol,date"
+    primary_key: ["commodity_name", "date"]
   
   main.stg_agriculture_commodities:
-    primary_key: "symbol,date"
+    primary_key: ["commodity_name", "date"]
   
-  main.stg_realtor_country_history:
-    primary_key: "date,country"
-  
-  main.stg_realtor_county_history:
-    primary_key: "date,county"
-  
-  main.stg_realtor_metro_history:
-    primary_key: "date,metro"
-  
-  main.stg_realtor_state_history:
-    primary_key: "date,state"
-  
-  main.stg_realtor_zip_history:
-    primary_key: "date,zip_code"
-
   # ============================================
   # Government Models
   # ============================================
-  main.fred_series_grain:
-    primary_key: "series_name,date"
-  
+ 
   main.fred_series_latest_aggregates:
-    primary_key: "series_name"
+    primary_key: ["series_name", "month"]
   
   main.fred_monthly_diff:
-    primary_key: "series_name,date"
+    primary_key: ["series_name", "date"]
   
   main.fred_quarterly_roc:
-    primary_key: "series_name,date"
+    primary_key: ["series_name", "month_date"]
   
   main.housing_inventory:
-    primary_key: "date,region"
+    primary_key: ["time_date", "series_name"]
   
   main.housing_inventory_latest_aggregates:
-    primary_key: "region"
+    primary_key: ["series_name", "month"]
   
   main.housing_inventory_and_population:
-    primary_key: "date,region"
+    primary_key: ["time_date", "series_name"]
   
   main.housing_mortgage_rates:
-    primary_key: "date"
+    primary_key: ["date"]
 
   # ============================================
   # Markets Models
   # ============================================
   main.currency_summary:
-    primary_key: "symbol"
+    primary_key: ["symbol", "time_period"]
   
   main.currency_analysis_return:
-    primary_key: "symbol,month_date"
+    primary_key: ["symbol", "month_date"]
   
   main.us_sector_summary:
-    primary_key: "symbol"
+    primary_key: ["symbol", "time_period"]
   
   main.us_sector_analysis_return:
-    primary_key: "symbol,month_date"
+    primary_key: ["symbol", "month_date"]
   
   main.major_indicies_summary:
-    primary_key: "symbol"
+    primary_key: ["symbol", "time_period"]
   
   main.major_indicies_analysis_return:
-    primary_key: "symbol,month_date"
+    primary_key: ["symbol", "month_date"]
   
   main.fixed_income_analysis_return:
-    primary_key: "symbol,month_date"
+    primary_key: ["symbol", "month_date"]
   
   main.global_markets_summary:
-    primary_key: "symbol"
+    primary_key: ["symbol", "time_period"]
   
   main.global_markets_analysis_return:
-    primary_key: "symbol,month_date"
+    primary_key: ["symbol", "month_date"]
 
   # ============================================
   # Commodities Models
   # ============================================
   main.energy_commodities_summary:
-    primary_key: "symbol"
+    primary_key: ["commodity_name", "time_period"]
   
   main.energy_commodities_analysis_return:
-    primary_key: "symbol,month_date"
+    primary_key: ["commodity_name", "month_date"]
   
   main.input_commodities_summary:
-    primary_key: "symbol"
+    primary_key: ["commodity_name", "time_period"]
   
   main.input_commodities_analysis_return:
-    primary_key: "symbol,month_date"
+    primary_key: ["commodity_name", "month_date"]
   
   main.agriculture_commodities_summary:
-    primary_key: "symbol"
+    primary_key: ["commodity_name", "time_period"]
   
   main.agriculture_commodities_analysis_return:
-    primary_key: "symbol,month_date"
-
-  # ============================================
-  # Analysis Models
-  # ============================================
-  main.base_historical_analysis:
-    primary_key: "symbol,month_date,category"
-  
-  main.market_economic_analysis:
-    primary_key: "symbol,month_date"
-  
-  main.leading_econ_return_indicator:
-    primary_key: "date"
+    primary_key: ["commodity_name", "month_date"]
 
   # ============================================
   # Financial Conditions Index
   # ============================================
   main.financial_conditions_index:
-    primary_key: "date"
+    primary_key: ["date"]

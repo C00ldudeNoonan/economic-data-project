@@ -16,7 +16,9 @@ from macro_agents.defs.constants.market_stack_constants import (
 from macro_agents.defs.resources.market_stack import MarketStackResource
 
 
-monthly_partitions = dg.MonthlyPartitionsDefinition(start_date="2012-01-01", end_offset=1)
+monthly_partitions = dg.MonthlyPartitionsDefinition(
+    start_date="2012-01-01", end_offset=1
+)
 
 us_sector_etfs_static = dg.StaticPartitionsDefinition(US_SECTOR_ETFS)
 currency_etfs_static = dg.StaticPartitionsDefinition(CURRENCY_ETFS)
