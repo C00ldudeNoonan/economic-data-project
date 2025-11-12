@@ -1,8 +1,12 @@
 from pathlib import Path
+import os
+
+# Set GIT_PYTHON_REFRESH to quiet to suppress git executable errors in environments where git is not available
+# This is needed because dagster-dbt imports GitPython, which requires git to be in PATH
+os.environ.setdefault("GIT_PYTHON_REFRESH", "quiet")
 
 from dagster_dbt import DbtProject, dbt_assets, DbtCliResource, DagsterDbtTranslator
 import dagster as dg
-import os
 from typing import Any, Optional
 from collections.abc import Mapping
 
