@@ -15,6 +15,7 @@ env:
   ENABLE_FAST_DEPLOYS: 'true'
   PYTHON_VERSION: '3.10'
   DAGSTER_CLOUD_FILE: 'dagster_cloud.yaml'
+  MOTHERDUCK_PROD_SCHEMA: ${{ secrets.MOTHERDUCK_PROD_SCHEMA }}
 
 jobs:
   dagster_cloud_default_deploy:

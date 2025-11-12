@@ -4,4 +4,6 @@ locations:
       module_name: macro_agents.definitions
     working_directory: ./macro_agents
     build:
-      directory: ./macro_agents 
+      directory: ./macro_agents
+    env_vars:
+      GIT_PYTHON_REFRESH: quiet 
