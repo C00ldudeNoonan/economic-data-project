@@ -16,7 +16,6 @@ year_partition = dg.StaticPartitionsDefinition(
     kinds={"polars", "duckdb"},
     partitions_def=year_partition,
     description="Raw data from BLS API for housing inventory",
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
 )
 def housing_inventory_raw(
     context: dg.AssetExecutionContext, md: MotherDuckResource
@@ -41,6 +40,7 @@ def housing_inventory_raw(
             "year": year,
             "num_records": len(df),
             "columns": df.columns,
+            "first_10_rows": df.head(10).to_dicts(),
         }
     )
 
@@ -49,7 +49,6 @@ def housing_inventory_raw(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     description="Raw data from BLS API for housing pulse",
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
 )
 def housing_pulse_raw(
     context: dg.AssetExecutionContext, md: MotherDuckResource
@@ -78,5 +77,6 @@ def housing_pulse_raw(
     return dg.MaterializeResult(
         metadata={
             "num_records": len(main_df),
+            "first_10_rows": main_df.head(10).to_dicts(),
         }
     )

@@ -16,7 +16,9 @@ from macro_agents.defs.constants.market_stack_constants import (
 from macro_agents.defs.resources.market_stack import MarketStackResource
 
 
-weekly_partitions = dg.WeeklyPartitionsDefinition(start_date="2012-01-01")
+monthly_partitions = dg.MonthlyPartitionsDefinition(
+    start_date="2012-01-01", end_offset=1
+)
 
 us_sector_etfs_static = dg.StaticPartitionsDefinition(US_SECTOR_ETFS)
 currency_etfs_static = dg.StaticPartitionsDefinition(CURRENCY_ETFS)
@@ -24,60 +26,61 @@ major_indices_tickers_static = dg.StaticPartitionsDefinition(MAJOR_INDICES_TICKE
 fixed_income_etfs_static = dg.StaticPartitionsDefinition(FIXED_INCOME_ETFS)
 global_markets_static = dg.StaticPartitionsDefinition(GLOBAL_MARKETS)
 
-# Multi-dimensional partitions
 us_sector_etfs_partitions = dg.MultiPartitionsDefinition(
-    {"ticker": us_sector_etfs_static, "date": weekly_partitions}
+    {"ticker": us_sector_etfs_static, "date": monthly_partitions}
 )
 
 currency_etfs_partitions = dg.MultiPartitionsDefinition(
-    {"ticker": currency_etfs_static, "date": weekly_partitions}
+    {"ticker": currency_etfs_static, "date": monthly_partitions}
 )
 
 major_indices_tickers_partitions = dg.MultiPartitionsDefinition(
-    {"ticker": major_indices_tickers_static, "date": weekly_partitions}
+    {"ticker": major_indices_tickers_static, "date": monthly_partitions}
 )
 
 fixed_income_etfs_partitions = dg.MultiPartitionsDefinition(
-    {"ticker": fixed_income_etfs_static, "date": weekly_partitions}
+    {"ticker": fixed_income_etfs_static, "date": monthly_partitions}
 )
 
 global_markets_partitions = dg.MultiPartitionsDefinition(
-    {"ticker": global_markets_static, "date": weekly_partitions}
+    {"ticker": global_markets_static, "date": monthly_partitions}
 )
 
-# Commodities partitions
 energy_commodities_static = dg.StaticPartitionsDefinition(ENERGY_COMMODITIES)
 input_commodities_static = dg.StaticPartitionsDefinition(INPUT_COMMODITIES)
 agriculture_commodities_static = dg.StaticPartitionsDefinition(AGRICULTURE_COMMODITIES)
 
 energy_commodities_partitions = dg.MultiPartitionsDefinition(
-    {"commodity": energy_commodities_static, "date": weekly_partitions}
+    {"commodity": energy_commodities_static, "date": monthly_partitions}
 )
 
 input_commodities_partitions = dg.MultiPartitionsDefinition(
-    {"commodity": input_commodities_static, "date": weekly_partitions}
+    {"commodity": input_commodities_static, "date": monthly_partitions}
 )
 
 agriculture_commodities_partitions = dg.MultiPartitionsDefinition(
-    {"commodity": agriculture_commodities_static, "date": weekly_partitions}
+    {"commodity": agriculture_commodities_static, "date": monthly_partitions}
 )
 
 
-def get_week_dates(partition_key: str) -> tuple[str, str]:
-    """Convert weekly partition key to start and end dates"""
-    start_date = partition_key
-    end_date = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=6)).strftime(
-        "%Y-%m-%d"
-    )
-    return start_date, end_date
+def get_month_dates(partition_key: str) -> tuple[str, str]:
+    """Convert monthly partition key (YYYY-MM-DD or YYYY-MM) to start and end dates"""
+    parts = partition_key.split("-")
+    year = int(parts[0])
+    month = int(parts[1])
+    start_date = datetime(year, month, 1).strftime("%Y-%m-%d")
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        end_date = datetime(year, month + 1, 1) - timedelta(days=1)
+    end_date_str = end_date.strftime("%Y-%m-%d")
+    return start_date, end_date_str
 
 
-# US Sector ETFs Asset
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=us_sector_etfs_partitions,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
     description="Raw data from MarketStack API for US Sector ETFs",
 )
 def us_sector_etfs_raw(
@@ -85,21 +88,15 @@ def us_sector_etfs_raw(
     md: MotherDuckResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
-    # Extract partition dimensions
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
-
-    # Get week start and end dates
-    start_date, end_date = get_week_dates(date_partition)
+    start_date, end_date = get_month_dates(date_partition)
 
     context.log.info(
-        f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}"
+        f"Fetching data for ticker: {ticker}, month: {start_date} to {end_date}"
     )
 
-    # Fetch data from MarketStack API
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-
-    # Upsert to MotherDuck
     md.upsert_data("us_sector_etfs_raw", df, ["symbol", "date"])
 
     return dg.MaterializeResult(
@@ -108,16 +105,15 @@ def us_sector_etfs_raw(
             "ticker": ticker,
             "start_date": start_date,
             "end_date": end_date,
+            "first_10_rows": str(df.head(10)),
         }
     )
 
 
-# Currency ETFs Asset
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=currency_etfs_partitions,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
     description="Raw data from MarketStack API for Currency ETFs",
 )
 def currency_etfs_raw(
@@ -127,10 +123,10 @@ def currency_etfs_raw(
 ) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
-    start_date, end_date = get_week_dates(date_partition)
+    start_date, end_date = get_month_dates(date_partition)
 
     context.log.info(
-        f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}"
+        f"Fetching data for ticker: {ticker}, month: {start_date} to {end_date}"
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
@@ -142,16 +138,15 @@ def currency_etfs_raw(
             "ticker": ticker,
             "start_date": start_date,
             "end_date": end_date,
+            "first_10_rows": str(df.head(10)),
         }
     )
 
 
-# Major Indices Asset
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=major_indices_tickers_partitions,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
     description="Raw data from MarketStack API for Major Indices",
 )
 def major_indices_raw(
@@ -161,10 +156,10 @@ def major_indices_raw(
 ) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
-    start_date, end_date = get_week_dates(date_partition)
+    start_date, end_date = get_month_dates(date_partition)
 
     context.log.info(
-        f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}"
+        f"Fetching data for ticker: {ticker}, month: {start_date} to {end_date}"
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
@@ -176,6 +171,7 @@ def major_indices_raw(
             "ticker": ticker,
             "start_date": start_date,
             "end_date": end_date,
+            "first_10_rows": str(df.head(10)),
         }
     )
 
@@ -184,7 +180,6 @@ def major_indices_raw(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=fixed_income_etfs_partitions,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
     description="Raw data from MarketStack API for Fixed Income ETFs",
 )
 def fixed_income_etfs_raw(
@@ -194,10 +189,10 @@ def fixed_income_etfs_raw(
 ) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
-    start_date, end_date = get_week_dates(date_partition)
+    start_date, end_date = get_month_dates(date_partition)
 
     context.log.info(
-        f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}"
+        f"Fetching data for ticker: {ticker}, month: {start_date} to {end_date}"
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
@@ -209,16 +204,15 @@ def fixed_income_etfs_raw(
             "ticker": ticker,
             "start_date": start_date,
             "end_date": end_date,
+            "first_10_rows": str(df.head(10)),
         }
     )
 
 
-# Global Markets Asset
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=global_markets_partitions,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
     description="Raw data from MarketStack API for Global Markets",
 )
 def global_markets_raw(
@@ -228,10 +222,10 @@ def global_markets_raw(
 ) -> dg.MaterializeResult:
     ticker = context.partition_key.keys_by_dimension["ticker"]
     date_partition = context.partition_key.keys_by_dimension["date"]
-    start_date, end_date = get_week_dates(date_partition)
+    start_date, end_date = get_month_dates(date_partition)
 
     context.log.info(
-        f"Fetching data for ticker: {ticker}, week: {start_date} to {end_date}"
+        f"Fetching data for ticker: {ticker}, month: {start_date} to {end_date}"
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
@@ -248,16 +242,15 @@ def global_markets_raw(
             "ticker": ticker,
             "start_date": start_date,
             "end_date": end_date,
+            "first_10_rows": str(df.head(10)),
         }
     )
 
 
-# Energy Commodities Asset
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=energy_commodities_partitions,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
     description="Raw data from MarketStack API for Energy Commodities",
 )
 def energy_commodities_raw(
@@ -265,21 +258,15 @@ def energy_commodities_raw(
     md: MotherDuckResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
-    # Extract partition dimensions
     commodity = context.partition_key.keys_by_dimension["commodity"]
     date_partition = context.partition_key.keys_by_dimension["date"]
-
-    # Get week start and end dates
-    start_date, end_date = get_week_dates(date_partition)
+    start_date, end_date = get_month_dates(date_partition)
 
     context.log.info(
-        f"Fetching data for commodity: {commodity}, week: {start_date} to {end_date}"
+        f"Fetching data for commodity: {commodity}, month: {start_date} to {end_date}"
     )
 
-    # Fetch data from MarketStack API
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
-
-    # Log DataFrame info for debugging
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
     if df.shape[0] > 0:
         context.log.info(f"DataFrame columns: {df.columns}")
@@ -294,16 +281,15 @@ def energy_commodities_raw(
             "commodity": commodity,
             "start_date": start_date,
             "end_date": end_date,
+            "first_10_rows": str(df.head(10)) if df.shape[0] > 0 else "No data",
         }
     )
 
 
-# Input Commodities Asset
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=input_commodities_partitions,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
     description="Raw data from MarketStack API for Input/Industrial Commodities",
 )
 def input_commodities_raw(
@@ -313,15 +299,13 @@ def input_commodities_raw(
 ) -> dg.MaterializeResult:
     commodity = context.partition_key.keys_by_dimension["commodity"]
     date_partition = context.partition_key.keys_by_dimension["date"]
-    start_date, end_date = get_week_dates(date_partition)
+    start_date, end_date = get_month_dates(date_partition)
 
     context.log.info(
-        f"Fetching data for commodity: {commodity}, week: {start_date} to {end_date}"
+        f"Fetching data for commodity: {commodity}, month: {start_date} to {end_date}"
     )
 
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
-
-    # Log DataFrame info for debugging
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
     if df.shape[0] > 0:
         context.log.info(f"DataFrame columns: {df.columns}")
@@ -336,16 +320,15 @@ def input_commodities_raw(
             "commodity": commodity,
             "start_date": start_date,
             "end_date": end_date,
+            "first_10_rows": str(df.head(10)) if df.shape[0] > 0 else "No data",
         }
     )
 
 
-# Agriculture Commodities Asset
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=agriculture_commodities_partitions,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 5"),
     description="Raw data from MarketStack API for Agricultural Commodities",
 )
 def agriculture_commodities_raw(
@@ -355,15 +338,13 @@ def agriculture_commodities_raw(
 ) -> dg.MaterializeResult:
     commodity = context.partition_key.keys_by_dimension["commodity"]
     date_partition = context.partition_key.keys_by_dimension["date"]
-    start_date, end_date = get_week_dates(date_partition)
+    start_date, end_date = get_month_dates(date_partition)
 
     context.log.info(
-        f"Fetching data for commodity: {commodity}, week: {start_date} to {end_date}"
+        f"Fetching data for commodity: {commodity}, month: {start_date} to {end_date}"
     )
 
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
-
-    # Log DataFrame info for debugging
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
     if df.shape[0] > 0:
         context.log.info(f"DataFrame columns: {df.columns}")
@@ -378,5 +359,6 @@ def agriculture_commodities_raw(
             "commodity": commodity,
             "start_date": start_date,
             "end_date": end_date,
+            "first_10_rows": str(df.head(10)) if df.shape[0] > 0 else "No data",
         }
     )

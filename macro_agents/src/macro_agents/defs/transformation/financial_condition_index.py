@@ -501,6 +501,7 @@ def financial_conditions_index(
                 ],
                 "window_size": 12,
                 "created_at": datetime.now().isoformat(),
+                "first_10_rows": fci_df.head(10).to_dicts(),
             }
         )
 
