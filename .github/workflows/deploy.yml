@@ -53,6 +53,8 @@ jobs:
         if: steps.prerun.outputs.result == 'pex-deploy'
         run: |
           cp -r project-repo/dbt_project project-repo/macro_agents/dbt_project
+          # Verify the copy worked
+          ls -la project-repo/macro_agents/dbt_project || exit 1
 
       - name: Generate dbt manifest.json
         if: steps.prerun.outputs.result == 'pex-deploy'
