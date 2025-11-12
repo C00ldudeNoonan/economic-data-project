@@ -47,26 +47,77 @@ if dbt_project_dir:
         )
 else:
     current_file = Path(__file__).resolve()
+    # Try to find macro_agents package root (where dbt_project is copied during deployment)
+    # Go up from: macro_agents/defs/transformation/dbt.py -> macro_agents/defs/transformation -> macro_agents/defs -> macro_agents
+    macro_agents_root = current_file.parent.parent.parent
     repo_root = current_file.parent.parent.parent.parent.parent
+    cwd = Path.cwd()
+
+    # In Dagster Cloud, the working_directory is set to ./macro_agents
+    # The dbt_project should be copied there during deployment
+    # The working directory at runtime is typically working_directory/root
+    # So dbt_project should be at working_directory/root/dbt_project (i.e., cwd/dbt_project)
     possible_dbt_project_paths = [
-        Path.cwd() / "dbt_project",
+        # First priority: current working directory (Dagster Cloud runtime: working_directory/root)
+        # This is where the working_directory contents are extracted
+        cwd / "dbt_project",
+        # Second: if we're in a "root" subdirectory, check parent
+        cwd.parent / "dbt_project" if cwd.name == "root" else None,
+        # Third: check if dbt_project is in the parent of root (working_directory level)
+        cwd.parent.parent / "dbt_project" if cwd.parent.name == "root" else None,
+        # Fourth: check relative to macro_agents package location (if bundled in wheel)
+        macro_agents_root / "dbt_project",
+        # Fifth: check if dbt_project is alongside the package
+        macro_agents_root.parent / "dbt_project",
+        # Sixth: check in macro_agents subdirectory (if working directory is repo root)
+        cwd / "macro_agents" / "dbt_project",
+        # Seventh: check in repo root (fallback)
         repo_root / "dbt_project",
-        Path.cwd().parent / "dbt_project",
+        # Eighth: check parent of working directory
+        cwd.parent / "dbt_project",
+    ]
+
+    # Filter out None values
+    possible_dbt_project_paths = [
+        p for p in possible_dbt_project_paths if p is not None
     ]
 
     dbt_project_dir = None
     for path in possible_dbt_project_paths:
-        abs_path = path.resolve()
-        if abs_path.exists() and abs_path.is_dir():
-            dbt_project_dir = abs_path
-            break
+        try:
+            abs_path = path.resolve()
+            if abs_path.exists() and abs_path.is_dir():
+                # Verify it's actually a dbt project by checking for dbt_project.yml
+                if (abs_path / "dbt_project.yml").exists() or (
+                    abs_path / "dbt_project.yaml"
+                ).exists():
+                    dbt_project_dir = abs_path
+                    break
+        except (OSError, RuntimeError):
+            # Skip paths that can't be resolved (e.g., broken symlinks)
+            continue
 
     if dbt_project_dir is None:
-        tried_paths = [str(p.resolve()) for p in possible_dbt_project_paths]
+        tried_paths = []
+        for p in possible_dbt_project_paths:
+            try:
+                tried_paths.append(str(p.resolve()))
+            except (OSError, RuntimeError):
+                tried_paths.append(str(p))
+
+        # Also list what actually exists in the working directory for debugging
+        cwd_contents = []
+        try:
+            cwd_contents = [str(p) for p in cwd.iterdir()] if cwd.exists() else []
+        except (OSError, PermissionError):
+            pass
+
         raise FileNotFoundError(
             f"Could not find dbt_project directory.\n"
             f"Current working directory: {Path.cwd().resolve()}\n"
+            f"Working directory contents: {cwd_contents}\n"
             f"Module file location: {current_file}\n"
+            f"Macro agents root (calculated): {macro_agents_root}\n"
             f"Repo root (calculated): {repo_root}\n"
             f"Tried paths: {tried_paths}\n"
             f"Please ensure dbt_project directory exists relative to the repository root, "
