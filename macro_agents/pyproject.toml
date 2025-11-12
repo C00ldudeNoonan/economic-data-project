@@ -12,6 +12,7 @@ dependencies = [
     "dbt-core",
     "google-api-core",
     "google-auth",
+    "google-cloud-bigquery",
     "dbt-duckdb",
     "dagster-shared>=1.11.4",
     "dagster-pipes>=1.11.4",
@@ -25,6 +26,7 @@ dependencies = [
     "dspy>=2.6.27",
     "sqlfluff>=3.4.2",
     "sqlfluff-templater-dbt>=3.4.2",
+    "dagster-sling",
 ]
 
 [project.optional-dependencies]

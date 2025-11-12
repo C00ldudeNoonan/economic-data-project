@@ -13,6 +13,7 @@ tmpd_*
 .tmp_dagster_*
 *.csv
 *.log
+*.json
 
 # Python cache files
 __pycache__/

@@ -49,7 +49,6 @@ fred_series_partition = dg.StaticPartitionsDefinition(_all_series_codes)
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=fred_series_partition,
-    automation_condition=dg.AutomationCondition.on_cron("0 0 * * 1"),
     description="Raw data from FRED API",
 )
 def fred_raw(
@@ -66,5 +65,6 @@ def fred_raw(
             "num_records": len(data),
             "max_date": str(data["date"].max()),
             "min_date": str(data["date"].min()),
+            "first_10_rows": data.head(10).to_dicts(),
         }
     )

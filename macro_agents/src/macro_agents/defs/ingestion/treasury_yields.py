@@ -17,9 +17,6 @@ year_partition = dg.StaticPartitionsDefinition(
     kinds={"polars", "duckdb", "web_scraping"},
     partitions_def=year_partition,
     description="Raw Treasury yield curve data scraped from Treasury.gov XML feed",
-    automation_condition=dg.AutomationCondition.on_cron(
-        "0 1 * * 1"
-    ),  # Weekly on Monday at 1 AM
 )
 def treasury_yields_raw(
     context: dg.AssetExecutionContext, md: MotherDuckResource
@@ -47,7 +44,12 @@ def treasury_yields_raw(
         if not entries:
             context.log.warning(f"No data found for year {year}")
             return dg.MaterializeResult(
-                metadata={"year": year, "num_records": 0, "status": "no_data_found"}
+                metadata={
+                    "year": year,
+                    "num_records": 0,
+                    "status": "no_data_found",
+                    "first_10_rows": [],
+                }
             )
 
         # Extract data from each entry
@@ -109,7 +111,12 @@ def treasury_yields_raw(
         if not records:
             context.log.warning(f"No valid yield data extracted for year {year}")
             return dg.MaterializeResult(
-                metadata={"year": year, "num_records": 0, "status": "no_valid_data"}
+                metadata={
+                    "year": year,
+                    "num_records": 0,
+                    "status": "no_valid_data",
+                    "first_10_rows": [],
+                }
             )
 
         # Create DataFrame
@@ -152,6 +159,7 @@ def treasury_yields_raw(
                 "avg_records_per_date": round(len(df) / len(df["date"].unique()), 2)
                 if len(df["date"].unique()) > 0
                 else 0,
+                "first_10_rows": df.head(10).to_dicts(),
             }
         )
 
