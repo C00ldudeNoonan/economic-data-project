@@ -47,11 +47,24 @@ if dbt_project_dir:
         )
 else:
     current_file = Path(__file__).resolve()
+    # Try to find macro_agents package root (where dbt_project is copied during deployment)
+    # Go up from: macro_agents/defs/transformation/dbt.py -> macro_agents/defs/transformation -> macro_agents/defs -> macro_agents
+    macro_agents_root = current_file.parent.parent.parent
     repo_root = current_file.parent.parent.parent.parent.parent
+    cwd = Path.cwd()
     possible_dbt_project_paths = [
-        Path.cwd() / "dbt_project",
+        # Check in current working directory (Dagster Cloud runtime: working_directory/root)
+        cwd / "dbt_project",
+        # Check in macro_agents subdirectory (if working directory is root)
+        cwd / "macro_agents" / "dbt_project",
+        # Check relative to macro_agents package location
+        macro_agents_root / "dbt_project",
+        # Check in repo root
         repo_root / "dbt_project",
-        Path.cwd().parent / "dbt_project",
+        # Check parent of working directory
+        cwd.parent / "dbt_project",
+        # Check if dbt_project is alongside macro_agents package
+        macro_agents_root.parent / "dbt_project",
     ]
 
     dbt_project_dir = None
@@ -67,6 +80,7 @@ else:
             f"Could not find dbt_project directory.\n"
             f"Current working directory: {Path.cwd().resolve()}\n"
             f"Module file location: {current_file}\n"
+            f"Macro agents root (calculated): {macro_agents_root}\n"
             f"Repo root (calculated): {repo_root}\n"
             f"Tried paths: {tried_paths}\n"
             f"Please ensure dbt_project directory exists relative to the repository root, "
