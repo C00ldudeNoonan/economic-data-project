@@ -111,30 +111,124 @@ class MotherDuckResource(dg.ConfigurableResource):
         }
         return type_mapping.get(type(dtype), "VARCHAR")
 
-    def upsert_data(self, table_name: str, data: pl.DataFrame, key_columns: List[str]):
+    def upsert_data(
+        self,
+        table_name: str,
+        data: pl.DataFrame,
+        key_columns: List[str],
+        context: Optional[dg.AssetExecutionContext] = None,
+    ):
         """Upsert data into a table based on key columns."""
+        log = context.log if context else None
+
+        # Enhanced debugging: Log DataFrame state
+        def log_info(msg: str):
+            if log:
+                log.info(msg)
+            else:
+                print(msg)
+
+        def log_error(msg: str):
+            if log:
+                log.error(msg)
+            else:
+                print(f"ERROR: {msg}")
+
+        def log_warning(msg: str):
+            if log:
+                log.warning(msg)
+            else:
+                print(f"WARNING: {msg}")
+
+        log_info(f"Starting upsert_data for table: {table_name}")
+        log_info(f"DataFrame shape: {data.shape}")
+        log_info(f"DataFrame columns: {data.columns}")
+        log_info(f"DataFrame column count: {len(data.columns)}")
+        log_info(f"DataFrame row count: {len(data)}")
+        log_info(f"Key columns: {key_columns}")
+
+        # Validate DataFrame has columns
+        if len(data.columns) == 0:
+            error_msg = (
+                f"DataFrame for table '{table_name}' has no columns! "
+                f"This will cause a 'Table must have at least one column' error. "
+                f"DataFrame shape: {data.shape}, DataFrame info: {data}"
+            )
+            log_error(error_msg)
+            raise ValueError(error_msg)
+
+        # Validate key columns exist in DataFrame
+        missing_key_columns = [col for col in key_columns if col not in data.columns]
+        if missing_key_columns:
+            error_msg = (
+                f"Key columns {missing_key_columns} not found in DataFrame columns {data.columns} "
+                f"for table '{table_name}'"
+            )
+            log_error(error_msg)
+            raise ValueError(error_msg)
+
+        # Log data types for debugging
+        columns_and_types = list(zip(data.columns, data.dtypes))
+        log_info(f"DataFrame columns and types: {columns_and_types}")
+
         conn = None
         try:
             conn = self.get_connection()
-
-            # Log the data types for debugging
-            print(
-                f"DataFrame columns and types: {list(zip(data.columns, data.dtypes))}"
-            )
+            log_info(f"Connected to database: {self.db_connection}")
 
             # Create table if it doesn't exist
+            column_definitions = [
+                f"{col} {self.map_dtype(dtype)}"
+                for col, dtype in zip(data.columns, data.dtypes)
+            ]
             create_table_query = f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
-                {", ".join([f"{col} {self.map_dtype(dtype)}" for col, dtype in zip(data.columns, data.dtypes)])}
+                {", ".join(column_definitions)}
             )
             """
-            print(f"Create table query: {create_table_query}")
-            conn.execute(create_table_query)
+            log_info(f"Create table query: {create_table_query}")
+
+            try:
+                conn.execute(create_table_query)
+                log_info(f"Successfully created/verified table: {table_name}")
+            except Exception as e:
+                error_msg = (
+                    f"Failed to create table '{table_name}'. "
+                    f"Query: {create_table_query}. "
+                    f"DataFrame columns: {data.columns}, "
+                    f"DataFrame dtypes: {data.dtypes}, "
+                    f"DataFrame shape: {data.shape}"
+                )
+                log_error(error_msg)
+                raise RuntimeError(error_msg) from e
+
+            # Handle empty DataFrame case
+            if len(data) == 0:
+                log_warning(
+                    f"DataFrame for table '{table_name}' is empty (0 rows). "
+                    f"Skipping upsert operations but table structure is created."
+                )
+                conn.commit()
+                return
 
             # Create temporary table for new data
-            conn.execute(
-                f"CREATE TEMPORARY TABLE temp_{table_name} AS SELECT * FROM data"
+            log_info(
+                f"Creating temporary table temp_{table_name} with {len(data)} rows"
             )
+            try:
+                conn.execute(
+                    f"CREATE TEMPORARY TABLE temp_{table_name} AS SELECT * FROM data"
+                )
+                log_info(f"Successfully created temporary table temp_{table_name}")
+            except Exception as e:
+                error_msg = (
+                    f"Failed to create temporary table temp_{table_name}. "
+                    f"DataFrame columns: {data.columns}, "
+                    f"DataFrame shape: {data.shape}, "
+                    f"DataFrame sample: {data.head(3) if len(data) > 0 else 'empty'}"
+                )
+                log_error(error_msg)
+                raise RuntimeError(error_msg) from e
 
             # Update existing rows
             non_key_columns = [col for col in data.columns if col not in key_columns]
@@ -145,7 +239,21 @@ class MotherDuckResource(dg.ConfigurableResource):
                 FROM temp_{table_name}
                 WHERE {" AND ".join([f"{table_name}.{col} = temp_{table_name}.{col}" for col in key_columns])}
                 """
-                conn.execute(update_query)
+                log_info(
+                    f"Executing update query for {len(non_key_columns)} non-key columns"
+                )
+                try:
+                    conn.execute(update_query)
+                    log_info("Update query executed successfully")
+                except Exception as e:
+                    error_msg = (
+                        f"Failed to execute update query for table '{table_name}'. "
+                        f"Query: {update_query}. "
+                        f"Key columns: {key_columns}, "
+                        f"Non-key columns: {non_key_columns}"
+                    )
+                    log_error(error_msg)
+                    raise RuntimeError(error_msg) from e
 
             # Insert new rows
             insert_query = f"""
@@ -156,14 +264,37 @@ class MotherDuckResource(dg.ConfigurableResource):
                 WHERE {" AND ".join([f"{table_name}.{col} = temp_{table_name}.{col}" for col in key_columns])}
             )
             """
-            conn.execute(insert_query)
+            log_info("Executing insert query")
+            try:
+                conn.execute(insert_query)
+                log_info("Insert query executed successfully")
+            except Exception as e:
+                error_msg = (
+                    f"Failed to execute insert query for table '{table_name}'. "
+                    f"Query: {insert_query}. "
+                    f"Key columns: {key_columns}"
+                )
+                log_error(error_msg)
+                raise RuntimeError(error_msg) from e
 
             # Clean up
+            log_info(f"Dropping temporary table temp_{table_name}")
             conn.execute(f"DROP TABLE temp_{table_name}")
             conn.commit()
+            log_info(f"Successfully completed upsert_data for table: {table_name}")
+        except Exception as e:
+            error_msg = (
+                f"Error in upsert_data for table '{table_name}': {str(e)}. "
+                f"DataFrame shape: {data.shape}, "
+                f"DataFrame columns: {data.columns}, "
+                f"Key columns: {key_columns}"
+            )
+            log_error(error_msg)
+            raise
         finally:
             if conn:
                 conn.close()
+                log_info("Closed database connection")
 
     def read_data(self, table_name: str) -> List[dict]:
         """Read data from a table."""

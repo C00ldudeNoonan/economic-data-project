@@ -5,38 +5,6 @@ from dateutil.relativedelta import relativedelta
 import pytz
 
 
-monthly_sector_analysis_schedule = ScheduleDefinition(
-    name="monthly_sector_analysis_schedule",
-    cron_schedule="0 9 1 * *",
-    execution_timezone="America/New_York",
-    job_name="monthly_sector_analysis_job",
-    description="Monthly sector inflation analysis on the 1st of each month at 9 AM EST",
-)
-
-weekly_cycle_analysis_schedule = ScheduleDefinition(
-    name="weekly_cycle_analysis_schedule",
-    cron_schedule="0 8 * * 1",
-    execution_timezone="America/New_York",
-    job_name="weekly_cycle_analysis_job",
-    description="Weekly economic cycle analysis every Monday at 8 AM EST",
-)
-
-weekly_allocation_schedule = ScheduleDefinition(
-    name="weekly_allocation_schedule",
-    cron_schedule="0 9 * * 1",
-    execution_timezone="America/New_York",
-    job_name="weekly_allocation_job",
-    description="Weekly asset allocation recommendations every Monday at 9 AM EST",
-)
-
-daily_monitoring_schedule = ScheduleDefinition(
-    name="daily_monitoring_schedule",
-    cron_schedule="0 6 * * 1-5",
-    execution_timezone="America/New_York",
-    job_name="daily_monitoring_job",
-    description="Daily economic monitoring and alerts on weekdays at 6 AM EST",
-)
-
 weekly_replication_schedule = ScheduleDefinition(
     name="weekly_replication_schedule",
     cron_schedule="0 2 * * 0",
@@ -45,32 +13,13 @@ weekly_replication_schedule = ScheduleDefinition(
     description="Weekly replication of tables from MotherDuck to BigQuery every Sunday at 2 AM EST",
 )
 
-
-def create_data_freshness_sensor():
-    """Create a sensor that triggers analysis based on data freshness."""
-
-    @dg.sensor(
-        name="data_freshness_sensor",
-        description="Triggers analysis when new economic data is available",
-        default_status=DefaultSensorStatus.RUNNING,
-    )
-    def data_freshness_sensor(context):
-        """Sensor that checks for fresh economic data and triggers appropriate analysis."""
-        current_time = datetime.now(pytz.timezone("America/New_York"))
-
-        if current_time.weekday() == 0 and current_time.hour == 8:
-            yield dg.RunRequest(
-                run_key=f"weekly_cycle_analysis_{current_time.strftime('%Y%m%d_%H%M')}",
-                tags={"trigger": "weekly_schedule", "analysis_type": "cycle"},
-            )
-
-        if current_time.day == 1 and current_time.hour == 9:
-            yield dg.RunRequest(
-                run_key=f"monthly_sector_analysis_{current_time.strftime('%Y%m%d_%H%M')}",
-                tags={"trigger": "monthly_schedule", "analysis_type": "sector"},
-            )
-
-    return data_freshness_sensor
+monthly_economic_analysis_schedule = ScheduleDefinition(
+    name="monthly_economic_analysis_schedule",
+    cron_schedule="0 9 1-7 * 0",
+    execution_timezone="America/New_York",
+    job_name="monthly_economic_analysis_job",
+    description="Monthly economic analysis pipeline on first Sunday of each month at 9 AM EST (runs on Sundays in days 1-7, which always includes the first Sunday)",
+)
 
 
 def create_ingestion_sensor():
@@ -193,8 +142,6 @@ def create_ingestion_sensor():
                         },
                     )
 
-            # Materialize non-market_stack ingestion assets (FRED, BLS, treasury_yields, housing)
-            # These don't have compatible partitions, so materialize them individually
             non_market_stack_assets = [
                 "fred_raw",
                 "bls_raw",
@@ -217,34 +164,20 @@ def create_ingestion_sensor():
 def create_scheduled_jobs():
     """Create job definitions for scheduled execution."""
 
-    monthly_sector_job = dg.define_asset_job(
-        name="monthly_sector_analysis_job",
-        selection=["sector_inflation_analysis", "sector_inflation_specific_analysis"],
-        description="Monthly sector inflation analysis job",
-    )
-
-    weekly_cycle_job = dg.define_asset_job(
-        name="weekly_cycle_analysis_job",
-        selection=["economic_cycle_analysis"],
-        description="Weekly economic cycle analysis job",
-    )
-
-    weekly_allocation_job = dg.define_asset_job(
-        name="weekly_allocation_job",
-        selection=["asset_allocation_recommendations", "custom_asset_allocation"],
-        description="Weekly asset allocation recommendations job",
-    )
-
-    daily_monitoring_job = dg.define_asset_job(
-        name="daily_monitoring_job",
-        selection=["economic_monitoring_alerts"],
-        description="Daily economic monitoring job",
-    )
-
     weekly_replication_job = dg.define_asset_job(
         name="weekly_replication_job",
         selection=dg.AssetSelection.groups("replication"),
         description="Weekly replication job for syncing MotherDuck tables to BigQuery",
+    )
+
+    monthly_economic_analysis_job = dg.define_asset_job(
+        name="monthly_economic_analysis_job",
+        selection=[
+            "analyze_economy_state",
+            "analyze_asset_class_relationships",
+            "generate_investment_recommendations",
+        ],
+        description="Monthly economic analysis pipeline: economy state -> asset relationships -> recommendations",
     )
 
     # Note: weekly_ingestion_job is not defined here because ingestion assets have
@@ -252,22 +185,16 @@ def create_scheduled_jobs():
     # which handles partition selection dynamically.
 
     return {
-        "monthly_sector_job": monthly_sector_job,
-        "weekly_cycle_job": weekly_cycle_job,
-        "weekly_allocation_job": weekly_allocation_job,
-        "daily_monitoring_job": daily_monitoring_job,
         "weekly_replication_job": weekly_replication_job,
+        "monthly_economic_analysis_job": monthly_economic_analysis_job,
     }
 
 
 schedules = [
-    monthly_sector_analysis_schedule,
-    weekly_cycle_analysis_schedule,
-    weekly_allocation_schedule,
-    daily_monitoring_schedule,
     weekly_replication_schedule,
+    monthly_economic_analysis_schedule,
 ]
 
-sensors = [create_data_freshness_sensor(), create_ingestion_sensor()]
+sensors = [create_ingestion_sensor()]
 
 jobs = create_scheduled_jobs()
