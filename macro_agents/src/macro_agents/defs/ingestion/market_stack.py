@@ -97,7 +97,9 @@ def us_sector_etfs_raw(
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    md.upsert_data("us_sector_etfs_raw", df, ["symbol", "date"])
+    context.log.info(f"DataFrame shape before upsert: {df.shape}")
+    context.log.info(f"DataFrame columns: {df.columns}")
+    md.upsert_data("us_sector_etfs_raw", df, ["symbol", "date"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -130,7 +132,9 @@ def currency_etfs_raw(
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    md.upsert_data("currency_etfs_raw", df, ["symbol", "date"])
+    context.log.info(f"DataFrame shape before upsert: {df.shape}")
+    context.log.info(f"DataFrame columns: {df.columns}")
+    md.upsert_data("currency_etfs_raw", df, ["symbol", "date"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -163,7 +167,9 @@ def major_indices_raw(
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    md.upsert_data("major_indices_raw", df, ["symbol", "date"])
+    context.log.info(f"DataFrame shape before upsert: {df.shape}")
+    context.log.info(f"DataFrame columns: {df.columns}")
+    md.upsert_data("major_indices_raw", df, ["symbol", "date"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -196,7 +202,9 @@ def fixed_income_etfs_raw(
     )
 
     df = marketstack.get_ticker_historical_data(ticker, start_date, end_date)
-    md.upsert_data("fixed_income_etfs_raw", df, ["symbol", "date"])
+    context.log.info(f"DataFrame shape before upsert: {df.shape}")
+    context.log.info(f"DataFrame columns: {df.columns}")
+    md.upsert_data("fixed_income_etfs_raw", df, ["symbol", "date"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -232,9 +240,10 @@ def global_markets_raw(
     context.log.info(
         f"Fetched {df.shape[0]} rows for {ticker} from {start_date} to {end_date}"
     )
+    context.log.info(f"DataFrame shape before upsert: {df.shape}")
     context.log.info(f"DataFrame columns: {df.columns}")
     context.log.info(f"DataFrame head:\n{df.head()}")
-    md.upsert_data("global_markets_raw", df, ["symbol", "date"])
+    md.upsert_data("global_markets_raw", df, ["symbol", "date"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -268,10 +277,13 @@ def energy_commodities_raw(
 
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
+    context.log.info(f"DataFrame shape before upsert: {df.shape}")
     if df.shape[0] > 0:
         context.log.info(f"DataFrame columns: {df.columns}")
         context.log.info(f"DataFrame head:\n{df.head()}")
-        md.upsert_data("energy_commodities_raw", df, ["commodity_name", "date"])
+        md.upsert_data(
+            "energy_commodities_raw", df, ["commodity_name", "date"], context=context
+        )
     else:
         context.log.warning(f"No data returned for commodity: {commodity}")
 
@@ -307,10 +319,13 @@ def input_commodities_raw(
 
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
+    context.log.info(f"DataFrame shape before upsert: {df.shape}")
     if df.shape[0] > 0:
         context.log.info(f"DataFrame columns: {df.columns}")
         context.log.info(f"DataFrame head:\n{df.head()}")
-        md.upsert_data("input_commodities_raw", df, ["commodity_name", "date"])
+        md.upsert_data(
+            "input_commodities_raw", df, ["commodity_name", "date"], context=context
+        )
     else:
         context.log.warning(f"No data returned for commodity: {commodity}")
 
@@ -346,10 +361,16 @@ def agriculture_commodities_raw(
 
     df = marketstack.get_commodity_historical_data(commodity, start_date, end_date)
     context.log.info(f"Fetched {df.shape[0]} rows for {commodity}")
+    context.log.info(f"DataFrame shape before upsert: {df.shape}")
     if df.shape[0] > 0:
         context.log.info(f"DataFrame columns: {df.columns}")
         context.log.info(f"DataFrame head:\n{df.head()}")
-        md.upsert_data("agriculture_commodities_raw", df, ["commodity_name", "date"])
+        md.upsert_data(
+            "agriculture_commodities_raw",
+            df,
+            ["commodity_name", "date"],
+            context=context,
+        )
     else:
         context.log.warning(f"No data returned for commodity: {commodity}")
 
