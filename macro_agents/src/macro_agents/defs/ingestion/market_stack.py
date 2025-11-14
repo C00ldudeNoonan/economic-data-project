@@ -411,7 +411,7 @@ def check_weekly_data_coverage(
     Returns degraded status if any weeks are missing data.
     """
     logger = dg.get_dagster_logger()
-    
+
     # Calculate date range for last year
     today = date.today()
     one_year_ago = today - timedelta(days=365)
@@ -525,9 +525,7 @@ def check_weekly_data_coverage(
             )
 
     except Exception as e:
-        logger.error(
-            f"Error checking weekly data coverage for {table_name}: {str(e)}"
-        )
+        logger.error(f"Error checking weekly data coverage for {table_name}: {str(e)}")
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
