@@ -31,6 +31,14 @@ from macro_agents.defs.ingestion.market_stack import (
     energy_commodities_raw,
     input_commodities_raw,
     agriculture_commodities_raw,
+    us_sector_etfs_weekly_coverage_check,
+    currency_etfs_weekly_coverage_check,
+    major_indices_weekly_coverage_check,
+    fixed_income_etfs_weekly_coverage_check,
+    global_markets_weekly_coverage_check,
+    energy_commodities_weekly_coverage_check,
+    input_commodities_weekly_coverage_check,
+    agriculture_commodities_weekly_coverage_check,
 )
 from macro_agents.defs.ingestion.fred import fred_raw
 from macro_agents.defs.ingestion.treasury_yields import treasury_yields_raw
@@ -72,6 +80,16 @@ defs = dg.Definitions(
         analyze_economy_state,
         analyze_asset_class_relationships,
         generate_investment_recommendations,
+    ],
+    asset_checks=[
+        us_sector_etfs_weekly_coverage_check,
+        currency_etfs_weekly_coverage_check,
+        major_indices_weekly_coverage_check,
+        fixed_income_etfs_weekly_coverage_check,
+        global_markets_weekly_coverage_check,
+        energy_commodities_weekly_coverage_check,
+        input_commodities_weekly_coverage_check,
+        agriculture_commodities_weekly_coverage_check,
     ],
     resources={
         "md": motherduck_resource,

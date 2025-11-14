@@ -46,7 +46,9 @@ class TestSchedules:
 
         # Weekly replication should run early
         replication_hour = 2  # 2 AM EST
-        assert replication_hour <= 6, "Weekly replication should run early in the morning"
+        assert replication_hour <= 6, (
+            "Weekly replication should run early in the morning"
+        )
 
 
 class TestScheduledJobs:
@@ -136,7 +138,9 @@ class TestAssetScheduling:
         asset_key_strings = []
         for asset_def in defs.assets:
             if hasattr(asset_def, "keys"):
-                asset_key_strings.extend([key.to_user_string() for key in asset_def.keys])
+                asset_key_strings.extend(
+                    [key.to_user_string() for key in asset_def.keys]
+                )
             else:
                 asset_key_strings.append(asset_def.key.to_user_string())
 
@@ -192,7 +196,7 @@ class TestScheduleDependencies:
         # Verify the pipeline order: economy_state -> relationships -> recommendations
         asset_key_strings = []
         asset_defs_by_key_string = {}
-        
+
         for asset_def in defs.assets:
             if hasattr(asset_def, "keys"):
                 for key in asset_def.keys:
@@ -203,14 +207,18 @@ class TestScheduleDependencies:
                 key_str = asset_def.key.to_user_string()
                 asset_key_strings.append(key_str)
                 asset_defs_by_key_string[key_str] = asset_def
-        
+
         if "analyze_economy_state" in asset_key_strings:
             # Relationships should depend on economy_state
             if "analyze_asset_class_relationships" in asset_key_strings:
-                relationships_asset = asset_defs_by_key_string["analyze_asset_class_relationships"]
+                relationships_asset = asset_defs_by_key_string[
+                    "analyze_asset_class_relationships"
+                ]
                 assert relationships_asset is not None
-            
+
             # Recommendations should depend on both previous steps
             if "generate_investment_recommendations" in asset_key_strings:
-                recommendations_asset = asset_defs_by_key_string["generate_investment_recommendations"]
+                recommendations_asset = asset_defs_by_key_string[
+                    "generate_investment_recommendations"
+                ]
                 assert recommendations_asset is not None
