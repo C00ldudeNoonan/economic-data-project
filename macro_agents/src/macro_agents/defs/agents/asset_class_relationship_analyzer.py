@@ -184,7 +184,7 @@ def analyze_asset_class_relationships(
     context: dg.AssetExecutionContext,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
-) -> Dict[str, Any]:
+) -> dg.MaterializeResult:
     """
     Asset that analyzes relationships between asset classes and the economic cycle.
 
@@ -294,4 +294,4 @@ def analyze_asset_class_relationships(
     }
 
     context.log.info(f"Asset class relationship analysis complete: {result_metadata}")
-    return result_metadata
+    return dg.MaterializeResult(metadata=result_metadata)

@@ -8,6 +8,7 @@ from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.agents.economy_state_analyzer import (
     analyze_economy_state,
     EconomicAnalysisResource,
+    EconomicAnalysisConfig,
 )
 from macro_agents.defs.agents.asset_class_relationship_analyzer import (
     analyze_asset_class_relationships,
@@ -25,8 +26,12 @@ class InvestmentRecommendationsSignature(dspy.Signature):
         desc="Analysis of relationships between asset classes and economic cycle from Step 2"
     )
 
+    personality: str = dspy.InputField(
+        desc="Analytical personality: 'skeptical' (default, bearish, defensive positioning), 'neutral' (balanced, market-weight), or 'bullish' (optimistic, growth-oriented positioning)"
+    )
+
     recommendations: str = dspy.OutputField(
-        desc="""Comprehensive investment recommendations including:
+        desc="""Comprehensive investment recommendations reflecting the specified personality perspective, including:
         1. Asset Allocation Recommendations:
            - OVERWEIGHT: Specific asset classes/sectors to overweight with rationale, confidence level (0-1), and expected return
            - NEUTRAL: Asset classes/sectors to hold at market weight with rationale
@@ -65,6 +70,11 @@ class InvestmentRecommendationsSignature(dspy.Signature):
            - Rebalancing triggers
            - Conditions that would warrant changing recommendations
         
+        Personality Guidelines:
+        - SKEPTICAL/BEARISH: Favor defensive assets (utilities, consumer staples, bonds, cash). Underweight growth/cyclical sectors. Emphasize capital preservation. Higher cash allocation. Focus on downside protection and hedging.
+        - NEUTRAL: Balanced allocation across asset classes. Market-weight positioning. Moderate risk exposure. Diversified approach without extreme tilts.
+        - BULLISH/HOPEFUL: Favor growth assets (technology, consumer discretionary, small caps). Overweight equities vs bonds. Lower cash allocation. Focus on upside capture and growth opportunities. More aggressive positioning.
+        
         Provide specific, actionable recommendations with quantitative guidance where possible. Use structured format with clear categories and confidence levels."""
     )
 
@@ -72,8 +82,9 @@ class InvestmentRecommendationsSignature(dspy.Signature):
 class InvestmentRecommendationsModule(dspy.Module):
     """DSPy module for generating investment recommendations."""
 
-    def __init__(self):
+    def __init__(self, personality: str = "skeptical"):
         super().__init__()
+        self.personality = personality
         self.generate_recommendations = dspy.ChainOfThought(
             InvestmentRecommendationsSignature
         )
@@ -82,10 +93,13 @@ class InvestmentRecommendationsModule(dspy.Module):
         self,
         economy_state_analysis: str,
         asset_class_relationship_analysis: str,
+        personality: str = None,
     ):
+        personality_to_use = personality or self.personality
         return self.generate_recommendations(
             economy_state_analysis=economy_state_analysis,
             asset_class_relationship_analysis=asset_class_relationship_analysis,
+            personality=personality_to_use,
         )
 
 
@@ -205,9 +219,10 @@ def extract_recommendations_summary(recommendations_content: str) -> Dict[str, A
 )
 def generate_investment_recommendations(
     context: dg.AssetExecutionContext,
+    config: EconomicAnalysisConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
-) -> Dict[str, Any]:
+) -> dg.MaterializeResult:
     """
     Asset that generates actionable investment recommendations.
 
@@ -221,7 +236,9 @@ def generate_investment_recommendations(
     Returns:
         Dictionary with recommendations metadata and results
     """
-    context.log.info("Starting investment recommendations generation...")
+    context.log.info(
+        f"Starting investment recommendations generation (personality: {config.personality})..."
+    )
 
     context.log.info("Retrieving latest economy state analysis...")
     economy_state_analysis = get_latest_economy_state_analysis(md)
@@ -239,12 +256,17 @@ def generate_investment_recommendations(
             "No asset class relationship analysis found. Please run analyze_asset_class_relationships first."
         )
 
-    recommendations_generator = InvestmentRecommendationsModule()
+    recommendations_generator = InvestmentRecommendationsModule(
+        personality=config.personality
+    )
 
-    context.log.info("Generating investment recommendations...")
+    context.log.info(
+        f"Generating investment recommendations (personality: {config.personality})..."
+    )
     recommendations_result = recommendations_generator(
         economy_state_analysis=economy_state_analysis,
         asset_class_relationship_analysis=relationship_analysis,
+        personality=config.personality,
     )
 
     analysis_timestamp = datetime.now()
@@ -253,6 +275,7 @@ def generate_investment_recommendations(
         "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
         "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
         "model_name": economic_analysis.model_name,
+        "personality": config.personality,
         "recommendations_content": recommendations_result.recommendations,
         "data_sources": {
             "economy_state_table": "economy_state_analysis",
@@ -267,6 +290,7 @@ def generate_investment_recommendations(
         "analysis_date": result["analysis_date"],
         "analysis_time": result["analysis_time"],
         "model_name": result["model_name"],
+        "personality": result["personality"],
         "data_sources": result["data_sources"],
         "dagster_run_id": context.run_id,
         "dagster_asset_key": str(context.asset_key),
@@ -288,6 +312,7 @@ def generate_investment_recommendations(
         "analysis_completed": True,
         "analysis_timestamp": result["analysis_timestamp"],
         "model_name": result["model_name"],
+        "personality": result["personality"],
         "output_table": "investment_recommendations",
         "records_written": 1,
         "data_sources": result["data_sources"],
@@ -300,4 +325,4 @@ def generate_investment_recommendations(
     context.log.info(
         f"Investment recommendations generation complete: {result_metadata}"
     )
-    return result_metadata
+    return dg.MaterializeResult(metadata=result_metadata)

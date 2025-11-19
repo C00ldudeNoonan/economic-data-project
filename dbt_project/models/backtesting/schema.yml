@@ -1,0 +1,79 @@
+version: 2
+
+models:
+  - name: us_sector_summary_snapshot
+    description: >
+      Historical snapshot of US sector performance data for backtesting purposes.
+      This model creates point-in-time snapshots of sector performance metrics including
+      returns, volatility, win rates, and trading statistics across multiple time periods
+      (12 weeks, 6 months, 1 year, 5 years). Each snapshot represents the state of the
+      data as of the first day of each month, enabling accurate backtesting of investment
+      strategies using only information that would have been available at that time.
+    config:
+      materialized: incremental
+      unique_key: ['snapshot_date', 'symbol', 'asset_type', 'time_period']
+      incremental_strategy: delete+insert
+
+  - name: leading_econ_return_indicator_snapshot
+    description: >
+      Historical snapshot of leading economic indicators and their correlations with asset returns
+      for backtesting purposes. This model creates point-in-time snapshots showing how economic
+      indicators correlated with forward-looking returns (Q1, Q2, Q3) at different points in time.
+      Each snapshot represents the correlation analysis available as of the first day of each month,
+      enabling backtesting of economic indicator-based investment strategies.
+    config:
+      materialized: incremental
+      unique_key: ['snapshot_date', 'symbol', 'series_name', 'category', 'economic_category']
+      incremental_strategy: delete+insert
+
+  - name: fred_series_latest_aggregates_snapshot
+    description: >
+      Historical snapshot of FRED economic series aggregates for backtesting purposes.
+      This model creates point-in-time snapshots of economic indicators including current values
+      and percentage changes over 3m, 6m, and 1y periods. Each snapshot represents the economic
+      data available as of the first day of each month, enabling backtesting of economic analysis
+      using only data that would have been available at that historical point.
+    config:
+      materialized: incremental
+      unique_key: ['snapshot_date', 'series_code', 'month']
+      incremental_strategy: delete+insert
+
+  - name: energy_commodities_summary_snapshot
+    description: >
+      Historical snapshot of energy commodity performance data for backtesting purposes.
+      This model creates point-in-time snapshots of energy commodity prices and performance
+      metrics including returns, volatility, and trends across multiple time periods
+      (12 weeks, 6 months, 1 year, 5 years). Each snapshot represents the energy commodity
+      market state as of the first day of each month, enabling backtesting of commodity-based
+      investment strategies.
+    config:
+      materialized: incremental
+      unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
+      incremental_strategy: delete+insert
+
+  - name: input_commodities_summary_snapshot
+    description: >
+      Historical snapshot of industrial/input commodity performance data for backtesting purposes.
+      This model creates point-in-time snapshots of industrial commodity (metals, materials) prices
+      and performance metrics including returns, volatility, and trends across multiple time periods
+      (12 weeks, 6 months, 1 year, 5 years). Each snapshot represents the industrial commodity
+      market state as of the first day of each month, enabling backtesting of commodity-based
+      investment strategies.
+    config:
+      materialized: incremental
+      unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
+      incremental_strategy: delete+insert
+
+  - name: agriculture_commodities_summary_snapshot
+    description: >
+      Historical snapshot of agricultural commodity performance data for backtesting purposes.
+      This model creates point-in-time snapshots of agricultural commodity prices and performance
+      metrics including returns, volatility, and trends across multiple time periods
+      (12 weeks, 6 months, 1 year, 5 years). Each snapshot represents the agricultural commodity
+      market state as of the first day of each month, enabling backtesting of commodity-based
+      investment strategies.
+    config:
+      materialized: incremental
+      unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
+      incremental_strategy: delete+insert
+

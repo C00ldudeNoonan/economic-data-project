@@ -4,7 +4,9 @@ Tests for scheduled execution and scheduling configuration.
 
 from macro_agents.defs.schedules import (
     weekly_replication_schedule,
-    monthly_economic_analysis_schedule,
+    monthly_economic_analysis_schedule_skeptical,
+    monthly_economic_analysis_schedule_neutral,
+    monthly_economic_analysis_schedule_bullish,
     create_ingestion_sensor,
     create_scheduled_jobs,
 )
@@ -24,16 +26,35 @@ class TestSchedules:
     def test_monthly_economic_analysis_schedule_configuration(self):
         """Test monthly economic analysis schedule configuration."""
         assert (
-            monthly_economic_analysis_schedule.name
-            == "monthly_economic_analysis_schedule"
-        )
-        assert monthly_economic_analysis_schedule.cron_schedule == "0 9 1-7 * 0"
-        assert (
-            monthly_economic_analysis_schedule.execution_timezone == "America/New_York"
+            monthly_economic_analysis_schedule_skeptical.name
+            == "monthly_economic_analysis_schedule_skeptical"
         )
         assert (
-            monthly_economic_analysis_schedule.job_name
-            == "monthly_economic_analysis_job"
+            monthly_economic_analysis_schedule_skeptical.cron_schedule == "0 9 1-7 * 0"
+        )
+        assert (
+            monthly_economic_analysis_schedule_skeptical.execution_timezone
+            == "America/New_York"
+        )
+        assert (
+            monthly_economic_analysis_schedule_skeptical.job_name
+            == "monthly_economic_analysis_job_skeptical"
+        )
+
+        assert (
+            monthly_economic_analysis_schedule_neutral.name
+            == "monthly_economic_analysis_schedule_neutral"
+        )
+        assert (
+            monthly_economic_analysis_schedule_neutral.cron_schedule == "0 10 1-7 * 0"
+        )
+
+        assert (
+            monthly_economic_analysis_schedule_bullish.name
+            == "monthly_economic_analysis_schedule_bullish"
+        )
+        assert (
+            monthly_economic_analysis_schedule_bullish.cron_schedule == "0 11 1-7 * 0"
         )
 
     def test_schedule_timing_consistency(self):
@@ -59,7 +80,9 @@ class TestScheduledJobs:
         jobs = create_scheduled_jobs()
 
         assert "weekly_replication_job" in jobs
-        assert "monthly_economic_analysis_job" in jobs
+        assert "monthly_economic_analysis_job_skeptical" in jobs
+        assert "monthly_economic_analysis_job_neutral" in jobs
+        assert "monthly_economic_analysis_job_bullish" in jobs
 
     def test_job_asset_selection(self):
         """Test that jobs select the correct assets."""
@@ -69,9 +92,15 @@ class TestScheduledJobs:
         weekly_replication_job = jobs["weekly_replication_job"]
         assert weekly_replication_job is not None
 
-        # Monthly economic analysis job should include the analysis pipeline
-        monthly_economic_job = jobs["monthly_economic_analysis_job"]
-        assert monthly_economic_job is not None
+        # Monthly economic analysis jobs should include the analysis pipeline
+        monthly_economic_job_skeptical = jobs["monthly_economic_analysis_job_skeptical"]
+        assert monthly_economic_job_skeptical is not None
+
+        monthly_economic_job_neutral = jobs["monthly_economic_analysis_job_neutral"]
+        assert monthly_economic_job_neutral is not None
+
+        monthly_economic_job_bullish = jobs["monthly_economic_analysis_job_bullish"]
+        assert monthly_economic_job_bullish is not None
 
 
 class TestIngestionSensor:
@@ -95,7 +124,9 @@ class TestDefinitionsIntegration:
         schedule_names = [schedule.name for schedule in defs.schedules]
         expected_schedules = [
             "weekly_replication_schedule",
-            "monthly_economic_analysis_schedule",
+            "monthly_economic_analysis_schedule_skeptical",
+            "monthly_economic_analysis_schedule_neutral",
+            "monthly_economic_analysis_schedule_bullish",
         ]
 
         for expected_schedule in expected_schedules:
@@ -117,7 +148,9 @@ class TestDefinitionsIntegration:
         job_names = [job.name for job in defs.jobs]
         expected_jobs = [
             "weekly_replication_job",
-            "monthly_economic_analysis_job",
+            "monthly_economic_analysis_job_skeptical",
+            "monthly_economic_analysis_job_neutral",
+            "monthly_economic_analysis_job_bullish",
         ]
 
         for expected_job in expected_jobs:
@@ -155,7 +188,9 @@ class TestCronScheduleValidation:
         """Test that cron schedules are in correct format."""
         schedules = [
             weekly_replication_schedule,
-            monthly_economic_analysis_schedule,
+            monthly_economic_analysis_schedule_skeptical,
+            monthly_economic_analysis_schedule_neutral,
+            monthly_economic_analysis_schedule_bullish,
         ]
 
         for schedule in schedules:
@@ -178,7 +213,9 @@ class TestCronScheduleValidation:
         """Test that all schedules use the same timezone."""
         schedules = [
             weekly_replication_schedule,
-            monthly_economic_analysis_schedule,
+            monthly_economic_analysis_schedule_skeptical,
+            monthly_economic_analysis_schedule_neutral,
+            monthly_economic_analysis_schedule_bullish,
         ]
 
         expected_timezone = "America/New_York"

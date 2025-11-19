@@ -15,6 +15,18 @@ from macro_agents.defs.agents.asset_class_relationship_analyzer import (
 from macro_agents.defs.agents.investment_recommendations import (
     generate_investment_recommendations,
 )
+from macro_agents.defs.agents.backtest_economy_state_analyzer import (
+    backtest_analyze_economy_state,
+)
+from macro_agents.defs.agents.backtest_asset_class_relationship_analyzer import (
+    backtest_analyze_asset_class_relationships,
+)
+from macro_agents.defs.agents.backtest_investment_recommendations import (
+    backtest_generate_investment_recommendations,
+)
+from macro_agents.defs.agents.backtest_evaluator import (
+    evaluate_backtest_recommendations,
+)
 from macro_agents.defs.schedules import schedules, sensors, jobs
 from macro_agents.defs.replication.sling import replication_assets, sling_resource
 from macro_agents.defs.transformation.dbt import full_dbt_assets
@@ -80,6 +92,10 @@ defs = dg.Definitions(
         analyze_economy_state,
         analyze_asset_class_relationships,
         generate_investment_recommendations,
+        backtest_analyze_economy_state,
+        backtest_analyze_asset_class_relationships,
+        backtest_generate_investment_recommendations,
+        evaluate_backtest_recommendations,
     ],
     asset_checks=[
         us_sector_etfs_weekly_coverage_check,
