@@ -1,0 +1,698 @@
+# Economic Data Project - Cursor Rules
+
+## Project Overview
+
+This is an end-to-end data application that ingests, transforms, and analyzes economic and financial market data using modern open-source tools. The application combines traditional data engineering workflows with AI-powered analysis agents to provide insights into economic cycles, market trends, and asset allocation strategies.
+
+**Key Architecture:**
+- **Data Ingestion**: Dagster assets pull data from APIs (FRED, Market Stack, BLS, etc.)
+- **Data Transformation**: dbt models transform raw data through staging → marts → analysis layers
+- **AI Analysis**: DSPy agents analyze transformed data and generate insights
+- **Storage**: DuckDB locally, MotherDuck for cloud sync
+- **Orchestration**: Dagster schedules, sensors, and jobs manage automation
+
+## Technology Stack
+
+### Core Frameworks
+- **Dagster** (>=1.11.4): Orchestration, asset management, schedules, sensors
+- **dbt** (with dbt-duckdb): SQL-based transformations
+- **DSPy** (>=2.6.27): AI agent framework with LLMs
+- **DuckDB/MotherDuck**: Embedded analytical database
+- **Polars**: High-performance dataframe library (preferred over pandas)
+
+### Supporting Libraries
+- **Python**: 3.10.19 - 3.13
+- **OpenAI API**: LLM integration for analysis agents
+- **Ruff**: Linting and formatting
+- **SQLFluff**: SQL linting
+- **Pytest**: Testing framework
+
+## Code Organization
+
+### Directory Structure
+
+```
+macro_agents/src/macro_agents/
+├── definitions.py              # Central Dagster definitions (register all assets/resources)
+├── defs/
+│   ├── ingestion/              # Data ingestion assets (fred.py, market_stack.py, etc.)
+│   ├── transformation/         # dbt integration and custom transformations
+│   ├── agents/                 # DSPy analysis agents
+│   ├── resources/              # Dagster resources (motherduck.py, fred.py, market_stack.py)
+│   ├── constants/              # Configuration constants (FRED series lists, etc.)
+│   ├── replication/            # Data replication (Sling integration)
+│   └── schedules.py            # Schedules, sensors, and jobs
+└── tests/                      # Test suite
+
+dbt_project/models/
+├── staging/                    # Staging layer (stg_*.sql)
+├── government/                 # Government/economic data models
+├── markets/                    # Market data models
+├── commodities/                # Commodity analysis models
+├── analysis/                   # Analysis layer (joins across domains)
+├── backtesting/                # Backtesting snapshot models
+└── sources.yml                 # Source definitions
+```
+
+### Asset Groups
+- `ingestion`: Raw data ingestion from external APIs
+- `staging`: dbt staging models (automated via eager automation)
+- `government`: Economic/government data transformations
+- `markets`: Market data transformations
+- `analysis`: Cross-domain analysis models
+- `backtesting`: Backtesting-related assets
+- `dspy`: AI analysis agents
+
+## Coding Conventions
+
+### Python Code Style
+
+1. **Type Hints**: Always use type hints for function parameters and return types
+   ```python
+   def process_data(
+       context: dg.AssetExecutionContext,
+       md: MotherDuckResource,
+       config: MyConfig
+   ) -> dg.MaterializeResult:
+   ```
+
+2. **Imports**: Group imports by standard library, third-party, then local
+   ```python
+   import dagster as dg
+   import polars as pl
+   from typing import List, Dict, Optional
+   from macro_agents.defs.resources.motherduck import MotherDuckResource
+   ```
+
+3. **DataFrames**: Use Polars, not pandas
+   ```python
+   import polars as pl
+   df = pl.DataFrame(data)
+   ```
+
+4. **Logging**: Use context.log for asset logging
+   ```python
+   context.log.info("Processing data...")
+   context.log.warning("Missing data detected")
+   context.log.error("Failed to process")
+   ```
+
+5. **Error Handling**: Provide clear error messages with context
+   ```python
+   if df.is_empty():
+       raise ValueError(
+           f"No data found for {config.date} with model {config.model_name}"
+       )
+   ```
+
+### SQL (dbt) Code Style
+
+1. **Materialization**: Use `view` for staging, `table` for marts (default)
+   ```sql
+   {{ config(materialized='view') }}
+   ```
+
+2. **Source References**: Always use `{{ source() }}` for raw tables
+   ```sql
+   FROM {{ source('staging', 'fred_raw') }} AS fr
+   ```
+
+3. **Model References**: Use `{{ ref() }}` for other dbt models
+   ```sql
+   LEFT JOIN {{ ref('fred_series_mapping') }} AS map
+   ```
+
+4. **Naming**: Use snake_case for all identifiers
+   - Staging models: `stg_*`
+   - Summary models: `*_summary`
+   - Analysis models: `*_analysis_*`
+
+5. **Comments**: Add descriptions in schema.yml, not inline SQL comments
+
+## Dagster Patterns
+
+### Creating Assets
+
+**Basic Asset Structure:**
+```python
+@dg.asset(
+    group_name="ingestion",           # Organize in UI
+    kinds={"polars", "duckdb"},      # Metadata tags
+    description="Clear description",  # Documentation
+)
+def my_asset(
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+) -> dg.MaterializeResult:
+    # Implementation
+    return dg.MaterializeResult(
+        metadata={"key": "value"}
+    )
+```
+
+**Partitioned Assets:**
+```python
+my_partitions = dg.StaticPartitionsDefinition(["A", "B", "C"])
+
+@dg.asset(
+    partitions_def=my_partitions,
+    group_name="ingestion",
+)
+def partitioned_asset(
+    context: dg.AssetExecutionContext,
+) -> dg.MaterializeResult:
+    partition_key = context.partition_key
+    # Use partition_key in logic
+```
+
+**Assets with Dependencies:**
+```python
+@dg.asset(
+    deps=[
+        upstream_asset,
+        dg.AssetKey(["dbt_model_name"]),
+    ],
+)
+def dependent_asset(context, md):
+    # Access upstream data
+```
+
+**Assets with Config:**
+```python
+class MyConfig(dg.Config):
+    date: str = Field(description="Date for analysis")
+    model_name: str = Field(default="gpt-4-turbo-preview")
+
+@dg.asset
+def configurable_asset(
+    context: dg.AssetExecutionContext,
+    config: MyConfig,
+    md: MotherDuckResource,
+):
+    # Use config.date, config.model_name
+```
+
+### Creating Resources
+
+**Configurable Resources:**
+```python
+class MyResource(dg.ConfigurableResource):
+    api_key: str = Field(description="API key")
+    base_url: str = Field(default="https://api.example.com")
+    
+    def setup_for_execution(self, context) -> None:
+        # Initialize if needed
+        pass
+    
+    def get_data(self, param: str) -> pl.DataFrame:
+        # Implementation
+        return pl.DataFrame(...)
+```
+
+**Resource Registration in definitions.py:**
+```python
+resources={
+    "my_resource": MyResource(
+        api_key=dg.EnvVar("MY_API_KEY"),
+        base_url="https://api.example.com",
+    ),
+}
+```
+
+### Schedules and Sensors
+
+**Schedule Pattern:**
+```python
+my_schedule = ScheduleDefinition(
+    name="my_schedule",
+    cron_schedule="0 2 * * *",  # 2 AM daily
+    execution_timezone="America/New_York",
+    job_name="my_job",
+    description="Clear description",
+    run_config={
+        "ops": {
+            "asset_name": {
+                "config": {"key": "value"}
+            }
+        }
+    },
+)
+```
+
+**Sensor Pattern:**
+```python
+@dg.sensor(
+    name="my_sensor",
+    description="Triggers on condition",
+    default_status=DefaultSensorStatus.RUNNING,
+    minimum_interval_seconds=3600,
+)
+def my_sensor(context):
+    # Check condition
+    if should_trigger:
+        return dg.RunRequest(
+            run_key=f"run-{timestamp}",
+            run_config={...}
+        )
+```
+
+## dbt Patterns
+
+### Creating Models
+
+**Staging Model:**
+```sql
+-- models/staging/stg_new_source.sql
+{{ config(
+    materialized='view',
+    description='Standardized new source data'
+) }}
+
+SELECT
+    date,
+    identifier,
+    value,
+    UPPER(category) as category,
+    CURRENT_TIMESTAMP as loaded_at
+FROM {{ source('staging', 'new_source_raw') }}
+WHERE value IS NOT NULL
+```
+
+**Mart Model with Joins:**
+```sql
+-- models/markets/market_summary.sql
+{{ config(materialized='table') }}
+
+SELECT
+    m.date,
+    m.symbol,
+    m.close_price,
+    e.gdp_value,
+    e.inflation_rate
+FROM {{ ref('stg_markets') }} AS m
+LEFT JOIN {{ ref('stg_economic') }} AS e
+    ON m.date = e.date
+```
+
+**Adding Source Definition:**
+```yaml
+# models/sources.yml
+sources:
+  - name: staging
+    tables:
+      - name: new_source_raw
+        description: "Raw data from new source"
+```
+
+### dbt Model Best Practices
+
+1. **Always use `{{ source() }}` for raw tables** - never hardcode table names
+2. **Use `{{ ref() }}` for other dbt models** - enables dependency tracking
+3. **Add descriptions in schema.yml** - not in SQL comments
+4. **Use CTEs for complex logic** - improves readability
+5. **Test with `dbt compile`** before running
+
+## DSPy Agent Patterns
+
+### Creating DSPy Agents
+
+**Signature Definition:**
+```python
+class MyAnalysisSignature(dspy.Signature):
+    """Clear description of what this analysis does."""
+    
+    input_data: str = dspy.InputField(desc="What goes in")
+    analysis: str = dspy.OutputField(desc="What comes out")
+```
+
+**Resource with DSPy:**
+```python
+class MyAnalyzer(dg.ConfigurableResource):
+    model_name: str = Field(default="gpt-4-turbo-preview")
+    openai_api_key: str = Field(description="OpenAI API key")
+    
+    def setup_for_execution(self, context) -> None:
+        lm = dspy.LM(model=self.model_name, api_key=self.openai_api_key)
+        dspy.settings.configure(lm=lm)
+        self._analyzer = dspy.ChainOfThought(MyAnalysisSignature)
+    
+    def analyze(self, data: str) -> str:
+        result = self._analyzer(input_data=data)
+        return result.analysis
+```
+
+**Asset Using DSPy Agent:**
+```python
+@dg.asset(
+    kinds={"dspy", "duckdb"},
+    group_name="analysis",
+)
+def my_analysis_asset(
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    analyzer: MyAnalyzer,
+) -> dict:
+    # Query data
+    data = md.query_to_csv("SELECT * FROM my_table LIMIT 100")
+    
+    # Run analysis
+    result = analyzer.analyze(data)
+    
+    # Save results
+    results = [{
+        "analysis": result,
+        "timestamp": context.run.start_time.isoformat()
+    }]
+    md.write_results_to_table(results, "analysis_results", "append")
+    
+    return {"status": "complete"}
+```
+
+### DSPy Evaluation Patterns
+
+**Custom Metric:**
+```python
+def my_metric(example, prediction, trace=None):
+    """Custom metric for DSPy evaluation."""
+    # Calculate score
+    return score
+
+# Use in evaluation
+dspy.evaluate(
+    module=my_module,
+    devset=examples,
+    metric=my_metric,
+)
+```
+
+## Database Patterns (DuckDB/MotherDuck)
+
+### Using MotherDuckResource
+
+**Querying Data:**
+```python
+# Execute query and get Polars DataFrame
+df = md.execute_query(
+    "SELECT * FROM my_table WHERE date > '2024-01-01'",
+    read_only=True
+)
+
+# Query to CSV string (for LLM input)
+csv_data = md.query_sampled_data(
+    table_name="my_table",
+    filters={"category": "Inflation"},
+    sample_size=50,
+    sampling_strategy="top_correlations"
+)
+```
+
+**Writing Data:**
+```python
+# Upsert data (insert or update)
+md.upsert_data(
+    table_name="my_table",
+    data=pl.DataFrame(...),
+    key_columns=["date", "series_code"],
+    context=context,
+)
+
+# Write results (append or replace)
+md.write_results_to_table(
+    json_results=[{"key": "value"}],
+    output_table="results_table",
+    if_exists="append",  # or "replace", "fail"
+    context=context,
+)
+```
+
+**Connection Handling:**
+- Always use `md.get_connection()` for direct DuckDB operations
+- Use resource methods (`execute_query`, `upsert_data`, etc.) when possible
+- Connections are automatically managed by resource methods
+
+### Data Type Mapping
+
+When creating tables, MotherDuckResource maps Polars types:
+- `pl.Int32/Int64` → `INTEGER`
+- `pl.Float32/Float64` → `DOUBLE`
+- `pl.Boolean` → `BOOLEAN`
+- `pl.Date` → `DATE`
+- `pl.Datetime` → `TIMESTAMP`
+- Others → `VARCHAR`
+
+## Testing Patterns
+
+### Testing Dagster Assets
+
+```python
+from dagster import materialize
+from macro_agents.definitions import defs
+
+def test_my_asset():
+    result = materialize(
+        [my_asset],
+        resources={"md": test_motherduck_resource},
+    )
+    assert result.success
+```
+
+### Testing Resources
+
+```python
+def test_my_resource():
+    resource = MyResource(api_key="test_key")
+    result = resource.get_data("test_param")
+    assert isinstance(result, pl.DataFrame)
+    assert len(result) > 0
+```
+
+### Testing dbt Models
+
+```bash
+# Compile models
+dbt compile --select my_model
+
+# Run specific model
+dbt run --select my_model
+
+# Test model
+dbt test --select my_model
+```
+
+## Common Tasks
+
+### Adding a New FRED Series
+
+1. Add series code to partition definition in `defs/ingestion/fred.py`
+2. Add metadata to `fred_series_mapping.csv` seed file
+3. Materialize: `dagster asset materialize -s fred_raw --partition SERIES_CODE`
+
+### Creating a New Ingestion Asset
+
+1. Create file in `defs/ingestion/`
+2. Define partitions if needed
+3. Use `@dg.asset` decorator with `group_name="ingestion"`
+4. Use resource to fetch data (e.g., `fred_resource`, `marketstack_resource`)
+5. Use `md.upsert_data()` to store in DuckDB
+6. Return `dg.MaterializeResult` with metadata
+7. Register in `definitions.py`
+
+### Creating a New dbt Model
+
+1. Create SQL file in appropriate directory (`staging/`, `markets/`, etc.)
+2. Use `{{ source() }}` for raw tables, `{{ ref() }}` for other models
+3. Add source definition to `sources.yml` if needed
+4. Add model description to `schema.yml`
+5. Test with `dbt compile --select model_name`
+6. Run with `dbt run --select model_name`
+
+### Creating a New DSPy Agent
+
+1. Define signature in agent file
+2. Create resource class extending `dg.ConfigurableResource`
+3. Implement `setup_for_execution()` to configure DSPy
+4. Create asset that uses the resource
+5. Register resource in `definitions.py`
+6. Query data using `md.execute_query()` or `md.query_sampled_data()`
+7. Save results using `md.write_results_to_table()`
+
+### Adding a Schedule
+
+1. Define schedule in `defs/schedules.py`
+2. Create corresponding job if needed
+3. Add to `schedules` list in `schedules.py`
+4. Schedule is automatically registered via `definitions.py`
+
+## Environment & Configuration
+
+### Required Environment Variables
+
+```bash
+MODEL_NAME=gpt-4-turbo-preview
+OPENAI_API_KEY=your_key
+FRED_API_KEY=your_key
+MARKETSTACK_API_KEY=your_key
+MOTHERDUCK_TOKEN=your_token  # Only for prod
+MOTHERDUCK_DATABASE=your_db   # Only for prod
+MOTHERDUCK_PROD_SCHEMA=your_schema  # Only for prod
+ENVIRONMENT=dev  # or prod
+DBT_TARGET=dev   # or prod
+```
+
+### Local Development
+
+- **Database**: Uses local DuckDB file (`local.duckdb`)
+- **Environment**: Set `ENVIRONMENT=dev` (or leave unset)
+- **dbt**: Uses `dev` target by default
+
+### Production
+
+- **Database**: Uses MotherDuck cloud
+- **Environment**: Set `ENVIRONMENT=prod`
+- **dbt**: Uses `prod` target
+- **Authentication**: Requires `MOTHERDUCK_TOKEN`
+
+## Best Practices
+
+### Do's
+
+1. **Always use type hints** for function parameters and returns
+2. **Use Polars DataFrames** instead of pandas
+3. **Log appropriately** using `context.log` in assets
+4. **Return meaningful metadata** in `MaterializeResult`
+5. **Use partitions** for large datasets that can be updated incrementally
+6. **Test dbt models** with `dbt compile` before running
+7. **Use `{{ source() }}` and `{{ ref() }}`** in dbt models
+8. **Handle empty DataFrames** gracefully
+9. **Validate inputs** before processing
+10. **Use resource methods** instead of direct database connections when possible
+
+### Don'ts
+
+1. **Don't use pandas** - use Polars instead
+2. **Don't hardcode table names** in dbt - use `{{ source() }}`
+3. **Don't skip type hints** - they improve code clarity
+4. **Don't ignore empty DataFrames** - handle them explicitly
+5. **Don't commit API keys** - use environment variables
+6. **Don't create assets without descriptions** - document everything
+7. **Don't use `SELECT *` in production queries** - be explicit
+8. **Don't forget to register** assets/resources in `definitions.py`
+9. **Don't use raw SQL strings** for user input - use parameterized queries
+10. **Don't skip error handling** - provide clear error messages
+
+## Troubleshooting
+
+### Asset Materialization Fails
+
+1. Check Dagster UI logs at `http://localhost:3000/runs`
+2. Verify resource configuration (API keys, database connection)
+3. Check upstream dependencies are materialized
+4. Validate DataFrame structure before upserting
+5. Check partition key is valid (for partitioned assets)
+
+### dbt Model Fails
+
+1. Run `dbt compile --select model_name` to check syntax
+2. Verify source definitions in `sources.yml`
+3. Check model dependencies exist
+4. Run `dbt debug` to verify connection
+5. Check for SQL syntax errors in compiled SQL
+
+### Database Connection Issues
+
+1. Verify `MOTHERDUCK_TOKEN` is set (for prod)
+2. Check `local.duckdb` file isn't corrupted (delete and recreate if needed)
+3. Ensure database/schema exists in MotherDuck
+4. Check network connectivity for MotherDuck
+
+### DSPy Agent Issues
+
+1. Verify `OPENAI_API_KEY` is set
+2. Check `MODEL_NAME` is valid
+3. Ensure data is properly formatted for LLM input
+4. Check token limits for large inputs
+5. Verify DSPy is configured in `setup_for_execution()`
+
+## File Naming Conventions
+
+- **Python files**: `snake_case.py`
+- **dbt models**: `snake_case.sql`
+- **Staging models**: `stg_*.sql`
+- **Summary models**: `*_summary.sql`
+- **Analysis models**: `*_analysis_*.sql`
+- **Backtesting models**: `*_snapshot.sql`
+
+## Quick Reference
+
+### Dagster Commands
+```bash
+# Start UI
+dagster dev
+
+# Check definitions
+dg check defs
+
+# Materialize asset
+dagster asset materialize -s asset_name
+
+# Materialize with partition
+dagster asset materialize -s asset_name --partition PARTITION_KEY
+```
+
+### dbt Commands
+```bash
+# Compile models
+dbt compile
+
+# Run all models
+dbt run
+
+# Run specific model
+dbt run --select model_name
+
+# Test models
+dbt test
+
+# Parse project
+dbt parse
+```
+
+### Testing Commands
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run specific test
+pytest tests/test_file.py::test_function -v
+
+# With coverage
+pytest tests/ --cov=macro_agents --cov-report=html
+```
+
+### Linting Commands
+```bash
+# Python linting
+ruff check .
+ruff format .
+
+# SQL linting
+sqlfluff lint ./dbt_project/models
+sqlfluff fix ./dbt_project/models
+```
+
+## Additional Notes
+
+- **Automation**: dbt models use eager automation (run when upstream changes)
+- **Partitioning**: FRED series are partitioned for efficient incremental updates
+- **Schedules**: Weekly ingestion on Mondays, monthly analysis on first Sunday
+- **Resources**: Always use dependency injection via Dagster resources
+- **Data Quality**: Use asset checks for data validation
+- **Backtesting**: Backtesting assets use historical snapshots for evaluation
+
+When helping with this codebase, always:
+1. Follow the patterns established in existing code
+2. Use the appropriate resource methods
+3. Include proper error handling and logging
+4. Add type hints and documentation
+5. Test changes before committing
+6. Register new assets/resources in `definitions.py`
