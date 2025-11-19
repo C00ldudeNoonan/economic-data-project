@@ -15,9 +15,13 @@ class BacktestConfig(dg.Config):
     backtest_date: str = Field(
         description="Backtest date (YYYY-MM-DD), first day of month"
     )
+    model_provider: str = Field(
+        default="openai",
+        description="LLM provider: 'openai', 'gemini', or 'anthropic'",
+    )
     model_name: str = Field(
         default="gpt-4-turbo-preview",
-        description="LLM model to use for analysis (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo')",
+        description="LLM model to use for analysis (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo', 'gemini-2.0-flash-exp', 'claude-3-opus-20240229')",
     )
     personality: str = Field(
         default="skeptical",
@@ -59,10 +63,17 @@ def backtest_analyze_economy_state(
     """
     context.log.info(
         f"Starting backtest economy state analysis for {config.backtest_date} "
-        f"with model {config.model_name}..."
+        f"with provider {config.model_provider} and model {config.model_name}..."
     )
 
-    if economic_analysis.model_name != config.model_name:
+    # Update provider and model_name if they differ from current settings
+    current_provider = economic_analysis._get_provider()
+    if (
+        current_provider != config.model_provider
+        or economic_analysis.model_name != config.model_name
+    ):
+        # Access the Field directly to set it
+        object.__setattr__(economic_analysis, "provider", config.model_provider)
         economic_analysis.model_name = config.model_name
         economic_analysis.setup_for_execution(context)
 
@@ -76,6 +87,13 @@ def backtest_analyze_economy_state(
         md, cutoff_date=config.backtest_date
     )
 
+    # Track token usage
+    from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
+
+    initial_history_length = (
+        len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
+    )
+
     context.log.info(
         f"Running economy state analysis with historical data (personality: {config.personality})..."
     )
@@ -85,12 +103,16 @@ def backtest_analyze_economy_state(
         personality=config.personality,
     )
 
+    # Calculate token usage
+    token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
+
     analysis_timestamp = datetime.now()
     result = {
         "analysis_timestamp": analysis_timestamp.isoformat(),
         "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
         "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
         "backtest_date": config.backtest_date,
+        "model_provider": config.model_provider,
         "model_name": config.model_name,
         "personality": config.personality,
         "analysis_content": analysis_result.analysis,
@@ -111,6 +133,7 @@ def backtest_analyze_economy_state(
         "analysis_date": result["analysis_date"],
         "analysis_time": result["analysis_time"],
         "backtest_date": result["backtest_date"],
+        "model_provider": result["model_provider"],
         "model_name": result["model_name"],
         "personality": result["personality"],
         "data_sources": result["data_sources"],
@@ -132,6 +155,7 @@ def backtest_analyze_economy_state(
         "analysis_completed": True,
         "analysis_timestamp": result["analysis_timestamp"],
         "backtest_date": result["backtest_date"],
+        "model_provider": result["model_provider"],
         "model_name": result["model_name"],
         "personality": result["personality"],
         "output_table": "backtest_economy_state_analysis",
@@ -141,6 +165,8 @@ def backtest_analyze_economy_state(
         "analysis_preview": result["analysis_content"][:500]
         if result["analysis_content"]
         else "",
+        "token_usage": token_usage,
+        "provider": economic_analysis._get_provider(),
     }
 
     context.log.info(f"Backtest economy state analysis complete: {result_metadata}")

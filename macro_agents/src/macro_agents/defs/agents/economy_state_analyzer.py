@@ -1,11 +1,15 @@
 import dspy
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
 import dagster as dg
 from pydantic import Field
 import re
+import os
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+# Import GCSResource at module level since it's used in type annotations
+# that Dagster needs to resolve at runtime
+from macro_agents.defs.resources.gcs import GCSResource
 
 
 class EconomicAnalysisConfig(dg.Config):
@@ -95,21 +99,265 @@ class EconomyStateModule(dspy.Module):
 class EconomicAnalysisResource(dg.ConfigurableResource):
     """Unified resource for economic analysis that consolidates useful parts from existing analyzers."""
 
-    model_name: str = Field(
-        default="gpt-4-turbo-preview", description="LLM model to use for analysis"
+    provider: str = Field(
+        default="openai",
+        description="LLM provider: 'openai', 'gemini', or 'anthropic'. Can be set via LLM_PROVIDER env var.",
     )
-    openai_api_key: str = Field(description="OpenAI API key for DSPy")
+    model_name: str = Field(
+        default="gpt-4-turbo-preview",
+        description="LLM model name (e.g., 'gpt-4-turbo-preview', 'gemini-2.0-flash-exp', 'claude-3-opus-20240229')",
+    )
+    openai_api_key: Optional[str] = Field(
+        default=None,
+        description="OpenAI API key (required if provider='openai'). Can be set via OPENAI_API_KEY env var.",
+    )
+    gemini_api_key: Optional[str] = Field(
+        default=None,
+        description="Google Gemini API key (required if provider='gemini'). Can be set via GEMINI_API_KEY env var.",
+    )
+    anthropic_api_key: Optional[str] = Field(
+        default=None,
+        description="Anthropic API key (required if provider='anthropic'). Can be set via ANTHROPIC_API_KEY env var.",
+    )
+    use_optimized_models: bool = Field(
+        default=True,
+        description="Whether to use optimized models from GCS if available",
+    )
 
     def setup_for_execution(self, context) -> None:
         """Initialize DSPy when the resource is used."""
-        lm = dspy.LM(model=self.model_name, api_key=self.openai_api_key)
+        # Get provider from env var if not set directly
+        # Access Field value directly using object.__getattribute__ to avoid property
+        provider = object.__getattribute__(self, "provider")
+        if isinstance(provider, dg.EnvVar):
+            provider = provider.value or "openai"
+        elif not provider:
+            provider = os.getenv("LLM_PROVIDER", "openai")
+
+        # Get API keys from env vars if not set directly
+        openai_key = self.openai_api_key
+        if isinstance(openai_key, dg.EnvVar):
+            openai_key = openai_key.value
+        elif not openai_key:
+            openai_key = os.getenv("OPENAI_API_KEY")
+
+        gemini_key = self.gemini_api_key
+        if isinstance(gemini_key, dg.EnvVar):
+            gemini_key = gemini_key.value
+        elif not gemini_key:
+            gemini_key = os.getenv("GEMINI_API_KEY")
+
+        anthropic_key = self.anthropic_api_key
+        if isinstance(anthropic_key, dg.EnvVar):
+            anthropic_key = anthropic_key.value
+        elif not anthropic_key:
+            anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+
+        # Determine API key based on provider
+        api_key = None
+        if provider == "openai":
+            api_key = openai_key
+            if not api_key:
+                raise ValueError("openai_api_key is required when provider='openai'")
+            # Format model name for OpenAI
+            model_name_val = self.model_name
+            if isinstance(model_name_val, dg.EnvVar):
+                model_name_val = model_name_val.value
+            model_str = f"openai/{model_name_val}"
+        elif provider == "gemini":
+            api_key = gemini_key
+            if not api_key:
+                raise ValueError("gemini_api_key is required when provider='gemini'")
+            # Format model name for Gemini
+            model_name_val = self.model_name
+            if isinstance(model_name_val, dg.EnvVar):
+                model_name_val = model_name_val.value
+            model_str = f"gemini/{model_name_val}"
+        elif provider == "anthropic":
+            api_key = anthropic_key
+            if not api_key:
+                raise ValueError(
+                    "anthropic_api_key is required when provider='anthropic'"
+                )
+            # Format model name for Anthropic
+            model_name_val = self.model_name
+            if isinstance(model_name_val, dg.EnvVar):
+                model_name_val = model_name_val.value
+            model_str = f"anthropic/{model_name_val}"
+        else:
+            raise ValueError(
+                f"Unknown provider: {provider}. Must be 'openai', 'gemini', or 'anthropic'"
+            )
+
+        # Store provider for metadata
+        self._provider = provider
+
+        lm = dspy.LM(model=model_str, api_key=api_key)
         dspy.settings.configure(lm=lm)
+        self._lm = lm  # Store LM reference for token tracking
         self._economy_state_analyzer = EconomyStateModule()
+        self._optimized_modules_cache = {}
+
+    def _get_provider(self) -> str:
+        """Get the current LLM provider (resolved value, not the Field)."""
+        # Return the resolved provider value, fallback to field default
+        return getattr(self, "_provider", getattr(self, "provider", "openai"))
 
     @property
     def economy_state_analyzer(self):
         """Get economy state analyzer."""
         return self._economy_state_analyzer
+
+    def load_optimized_module(
+        self,
+        module_name: str,
+        md_resource: Optional["MotherDuckResource"] = None,
+        gcs_resource: Optional[Any] = None,
+        context: Optional[dg.AssetExecutionContext] = None,
+    ) -> Optional[dspy.Module]:
+        """
+        Load optimized module from GCS if available.
+
+        Args:
+            module_name: Name of module to load ('economy_state', 'asset_class_relationship', 'investment_recommendations')
+            md_resource: MotherDuck resource for querying model versions
+            gcs_resource: GCS resource for downloading models
+            context: Optional Dagster context for logging
+
+        Returns:
+            Optimized module if available, None otherwise
+        """
+        if not self.use_optimized_models or not md_resource or not gcs_resource:
+            return None
+
+        # Check cache first
+        cache_key = f"{module_name}_optimized"
+        if cache_key in self._optimized_modules_cache:
+            return self._optimized_modules_cache[cache_key]
+
+        log = context.log if context else None
+
+        try:
+            # Query for production version
+            query = f"""
+            SELECT version, gcs_path, metadata
+            FROM dspy_model_versions
+            WHERE module_name = '{module_name}'
+                AND is_production = TRUE
+            ORDER BY optimization_date DESC
+            LIMIT 1
+            """
+            df = md_resource.execute_query(query, read_only=True)
+
+            if df.is_empty():
+                if log:
+                    log.info(
+                        f"No production optimized model found for {module_name}, using baseline"
+                    )
+                return None
+
+            row = df.iter_rows(named=True).__next__()
+            version = row["version"]
+
+            # Download model from GCS
+            model_data = gcs_resource.download_model(
+                module_name=module_name,
+                version=version,
+                context=context,
+            )
+
+            # Reconstruct module from saved state
+            module = None
+            module_state_b64 = model_data.get("module_state")
+
+            if module_state_b64:
+                # Deserialize the full module state
+                try:
+                    import base64
+                    import io
+
+                    module_bytes = base64.b64decode(module_state_b64.encode("utf-8"))
+
+                    serialization_method = model_data.get(
+                        "serialization_method", "pickle"
+                    )
+                    if serialization_method == "dspy.save" and hasattr(dspy, "load"):
+                        buffer = io.BytesIO(module_bytes)
+                        module = dspy.load(buffer)
+                    else:
+                        # Use pickle
+                        import pickle
+
+                        module = pickle.loads(module_bytes)
+
+                    if log:
+                        log.info(
+                            f"Successfully deserialized optimized {module_name} module"
+                        )
+                except Exception as e:
+                    if log:
+                        log.warning(
+                            f"Could not deserialize module state: {e}, falling back to baseline"
+                        )
+                    module = None
+
+            # Fall back to creating baseline module and applying instructions if deserialization failed
+            if module is None:
+                if module_name == "economy_state":
+                    module = EconomyStateModule()
+                    # Apply optimized instructions if available
+                    if model_data.get("instructions") and hasattr(
+                        module.analyze_state, "signature"
+                    ):
+                        module.analyze_state.signature.instructions = model_data[
+                            "instructions"
+                        ]
+                elif module_name == "asset_class_relationship":
+                    from macro_agents.defs.agents.asset_class_relationship_analyzer import (
+                        AssetClassRelationshipModule,
+                    )
+
+                    module = AssetClassRelationshipModule()
+                    if model_data.get("instructions") and hasattr(
+                        module.analyze_relationships, "signature"
+                    ):
+                        module.analyze_relationships.signature.instructions = (
+                            model_data["instructions"]
+                        )
+                elif module_name == "investment_recommendations":
+                    from macro_agents.defs.agents.investment_recommendations import (
+                        InvestmentRecommendationsModule,
+                    )
+
+                    personality = model_data.get("personality", "skeptical")
+                    module = InvestmentRecommendationsModule(personality=personality)
+                    if model_data.get("instructions") and hasattr(
+                        module.generate_recommendations, "signature"
+                    ):
+                        module.generate_recommendations.signature.instructions = (
+                            model_data["instructions"]
+                        )
+                else:
+                    if log:
+                        log.warning(f"Unknown module name: {module_name}")
+                    return None
+
+            # Cache the module
+            self._optimized_modules_cache[cache_key] = module
+
+            if log:
+                log.info(
+                    f"Loaded optimized {module_name} v{version} from GCS for production use"
+                )
+
+            return module
+
+        except Exception as e:
+            if log:
+                log.warning(
+                    f"Error loading optimized {module_name} module: {e}, using baseline"
+                )
+            return None
 
     def get_economic_data(
         self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
@@ -500,6 +748,88 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 return df.write_csv()
 
 
+def _get_token_usage(
+    economic_analysis: EconomicAnalysisResource,
+    initial_history_length: int,
+    context: dg.AssetExecutionContext,
+) -> Dict[str, Any]:
+    """
+    Extract token usage from DSPy LM history.
+
+    Returns dictionary with prompt_tokens, completion_tokens, and total_tokens.
+    """
+    token_usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
+
+    if not hasattr(economic_analysis, "_lm"):
+        return token_usage
+
+    try:
+        lm = economic_analysis._lm
+        history = lm.history
+
+        # Get new history entries since initial
+        new_entries = history[initial_history_length:]
+
+        # Sum up tokens from all new entries
+        for entry in new_entries:
+            # DSPy history entries typically have 'prompt_tokens' and 'completion_tokens'
+            # or we can calculate from the messages
+            if hasattr(entry, "prompt_tokens"):
+                token_usage["prompt_tokens"] += entry.prompt_tokens
+            if hasattr(entry, "completion_tokens"):
+                token_usage["completion_tokens"] += entry.completion_tokens
+            elif hasattr(entry, "response"):
+                # Try to estimate from response if tokens not directly available
+                # This is a fallback - actual token counts depend on the provider
+                if hasattr(lm, "tokenizer"):
+                    try:
+                        # Estimate tokens (rough approximation)
+                        prompt_text = str(entry.get("messages", ""))
+                        response_text = str(entry.get("response", ""))
+                        # Rough estimate: ~4 chars per token
+                        token_usage["prompt_tokens"] += len(prompt_text) // 4
+                        token_usage["completion_tokens"] += len(response_text) // 4
+                    except Exception:
+                        pass
+
+        token_usage["total_tokens"] = (
+            token_usage["prompt_tokens"] + token_usage["completion_tokens"]
+        )
+
+        # Try to get actual token counts from LM if available
+        if hasattr(lm, "get_token_count"):
+            try:
+                # Some LM implementations provide this
+                actual_counts = lm.get_token_count()
+                if actual_counts:
+                    token_usage.update(actual_counts)
+            except Exception:
+                pass
+
+        # Check if LM has usage tracking (OpenAI, Anthropic, etc. provide this)
+        if hasattr(lm, "usage"):
+            usage = lm.usage
+            if usage:
+                token_usage["prompt_tokens"] = usage.get(
+                    "prompt_tokens", token_usage["prompt_tokens"]
+                )
+                token_usage["completion_tokens"] = usage.get(
+                    "completion_tokens", token_usage["completion_tokens"]
+                )
+                token_usage["total_tokens"] = usage.get(
+                    "total_tokens", token_usage["total_tokens"]
+                )
+
+    except Exception as e:
+        context.log.warning(f"Could not extract token usage: {e}")
+
+    return token_usage
+
+
 def extract_economy_state_summary(analysis_content: str) -> Dict[str, Any]:
     """Extract key insights from economy state analysis for metadata."""
     summary = {}
@@ -567,6 +897,7 @@ def analyze_economy_state(
     config: EconomicAnalysisConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
+    gcs: Optional[GCSResource] = None,
 ) -> dg.MaterializeResult:
     """
     Asset that analyzes the current state of the economy based on economic indicators.
@@ -587,14 +918,38 @@ def analyze_economy_state(
     context.log.info("Gathering commodity data...")
     commodity_data = economic_analysis.get_commodity_data(md)
 
+    # Try to load optimized module
+    optimized_analyzer = None
+    if economic_analysis.use_optimized_models and gcs:
+        optimized_analyzer = economic_analysis.load_optimized_module(
+            module_name="economy_state",
+            md_resource=md,
+            gcs_resource=gcs,
+            context=context,
+        )
+
+    analyzer_to_use = (
+        optimized_analyzer
+        if optimized_analyzer
+        else economic_analysis.economy_state_analyzer
+    )
+
+    # Track token usage
+    initial_history_length = (
+        len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
+    )
+
     context.log.info(
         f"Running economy state analysis with economic and commodity data (personality: {config.personality})..."
     )
-    analysis_result = economic_analysis.economy_state_analyzer(
+    analysis_result = analyzer_to_use(
         economic_data=economic_data,
         commodity_data=commodity_data,
         personality=config.personality,
     )
+
+    # Calculate token usage
+    token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()
     result = {
@@ -649,6 +1004,8 @@ def analyze_economy_state(
         "analysis_preview": result["analysis_content"][:500]
         if result["analysis_content"]
         else "",
+        "token_usage": token_usage,
+        "provider": economic_analysis._get_provider(),
     }
 
     context.log.info(f"Economy state analysis complete: {result_metadata}")

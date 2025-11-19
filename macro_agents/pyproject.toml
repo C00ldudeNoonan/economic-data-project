@@ -27,6 +27,7 @@ dependencies = [
     "sqlfluff>=3.4.2",
     "sqlfluff-templater-dbt>=3.4.2",
     "dagster-sling",
+    "google-cloud-storage>=2.10.0",
 ]
 
 [project.optional-dependencies]

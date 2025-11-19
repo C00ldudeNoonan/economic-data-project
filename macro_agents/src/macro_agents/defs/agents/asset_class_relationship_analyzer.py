@@ -1,5 +1,5 @@
 import dspy
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from datetime import datetime
 import dagster as dg
 import re
@@ -9,6 +9,9 @@ from macro_agents.defs.agents.economy_state_analyzer import (
     analyze_economy_state,
     EconomicAnalysisResource,
 )
+# Import GCSResource at module level since it's used in type annotations
+# that Dagster needs to resolve at runtime
+from macro_agents.defs.resources.gcs import GCSResource
 
 
 class AssetClassRelationshipSignature(dspy.Signature):
@@ -184,6 +187,7 @@ def analyze_asset_class_relationships(
     context: dg.AssetExecutionContext,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
+    gcs: Optional[GCSResource] = None,
 ) -> dg.MaterializeResult:
     """
     Asset that analyzes relationships between asset classes and the economic cycle.
@@ -227,7 +231,25 @@ def analyze_asset_class_relationships(
     context.log.info("Gathering commodity data...")
     commodity_data = economic_analysis.get_commodity_data(md)
 
-    relationship_analyzer = AssetClassRelationshipModule()
+    # Try to load optimized module
+    relationship_analyzer = None
+    if economic_analysis.use_optimized_models and gcs:
+        relationship_analyzer = economic_analysis.load_optimized_module(
+            module_name="asset_class_relationship",
+            md_resource=md,
+            gcs_resource=gcs,
+            context=context,
+        )
+
+    if relationship_analyzer is None:
+        relationship_analyzer = AssetClassRelationshipModule()
+
+    # Track token usage
+    from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
+
+    initial_history_length = (
+        len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
+    )
 
     context.log.info(
         "Running asset class relationship analysis with market and commodity data..."
@@ -238,6 +260,9 @@ def analyze_asset_class_relationships(
         correlation_data=correlation_data,
         commodity_data=commodity_data,
     )
+
+    # Calculate token usage
+    token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()
     result = {
@@ -291,6 +316,8 @@ def analyze_asset_class_relationships(
         "analysis_preview": result["analysis_content"][:500]
         if result["analysis_content"]
         else "",
+        "token_usage": token_usage,
+        "provider": economic_analysis._get_provider(),
     }
 
     context.log.info(f"Asset class relationship analysis complete: {result_metadata}")

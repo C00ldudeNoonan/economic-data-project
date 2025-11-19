@@ -127,13 +127,14 @@ def evaluate_backtest_recommendations(
     """
     context.log.info(
         f"Starting evaluation of backtest recommendations for {config.backtest_date} "
-        f"with model {config.model_name}..."
+        f"with provider {config.model_provider} and model {config.model_name}..."
     )
 
     query = f"""
-    SELECT recommendations_content
+    SELECT recommendations_content, personality
     FROM backtest_investment_recommendations
     WHERE backtest_date = '{config.backtest_date}'
+        AND model_provider = '{config.model_provider}'
         AND model_name = '{config.model_name}'
     ORDER BY analysis_timestamp DESC
     LIMIT 1
@@ -143,10 +144,14 @@ def evaluate_backtest_recommendations(
     if df.is_empty():
         raise ValueError(
             f"No backtest recommendations found for {config.backtest_date} "
-            f"with model {config.model_name}"
+            f"with provider {config.model_provider} and model {config.model_name}"
         )
 
     recommendations_content = df[0, "recommendations_content"]
+    # Use personality from database if available, otherwise fall back to config
+    personality = (
+        df[0, "personality"] if "personality" in df.columns else config.personality
+    )
 
     recommendations = extract_recommendations(recommendations_content)
     context.log.info(f"Extracted {len(recommendations)} recommendations")
@@ -158,7 +163,9 @@ def evaluate_backtest_recommendations(
             "evaluation_completed": True,
             "evaluation_timestamp": evaluation_timestamp.isoformat(),
             "backtest_date": config.backtest_date,
+            "model_provider": config.model_provider,
             "model_name": config.model_name,
+            "personality": personality,
             "total_recommendations": 0,
             "hits_1m": 0,
             "misses_1m": 0,
@@ -206,7 +213,9 @@ def evaluate_backtest_recommendations(
             "evaluation_completed": True,
             "evaluation_timestamp": datetime.now().isoformat(),
             "backtest_date": config.backtest_date,
+            "model_provider": config.model_provider,
             "model_name": config.model_name,
+            "personality": personality,
             "total_recommendations": len(recommendations),
             "hits_1m": 0,
             "misses_1m": 0,
@@ -329,7 +338,9 @@ def evaluate_backtest_recommendations(
 
     json_result = {
         "backtest_date": config.backtest_date,
+        "model_provider": config.model_provider,
         "model_name": config.model_name,
+        "personality": personality,
         "evaluation_timestamp": evaluation_timestamp.isoformat(),
         "total_recommendations": len(evaluation_results),
         "hits_1m": hits_1m,
@@ -361,7 +372,9 @@ def evaluate_backtest_recommendations(
         "evaluation_completed": True,
         "evaluation_timestamp": evaluation_timestamp.isoformat(),
         "backtest_date": config.backtest_date,
+        "model_provider": config.model_provider,
         "model_name": config.model_name,
+        "personality": personality,
         "total_recommendations": len(evaluation_results),
         "hits_1m": hits_1m,
         "misses_1m": misses_1m,
