@@ -904,7 +904,7 @@ def auto_promote_best_models_to_production(
             continue
 
         try:
-            model_data = gcs.download_model(
+            _ = gcs.download_model(
                 module_name=module_name,
                 version=version,
                 context=context,

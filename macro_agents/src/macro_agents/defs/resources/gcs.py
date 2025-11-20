@@ -48,14 +48,18 @@ class GCSResource(dg.ConfigurableResource):
             # It's a JSON string, parse it and use from_service_account_info
             try:
                 creds_info = json.loads(creds_path)
-                credentials = service_account.Credentials.from_service_account_info(creds_info)
+                credentials = service_account.Credentials.from_service_account_info(
+                    creds_info
+                )
             except json.JSONDecodeError as e:
                 raise ValueError(
                     f"Failed to parse service account JSON from GOOGLE_APPLICATION_CREDENTIALS: {e}"
                 )
         elif os.path.exists(creds_path):
             # It's a file path, use from_service_account_file
-            credentials = service_account.Credentials.from_service_account_file(creds_path)
+            credentials = service_account.Credentials.from_service_account_file(
+                creds_path
+            )
         else:
             raise FileNotFoundError(
                 f"Credentials not found. Expected either a valid file path or JSON string, got: {creds_path[:100]}..."
