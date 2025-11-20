@@ -19,7 +19,7 @@ class GCSResource(dg.ConfigurableResource):
     bucket_name: str = Field(description="GCS bucket name for storing models")
     credentials_path: Optional[str] = Field(
         default=None,
-        description="Path to Google service account credentials JSON file. If not provided, uses default credentials. Can be set via GOOGLE_APPLICATION_CREDENTIALS env var.",
+        description="Path to Google service account credentials JSON file. Can be set via GOOGLE_APPLICATION_CREDENTIALS env var.",
     )
     local_cache_dir: str = Field(
         default=".dspy_models",
@@ -38,15 +38,30 @@ class GCSResource(dg.ConfigurableResource):
         if not creds_path:
             creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-        if creds_path and os.path.exists(creds_path):
-            credentials = service_account.Credentials.from_service_account_file(
-                creds_path
+        if not creds_path:
+            raise ValueError(
+                "credentials_path must be set or GOOGLE_APPLICATION_CREDENTIALS environment variable must be provided"
             )
-            self._client = storage.Client(credentials=credentials)
-        else:
-            # Use default credentials (from environment or gcloud auth)
-            self._client = storage.Client()
 
+        # Check if creds_path is a JSON string (starts with {) or a file path
+        if creds_path.strip().startswith("{"):
+            # It's a JSON string, parse it and use from_service_account_info
+            try:
+                creds_info = json.loads(creds_path)
+                credentials = service_account.Credentials.from_service_account_info(creds_info)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Failed to parse service account JSON from GOOGLE_APPLICATION_CREDENTIALS: {e}"
+                )
+        elif os.path.exists(creds_path):
+            # It's a file path, use from_service_account_file
+            credentials = service_account.Credentials.from_service_account_file(creds_path)
+        else:
+            raise FileNotFoundError(
+                f"Credentials not found. Expected either a valid file path or JSON string, got: {creds_path[:100]}..."
+            )
+
+        self._client = storage.Client(credentials=credentials)
         self._bucket = self._client.bucket(self.bucket_name)
 
         # Create local cache directory if it doesn't exist

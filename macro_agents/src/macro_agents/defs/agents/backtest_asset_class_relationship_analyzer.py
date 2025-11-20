@@ -3,6 +3,7 @@ from datetime import datetime
 import dagster as dg
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.agents.economy_state_analyzer import EconomicAnalysisResource
 from macro_agents.defs.agents.asset_class_relationship_analyzer import (
     AssetClassRelationshipModule,
@@ -57,6 +58,7 @@ def backtest_analyze_asset_class_relationships(
     config: BacktestConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
+    gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
     Asset that analyzes relationships between asset classes for backtesting.
@@ -71,13 +73,11 @@ def backtest_analyze_asset_class_relationships(
         f"with provider {config.model_provider} and model {config.model_name}..."
     )
 
-    # Update provider and model_name if they differ from current settings
     current_provider = economic_analysis._get_provider()
     if (
         current_provider != config.model_provider
         or economic_analysis.model_name != config.model_name
     ):
-        # Access the Field directly to set it
         object.__setattr__(economic_analysis, "provider", config.model_provider)
         economic_analysis.model_name = config.model_name
         economic_analysis.setup_for_execution(context)
@@ -117,9 +117,23 @@ def backtest_analyze_asset_class_relationships(
         md, cutoff_date=config.backtest_date
     )
 
-    relationship_analyzer = AssetClassRelationshipModule()
+    relationship_analyzer = None
+    if config.use_optimized_models and economic_analysis.use_optimized_models:
+        relationship_analyzer = economic_analysis.load_optimized_module(
+            module_name="asset_class_relationship",
+            md_resource=md,
+            gcs_resource=gcs,
+            context=context,
+            personality=None,  # Asset class relationship doesn't use personality
+        )
+        if relationship_analyzer:
+            context.log.info("Using optimized model for backtest")
+        else:
+            context.log.info("No optimized model found, falling back to baseline model")
 
-    # Track token usage
+    if relationship_analyzer is None:
+        relationship_analyzer = AssetClassRelationshipModule()
+
     from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
 
     initial_history_length = (
@@ -136,7 +150,6 @@ def backtest_analyze_asset_class_relationships(
         commodity_data=commodity_data,
     )
 
-    # Calculate token usage
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()

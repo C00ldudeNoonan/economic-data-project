@@ -3,6 +3,7 @@ from datetime import datetime
 import dagster as dg
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.agents.economy_state_analyzer import EconomicAnalysisResource
 from macro_agents.defs.agents.investment_recommendations import (
     InvestmentRecommendationsModule,
@@ -81,6 +82,7 @@ def backtest_generate_investment_recommendations(
     config: BacktestConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
+    gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
     Asset that generates investment recommendations for backtesting.
@@ -95,13 +97,11 @@ def backtest_generate_investment_recommendations(
         f"with provider {config.model_provider} and model {config.model_name}..."
     )
 
-    # Update provider and model_name if they differ from current settings
     current_provider = economic_analysis._get_provider()
     if (
         current_provider != config.model_provider
         or economic_analysis.model_name != config.model_name
     ):
-        # Access the Field directly to set it
         object.__setattr__(economic_analysis, "provider", config.model_provider)
         economic_analysis.model_name = config.model_name
         economic_analysis.setup_for_execution(context)
@@ -128,11 +128,37 @@ def backtest_generate_investment_recommendations(
             f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_asset_class_relationships first."
         )
 
-    recommendations_generator = InvestmentRecommendationsModule(
-        personality=config.personality
-    )
+    recommendations_generator = None
+    if config.use_optimized_models and economic_analysis.use_optimized_models:
+        recommendations_generator = economic_analysis.load_optimized_module(
+            module_name="investment_recommendations",
+            md_resource=md,
+            gcs_resource=gcs,
+            context=context,
+            personality=config.personality,
+        )
+        if recommendations_generator and hasattr(
+            recommendations_generator, "personality"
+        ):
+            if recommendations_generator.personality != config.personality:
+                context.log.warning(
+                    f"Optimized model personality ({recommendations_generator.personality}) "
+                    f"doesn't match config ({config.personality}), using baseline"
+                )
+                recommendations_generator = None
 
-    # Track token usage
+        if recommendations_generator:
+            context.log.info(
+                f"Using optimized model for backtest (personality: {config.personality})"
+            )
+        else:
+            context.log.info("No optimized model found, falling back to baseline model")
+
+    if recommendations_generator is None:
+        recommendations_generator = InvestmentRecommendationsModule(
+            personality=config.personality
+        )
+
     from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
 
     initial_history_length = (
@@ -148,7 +174,6 @@ def backtest_generate_investment_recommendations(
         personality=config.personality,
     )
 
-    # Calculate token usage
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()

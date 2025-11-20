@@ -1,5 +1,5 @@
 import dspy
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Dict, Any
 from datetime import datetime
 import dagster as dg
 import re
@@ -13,8 +13,6 @@ from macro_agents.defs.agents.economy_state_analyzer import (
 from macro_agents.defs.agents.asset_class_relationship_analyzer import (
     analyze_asset_class_relationships,
 )
-# Import GCSResource at module level since it's used in type annotations
-# that Dagster needs to resolve at runtime
 from macro_agents.defs.resources.gcs import GCSResource
 
 
@@ -218,14 +216,18 @@ def extract_recommendations_summary(recommendations_content: str) -> Dict[str, A
     kinds={"dspy", "duckdb"},
     group_name="economic_analysis",
     description="Generate actionable investment recommendations based on economy state and asset class relationships",
-    deps=[analyze_economy_state, analyze_asset_class_relationships],
+    deps=[
+        analyze_economy_state,
+        analyze_asset_class_relationships,
+        dg.AssetKey(["auto_promote_best_models_to_production"]),
+    ],
 )
 def generate_investment_recommendations(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
-    gcs: Optional[GCSResource] = None,
+    gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
     Asset that generates actionable investment recommendations.
@@ -260,16 +262,15 @@ def generate_investment_recommendations(
             "No asset class relationship analysis found. Please run analyze_asset_class_relationships first."
         )
 
-    # Try to load optimized module
     recommendations_generator = None
-    if economic_analysis.use_optimized_models and gcs:
+    if economic_analysis.use_optimized_models:
         recommendations_generator = economic_analysis.load_optimized_module(
             module_name="investment_recommendations",
             md_resource=md,
             gcs_resource=gcs,
             context=context,
+            personality=config.personality,
         )
-        # Ensure personality matches
         if recommendations_generator and hasattr(
             recommendations_generator, "personality"
         ):
@@ -285,7 +286,6 @@ def generate_investment_recommendations(
             personality=config.personality
         )
 
-    # Track token usage
     from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
 
     initial_history_length = (
@@ -301,7 +301,6 @@ def generate_investment_recommendations(
         personality=config.personality,
     )
 
-    # Calculate token usage
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()

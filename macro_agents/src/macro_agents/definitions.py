@@ -31,6 +31,7 @@ from macro_agents.defs.agents.backtest_optimizer import (
     prepare_optimization_training_data,
     optimize_dspy_modules,
     promote_optimized_model_to_production,
+    auto_promote_best_models_to_production,
 )
 from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.schedules import schedules, sensors, jobs
@@ -105,6 +106,7 @@ defs = dg.Definitions(
         prepare_optimization_training_data,
         optimize_dspy_modules,
         promote_optimized_model_to_production,
+        auto_promote_best_models_to_production,
     ],
     asset_checks=[
         us_sector_etfs_weekly_coverage_check,
@@ -131,7 +133,7 @@ defs = dg.Definitions(
         ),
         "gcs": GCSResource(
             bucket_name=dg.EnvVar("GCS_BUCKET_NAME"),
-            credentials_path=None,  # Will check GOOGLE_APPLICATION_CREDENTIALS env var in setup
+            credentials_path=dg.EnvVar("GOOGLE_APPLICATION_CREDENTIALS"),
         ),
     },
     schedules=schedules,

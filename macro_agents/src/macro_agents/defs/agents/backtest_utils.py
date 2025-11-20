@@ -159,32 +159,36 @@ def get_asset_returns(
 
     spy_returns = {}
     for period_months in periods:
+        # Calculate monthly forward returns from monthly_avg_close prices
+        # SPY is in major_indicies_analysis_return
         query = f"""
+        WITH monthly_data AS (
+            SELECT 
+                month_date,
+                monthly_avg_close,
+                LEAD(monthly_avg_close, {period_months}) OVER (
+                    PARTITION BY symbol, exchange
+                    ORDER BY month_date
+                ) AS forward_close
+            FROM major_indicies_analysis_return
+            WHERE symbol = 'SPY'
+        )
         SELECT 
-            pct_change_q1_forward,
-            pct_change_q2_forward,
-            pct_change_q3_forward,
-            month_date
-        FROM us_sector_analysis_return
-        WHERE symbol = 'SPY'
-            AND month_date = '{backtest_date}'
+            month_date,
+            CASE 
+                WHEN forward_close IS NOT NULL AND monthly_avg_close > 0
+                THEN ROUND((forward_close - monthly_avg_close) / monthly_avg_close * 100, 2)
+                ELSE NULL
+            END AS pct_change_forward
+        FROM monthly_data
+        WHERE month_date = '{backtest_date}'
         LIMIT 1
         """
 
         df = md_resource.execute_query(query, read_only=True)
-        if not df.is_empty():
-            if period_months == 1:
-                spy_return = df[0, "pct_change_q1_forward"]
-            elif period_months == 3:
-                spy_return = df[0, "pct_change_q2_forward"]
-            elif period_months == 6:
-                spy_return = df[0, "pct_change_q3_forward"]
-            else:
-                spy_return = None
-
-            spy_returns[f"{period_months}m"] = (
-                spy_return if spy_return is not None else 0.0
-            )
+        if not df.is_empty() and df[0, "pct_change_forward"] is not None:
+            spy_return = df[0, "pct_change_forward"]
+            spy_returns[f"{period_months}m"] = spy_return
         else:
             spy_returns[f"{period_months}m"] = 0.0
 
@@ -192,30 +196,55 @@ def get_asset_returns(
         symbol_returns = {}
 
         for period_months in periods:
+            # Calculate monthly forward returns from monthly_avg_close prices
+            # Check all possible tables to find the symbol
             query = f"""
+            WITH all_symbols AS (
+                SELECT symbol, exchange, month_date, monthly_avg_close
+                FROM major_indicies_analysis_return
+                WHERE symbol = '{symbol}'
+                UNION ALL
+                SELECT symbol, exchange, month_date, monthly_avg_close
+                FROM us_sector_analysis_return
+                WHERE symbol = '{symbol}'
+                UNION ALL
+                SELECT symbol, exchange, month_date, monthly_avg_close
+                FROM global_markets_analysis_return
+                WHERE symbol = '{symbol}'
+                UNION ALL
+                SELECT symbol, exchange, month_date, monthly_avg_close
+                FROM currency_analysis_return
+                WHERE symbol = '{symbol}'
+                UNION ALL
+                SELECT symbol, exchange, month_date, monthly_avg_close
+                FROM fixed_income_analysis_return
+                WHERE symbol = '{symbol}'
+            ),
+            monthly_data AS (
+                SELECT 
+                    month_date,
+                    monthly_avg_close,
+                    LEAD(monthly_avg_close, {period_months}) OVER (
+                        PARTITION BY symbol, exchange
+                        ORDER BY month_date
+                    ) AS forward_close
+                FROM all_symbols
+            )
             SELECT 
-                pct_change_q1_forward,
-                pct_change_q2_forward,
-                pct_change_q3_forward,
-                month_date
-            FROM us_sector_analysis_return
-            WHERE symbol = '{symbol}'
-                AND month_date = '{backtest_date}'
+                month_date,
+                CASE 
+                    WHEN forward_close IS NOT NULL AND monthly_avg_close > 0
+                    THEN ROUND((forward_close - monthly_avg_close) / monthly_avg_close * 100, 2)
+                    ELSE NULL
+                END AS pct_change_forward
+            FROM monthly_data
+            WHERE month_date = '{backtest_date}'
             LIMIT 1
             """
 
             df = md_resource.execute_query(query, read_only=True)
-            if not df.is_empty():
-                if period_months == 1:
-                    actual_return = df[0, "pct_change_q1_forward"]
-                elif period_months == 3:
-                    actual_return = df[0, "pct_change_q2_forward"]
-                elif period_months == 6:
-                    actual_return = df[0, "pct_change_q3_forward"]
-                else:
-                    actual_return = None
-
-                actual_return = actual_return if actual_return is not None else 0.0
+            if not df.is_empty() and df[0, "pct_change_forward"] is not None:
+                actual_return = df[0, "pct_change_forward"]
                 spy_return = spy_returns.get(f"{period_months}m", 0.0)
                 outperformance = actual_return - spy_return
 

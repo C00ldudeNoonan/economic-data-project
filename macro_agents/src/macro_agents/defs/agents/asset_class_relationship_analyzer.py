@@ -1,5 +1,5 @@
 import dspy
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Dict, Any
 from datetime import datetime
 import dagster as dg
 import re
@@ -9,8 +9,6 @@ from macro_agents.defs.agents.economy_state_analyzer import (
     analyze_economy_state,
     EconomicAnalysisResource,
 )
-# Import GCSResource at module level since it's used in type annotations
-# that Dagster needs to resolve at runtime
 from macro_agents.defs.resources.gcs import GCSResource
 
 
@@ -181,13 +179,14 @@ def extract_relationship_summary(analysis_content: str) -> Dict[str, Any]:
         dg.AssetKey(["energy_commodities_summary"]),
         dg.AssetKey(["input_commodities_summary"]),
         dg.AssetKey(["agriculture_commodities_summary"]),
+        dg.AssetKey(["auto_promote_best_models_to_production"]),
     ],
 )
 def analyze_asset_class_relationships(
     context: dg.AssetExecutionContext,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
-    gcs: Optional[GCSResource] = None,
+    gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
     Asset that analyzes relationships between asset classes and the economic cycle.
@@ -231,9 +230,8 @@ def analyze_asset_class_relationships(
     context.log.info("Gathering commodity data...")
     commodity_data = economic_analysis.get_commodity_data(md)
 
-    # Try to load optimized module
     relationship_analyzer = None
-    if economic_analysis.use_optimized_models and gcs:
+    if economic_analysis.use_optimized_models:
         relationship_analyzer = economic_analysis.load_optimized_module(
             module_name="asset_class_relationship",
             md_resource=md,
@@ -244,7 +242,6 @@ def analyze_asset_class_relationships(
     if relationship_analyzer is None:
         relationship_analyzer = AssetClassRelationshipModule()
 
-    # Track token usage
     from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
 
     initial_history_length = (
@@ -261,7 +258,6 @@ def analyze_asset_class_relationships(
         commodity_data=commodity_data,
     )
 
-    # Calculate token usage
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()

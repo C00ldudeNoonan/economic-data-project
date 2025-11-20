@@ -3,6 +3,7 @@ import dagster as dg
 from pydantic import Field
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.agents.economy_state_analyzer import (
     EconomicAnalysisResource,
     extract_economy_state_summary,
@@ -27,6 +28,10 @@ class BacktestConfig(dg.Config):
         default="skeptical",
         description="Analytical personality: 'skeptical' (default, bearish), 'neutral' (balanced), or 'bullish' (optimistic)",
     )
+    use_optimized_models: bool = Field(
+        default=False,
+        description="If True, use optimized models for backtesting. If False (default), use baseline models to avoid circular dependencies in optimization.",
+    )
 
 
 @dg.asset(
@@ -40,6 +45,7 @@ class BacktestConfig(dg.Config):
         dg.AssetKey(["energy_commodities_summary_snapshot"]),
         dg.AssetKey(["input_commodities_summary_snapshot"]),
         dg.AssetKey(["agriculture_commodities_summary_snapshot"]),
+        dg.AssetKey(["financial_conditions_index"]),
     ],
 )
 def backtest_analyze_economy_state(
@@ -47,6 +53,7 @@ def backtest_analyze_economy_state(
     config: BacktestConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
+    gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
     Asset that analyzes economy state for backtesting with historical data cutoff.
@@ -66,13 +73,11 @@ def backtest_analyze_economy_state(
         f"with provider {config.model_provider} and model {config.model_name}..."
     )
 
-    # Update provider and model_name if they differ from current settings
     current_provider = economic_analysis._get_provider()
     if (
         current_provider != config.model_provider
         or economic_analysis.model_name != config.model_name
     ):
-        # Access the Field directly to set it
         object.__setattr__(economic_analysis, "provider", config.model_provider)
         economic_analysis.model_name = config.model_name
         economic_analysis.setup_for_execution(context)
@@ -87,7 +92,33 @@ def backtest_analyze_economy_state(
         md, cutoff_date=config.backtest_date
     )
 
-    # Track token usage
+    context.log.info("Gathering Financial Conditions Index data with cutoff date...")
+    fci_data = economic_analysis.get_financial_conditions_index(
+        md, cutoff_date=config.backtest_date
+    )
+
+    optimized_analyzer = None
+    if config.use_optimized_models and economic_analysis.use_optimized_models:
+        optimized_analyzer = economic_analysis.load_optimized_module(
+            module_name="economy_state",
+            md_resource=md,
+            gcs_resource=gcs,
+            context=context,
+            personality=config.personality,
+        )
+        if optimized_analyzer:
+            context.log.info(
+                f"Using optimized model for backtest (personality: {config.personality})"
+            )
+        else:
+            context.log.info("No optimized model found, falling back to baseline model")
+
+    analyzer_to_use = (
+        optimized_analyzer
+        if optimized_analyzer
+        else economic_analysis.economy_state_analyzer
+    )
+
     from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
 
     initial_history_length = (
@@ -95,15 +126,15 @@ def backtest_analyze_economy_state(
     )
 
     context.log.info(
-        f"Running economy state analysis with historical data (personality: {config.personality})..."
+        f"Running economy state analysis with historical data including FCI (personality: {config.personality})..."
     )
-    analysis_result = economic_analysis.economy_state_analyzer(
+    analysis_result = analyzer_to_use(
         economic_data=economic_data,
         commodity_data=commodity_data,
+        financial_conditions_index=fci_data,
         personality=config.personality,
     )
 
-    # Calculate token usage
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()
@@ -123,6 +154,7 @@ def backtest_analyze_economy_state(
                 "input_commodities_summary_snapshot",
                 "agriculture_commodities_summary_snapshot",
             ],
+            "financial_conditions_index_table": "financial_conditions_index",
         },
     }
 

@@ -15,7 +15,19 @@ from macro_agents.defs.agents.economy_state_analyzer import (
 from macro_agents.defs.agents.investment_recommendations import (
     InvestmentRecommendationsModule,
 )
-from macro_agents.defs.agents.backtest_evaluator import recommendation_accuracy_metric
+from macro_agents.defs.agents.backtest_evaluator import (
+    recommendation_accuracy_metric,
+    evaluate_backtest_recommendations,
+)
+from macro_agents.defs.agents.backtest_economy_state_analyzer import (
+    backtest_analyze_economy_state,
+)
+from macro_agents.defs.agents.backtest_asset_class_relationship_analyzer import (
+    backtest_analyze_asset_class_relationships,
+)
+from macro_agents.defs.agents.backtest_investment_recommendations import (
+    backtest_generate_investment_recommendations,
+)
 from macro_agents.defs.agents.backtest_utils import (
     extract_recommendations,
     get_asset_returns,
@@ -55,9 +67,13 @@ class OptimizationConfig(dg.Config):
         default="gpt-4-turbo-preview",
         description="LLM model to use for optimization",
     )
-    personality: str = Field(
-        default="skeptical",
-        description="Personality filter for training data",
+    personality: Optional[str] = Field(
+        default=None,
+        description="Personality filter for training data. If None, tests all personalities (skeptical, neutral, bullish)",
+    )
+    test_all_personalities: bool = Field(
+        default=True,
+        description="If True, test each model with all personalities to find the best combination",
     )
     promotion_threshold_pct: float = Field(
         default=5.0,
@@ -84,6 +100,7 @@ def create_model_versions_table(
     CREATE TABLE IF NOT EXISTS dspy_model_versions (
         module_name VARCHAR NOT NULL,
         version VARCHAR NOT NULL,
+        personality VARCHAR NOT NULL,
         optimization_date TIMESTAMP NOT NULL,
         baseline_accuracy DOUBLE,
         optimized_accuracy DOUBLE,
@@ -92,7 +109,7 @@ def create_model_versions_table(
         gcs_path VARCHAR NOT NULL,
         metadata JSON,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (module_name, version)
+        PRIMARY KEY (module_name, version, personality)
     )
     """
     try:
@@ -106,7 +123,12 @@ def create_model_versions_table(
     kinds={"dspy", "duckdb"},
     group_name="optimization",
     description="Prepare training data from backtest evaluation results for DSPy optimization",
-    deps=[dg.AssetKey(["backtest_evaluation_results"])],
+    deps=[
+        evaluate_backtest_recommendations,
+        backtest_generate_investment_recommendations,
+        backtest_analyze_economy_state,
+        backtest_analyze_asset_class_relationships,
+    ],
 )
 def prepare_optimization_training_data(
     context: dg.AssetExecutionContext,
@@ -121,14 +143,12 @@ def prepare_optimization_training_data(
     """
     context.log.info("Preparing optimization training data...")
 
-    # Build date filter
     date_filter = ""
     if config.backtest_date_start:
         date_filter += f" AND backtest_date >= '{config.backtest_date_start}'"
     if config.backtest_date_end:
         date_filter += f" AND backtest_date <= '{config.backtest_date_end}'"
 
-    # Query backtest evaluation results
     query = f"""
     SELECT 
         backtest_date,
@@ -156,14 +176,12 @@ def prepare_optimization_training_data(
             f"and model {config.model_name} with personality {config.personality}"
         )
 
-    # Prepare examples for each module
     training_data = {
         "economy_state": [],
         "asset_class_relationship": [],
         "investment_recommendations": [],
     }
 
-    # For investment recommendations, we can use the evaluation results directly
     for row in df.iter_rows(named=True):
         backtest_date = row["backtest_date"]
         evaluation_details_json = row.get("evaluation_details", "[]")
@@ -176,7 +194,6 @@ def prepare_optimization_training_data(
             )
             continue
 
-        # Get backtest recommendations for this date
         rec_query = f"""
         SELECT recommendations_content, personality
         FROM backtest_investment_recommendations
@@ -198,7 +215,6 @@ def prepare_optimization_training_data(
         if not recommendations:
             continue
 
-        # Get economy state and asset class analysis for this backtest date
         economy_state_query = f"""
         SELECT analysis_content
         FROM backtest_economy_state_analysis
@@ -223,11 +239,9 @@ def prepare_optimization_training_data(
         """
         asset_class_df = md.execute_query(asset_class_query, read_only=True)
 
-        # Get returns data for symbols
         symbols = [rec["symbol"] for rec in recommendations]
         returns_data = get_asset_returns(md, symbols, backtest_date, periods=[1, 3, 6])
 
-        # Create examples for investment recommendations module
         for rec in recommendations:
             symbol = rec["symbol"]
             if symbol not in returns_data:
@@ -260,7 +274,6 @@ def prepare_optimization_training_data(
         f"Prepared {len(training_data['investment_recommendations'])} examples for investment_recommendations"
     )
 
-    # Store training data summary
     summary = {
         "total_examples": {
             "investment_recommendations": len(
@@ -290,7 +303,13 @@ def prepare_optimization_training_data(
     kinds={"dspy", "duckdb", "gcs"},
     group_name="optimization",
     description="Optimize DSPy modules using MIPROv2 optimizer with backtest data",
-    deps=[prepare_optimization_training_data],
+    deps=[
+        prepare_optimization_training_data,
+        evaluate_backtest_recommendations,
+        backtest_generate_investment_recommendations,
+        backtest_analyze_economy_state,
+        backtest_analyze_asset_class_relationships,
+    ],
 )
 def optimize_dspy_modules(
     context: dg.AssetExecutionContext,
@@ -312,222 +331,177 @@ def optimize_dspy_modules(
     """
     context.log.info("Starting DSPy module optimization...")
 
-    # Ensure model versions table exists
     create_model_versions_table(md, context)
 
-    # Update economic analysis resource provider and model name if needed
     current_provider = economic_analysis._get_provider()
     if (
         current_provider != config.model_provider
         or economic_analysis.model_name != config.model_name
     ):
-        # Access the Field directly to set it
         object.__setattr__(economic_analysis, "provider", config.model_provider)
         economic_analysis.model_name = config.model_name
         economic_analysis.setup_for_execution(context)
 
     results = {}
 
-    # Prepare training data
+    personalities_to_test = []
+    if config.test_all_personalities:
+        personalities_to_test = ["skeptical", "neutral", "bullish"]
+        context.log.info(f"Testing all personalities: {personalities_to_test}")
+    elif config.personality:
+        personalities_to_test = [config.personality]
+        context.log.info(f"Testing single personality: {config.personality}")
+    else:
+        personalities_to_test = ["skeptical", "neutral", "bullish"]
+        context.log.info(
+            f"No personality specified, testing all: {personalities_to_test}"
+        )
+
     date_filter = ""
     if config.backtest_date_start:
         date_filter += f" AND backtest_date >= '{config.backtest_date_start}'"
     if config.backtest_date_end:
         date_filter += f" AND backtest_date <= '{config.backtest_date_end}'"
 
-    # Get evaluation results for training
-    eval_query = f"""
-    SELECT 
-        backtest_date,
-        evaluation_details,
-        accuracy_1m,
-        accuracy_3m,
-        accuracy_6m
-    FROM backtest_evaluation_results
-    WHERE model_provider = '{config.model_provider}'
-        AND model_name = '{config.model_name}'
-        AND personality = '{config.personality}'
-        {date_filter}
-    ORDER BY backtest_date DESC
-    """
+    for personality in personalities_to_test:
+        context.log.info(f"Optimizing modules for personality: {personality}")
 
-    eval_df = md.execute_query(eval_query, read_only=True)
-    context.log.info(f"Found {len(eval_df)} evaluation records for training")
+        eval_query = f"""
+        SELECT 
+            backtest_date,
+            evaluation_details,
+            accuracy_1m,
+            accuracy_3m,
+            accuracy_6m
+        FROM backtest_evaluation_results
+        WHERE model_provider = '{config.model_provider}'
+            AND model_name = '{config.model_name}'
+            AND personality = '{personality}'
+            {date_filter}
+        ORDER BY backtest_date DESC
+        """
 
-    if len(eval_df) < config.min_examples:
-        raise ValueError(
-            f"Insufficient training data: {len(eval_df)} examples found, "
-            f"minimum {config.min_examples} required for provider {config.model_provider} and model {config.model_name}"
+        eval_df = md.execute_query(eval_query, read_only=True)
+        context.log.info(
+            f"Found {len(eval_df)} evaluation records for personality {personality}"
         )
 
-    # Optimize investment recommendations module
-    if "investment_recommendations" in config.modules_to_optimize:
-        context.log.info("Optimizing investment_recommendations module...")
-
-        # Prepare training examples
-        examples = []
-        for row in eval_df.iter_rows(named=True):
-            backtest_date = row["backtest_date"]
-            evaluation_details_json = row.get("evaluation_details", "[]")
-
-            try:
-                json.loads(evaluation_details_json)
-            except (json.JSONDecodeError, TypeError):
-                continue
-
-            # Get recommendations and related data
-            rec_query = f"""
-            SELECT recommendations_content
-            FROM backtest_investment_recommendations
-            WHERE backtest_date = '{backtest_date}'
-                AND model_provider = '{config.model_provider}'
-                AND model_name = '{config.model_name}'
-                AND personality = '{config.personality}'
-            ORDER BY analysis_timestamp DESC
-            LIMIT 1
-            """
-            rec_df = md.execute_query(rec_query, read_only=True)
-            if rec_df.is_empty():
-                continue
-
-            recommendations_content = rec_df[0, "recommendations_content"]
-            recommendations = extract_recommendations(recommendations_content)
-
-            # Get economy state and asset class analysis
-            economy_state_query = f"""
-            SELECT analysis_content
-            FROM backtest_economy_state_analysis
-            WHERE backtest_date = '{backtest_date}'
-                AND model_provider = '{config.model_provider}'
-                AND model_name = '{config.model_name}'
-                AND personality = '{config.personality}'
-            ORDER BY analysis_timestamp DESC
-            LIMIT 1
-            """
-            economy_state_df = md.execute_query(economy_state_query, read_only=True)
-
-            asset_class_query = f"""
-            SELECT analysis_content
-            FROM backtest_asset_class_relationship_analysis
-            WHERE backtest_date = '{backtest_date}'
-                AND model_provider = '{config.model_provider}'
-                AND model_name = '{config.model_name}'
-                AND personality = '{config.personality}'
-            ORDER BY analysis_timestamp DESC
-            LIMIT 1
-            """
-            asset_class_df = md.execute_query(asset_class_query, read_only=True)
-
-            # Get returns for symbols
-            symbols = [rec["symbol"] for rec in recommendations]
-            returns_data = get_asset_returns(
-                md, symbols, backtest_date, periods=[1, 3, 6]
-            )
-
-            # Create examples
-            for rec in recommendations:
-                symbol = rec["symbol"]
-                if symbol not in returns_data:
-                    continue
-
-                symbol_returns = returns_data[symbol]
-                example = dspy.Example(
-                    economy_state_analysis=economy_state_df[0, "analysis_content"]
-                    if not economy_state_df.is_empty()
-                    else "",
-                    asset_class_relationship_analysis=asset_class_df[
-                        0, "analysis_content"
-                    ]
-                    if not asset_class_df.is_empty()
-                    else "",
-                    personality=config.personality,
-                    recommendation={
-                        "symbol": symbol,
-                        "direction": rec["direction"],
-                        "confidence": rec.get("confidence"),
-                        "expected_return": rec.get("expected_return"),
-                    },
-                    outcomes=symbol_returns,
-                ).with_inputs(
-                    "economy_state_analysis",
-                    "asset_class_relationship_analysis",
-                    "personality",
-                )
-                examples.append(example)
-
-        if len(examples) < config.min_examples:
+        if len(eval_df) < config.min_examples:
             context.log.warning(
-                f"Insufficient examples for investment_recommendations: {len(examples)} < {config.min_examples}"
+                f"Insufficient training data for personality {personality}: {len(eval_df)} examples found, "
+                f"minimum {config.min_examples} required. Skipping this personality."
             )
-        else:
-            context.log.info(f"Prepared {len(examples)} examples for optimization")
+            continue
 
-            # Split into train/validation (80/20)
-            split_idx = int(len(examples) * 0.8)
-            train_examples = examples[:split_idx]
-            val_examples = examples[split_idx:]
+        if "investment_recommendations" in config.modules_to_optimize:
+            context.log.info("Optimizing investment_recommendations module...")
 
-            # Create baseline module
-            baseline_module = InvestmentRecommendationsModule(
-                personality=config.personality
-            )
+            examples = []
+            for row in eval_df.iter_rows(named=True):
+                backtest_date = row["backtest_date"]
+                evaluation_details_json = row.get("evaluation_details", "[]")
 
-            # Evaluate baseline
-            context.log.info("Evaluating baseline module...")
-            baseline_scores = []
-            for example in val_examples[:50]:  # Sample for speed
                 try:
-                    # Call baseline module (result not needed for this evaluation approach)
-                    baseline_module(
-                        economy_state_analysis=example.economy_state_analysis,
-                        asset_class_relationship_analysis=example.asset_class_relationship_analysis,
-                        personality=example.personality,
-                    )
-                    # Create a pass-through prediction for metric
-                    pass_through = dspy.Prediction(
-                        recommendation=example.recommendation,
-                        outcomes=example.outcomes,
-                    )
-                    score = recommendation_accuracy_metric(example, pass_through)
-                    baseline_scores.append(score)
-                except Exception as e:
-                    context.log.warning(f"Error evaluating baseline: {e}")
+                    json.loads(evaluation_details_json)
+                except (json.JSONDecodeError, TypeError):
                     continue
 
-            baseline_accuracy = (
-                sum(baseline_scores) / len(baseline_scores) if baseline_scores else 0.0
-            )
-            context.log.info(f"Baseline accuracy: {baseline_accuracy:.4f}")
+                rec_query = f"""
+                SELECT recommendations_content
+                FROM backtest_investment_recommendations
+                WHERE backtest_date = '{backtest_date}'
+                    AND model_provider = '{config.model_provider}'
+                    AND model_name = '{config.model_name}'
+                    AND personality = '{personality}'
+                ORDER BY analysis_timestamp DESC
+                LIMIT 1
+                """
+                rec_df = md.execute_query(rec_query, read_only=True)
+                if rec_df.is_empty():
+                    continue
 
-            # Optimize with MIPROv2
-            context.log.info("Running MIPROv2 optimization...")
-            try:
-                # Try MIPROv2 first, fall back to MIPRO if v2 not available
-                try:
-                    optimizer = dspy.MIPROv2(
-                        metric=recommendation_accuracy_metric,
-                        num_candidates=config.max_trials,
-                    )
-                except AttributeError:
-                    # Fall back to MIPRO if MIPROv2 not available
-                    context.log.warning("MIPROv2 not available, using MIPRO")
-                    optimizer = dspy.MIPRO(
-                        metric=recommendation_accuracy_metric,
-                        num_candidates=config.max_trials,
-                    )
+                recommendations_content = rec_df[0, "recommendations_content"]
+                recommendations = extract_recommendations(recommendations_content)
 
-                optimized_module = optimizer.compile(
-                    student=baseline_module,
-                    trainset=train_examples,
-                    valset=val_examples[:100],  # Limit validation set size
+                economy_state_query = f"""
+                SELECT analysis_content
+                FROM backtest_economy_state_analysis
+                WHERE backtest_date = '{backtest_date}'
+                    AND model_provider = '{config.model_provider}'
+                    AND model_name = '{config.model_name}'
+                    AND personality = '{personality}'
+                ORDER BY analysis_timestamp DESC
+                LIMIT 1
+                """
+                economy_state_df = md.execute_query(economy_state_query, read_only=True)
+
+                asset_class_query = f"""
+                SELECT analysis_content
+                FROM backtest_asset_class_relationship_analysis
+                WHERE backtest_date = '{backtest_date}'
+                    AND model_provider = '{config.model_provider}'
+                    AND model_name = '{config.model_name}'
+                    AND personality = '{personality}'
+                ORDER BY analysis_timestamp DESC
+                LIMIT 1
+                """
+                asset_class_df = md.execute_query(asset_class_query, read_only=True)
+
+                symbols = [rec["symbol"] for rec in recommendations]
+                returns_data = get_asset_returns(
+                    md, symbols, backtest_date, periods=[1, 3, 6]
                 )
 
-                # Evaluate optimized module
-                context.log.info("Evaluating optimized module...")
-                optimized_scores = []
+                for rec in recommendations:
+                    symbol = rec["symbol"]
+                    if symbol not in returns_data:
+                        continue
+
+                    symbol_returns = returns_data[symbol]
+                    example = dspy.Example(
+                        economy_state_analysis=economy_state_df[0, "analysis_content"]
+                        if not economy_state_df.is_empty()
+                        else "",
+                        asset_class_relationship_analysis=asset_class_df[
+                            0, "analysis_content"
+                        ]
+                        if not asset_class_df.is_empty()
+                        else "",
+                        personality=personality,
+                        recommendation={
+                            "symbol": symbol,
+                            "direction": rec["direction"],
+                            "confidence": rec.get("confidence"),
+                            "expected_return": rec.get("expected_return"),
+                        },
+                        outcomes=symbol_returns,
+                    ).with_inputs(
+                        "economy_state_analysis",
+                        "asset_class_relationship_analysis",
+                        "personality",
+                    )
+                    examples.append(example)
+
+            if len(examples) < config.min_examples:
+                context.log.warning(
+                    f"Insufficient examples for investment_recommendations: {len(examples)} < {config.min_examples}"
+                )
+            else:
+                context.log.info(f"Prepared {len(examples)} examples for optimization")
+
+                split_idx = int(len(examples) * 0.8)
+                train_examples = examples[:split_idx]
+                val_examples = examples[split_idx:]
+
+                baseline_module = InvestmentRecommendationsModule(
+                    personality=personality
+                )
+
+                context.log.info("Evaluating baseline module...")
+                baseline_scores = []
                 for example in val_examples[:50]:
                     try:
-                        optimized_module(
+                        baseline_module(
                             economy_state_analysis=example.economy_state_analysis,
                             asset_class_relationship_analysis=example.asset_class_relationship_analysis,
                             personality=example.personality,
@@ -537,150 +511,200 @@ def optimize_dspy_modules(
                             outcomes=example.outcomes,
                         )
                         score = recommendation_accuracy_metric(example, pass_through)
-                        optimized_scores.append(score)
+                        baseline_scores.append(score)
                     except Exception as e:
-                        context.log.warning(f"Error evaluating optimized: {e}")
+                        context.log.warning(f"Error evaluating baseline: {e}")
                         continue
 
-                optimized_accuracy = (
-                    sum(optimized_scores) / len(optimized_scores)
-                    if optimized_scores
+                baseline_accuracy = (
+                    sum(baseline_scores) / len(baseline_scores)
+                    if baseline_scores
                     else 0.0
                 )
-                improvement_pct = (
-                    (optimized_accuracy - baseline_accuracy) / baseline_accuracy * 100
-                    if baseline_accuracy > 0
-                    else 0.0
-                )
+                context.log.info(f"Baseline accuracy: {baseline_accuracy:.4f}")
 
-                context.log.info(f"Optimized accuracy: {optimized_accuracy:.4f}")
-                context.log.info(f"Improvement: {improvement_pct:.2f}%")
-
-                # Save to GCS if improvement meets threshold
-                if improvement_pct >= config.promotion_threshold_pct:
-                    version = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    module_name = "investment_recommendations"
-
-                    # Save module state
-                    # MIPRO optimizers modify the module's internal state (few-shot examples, prompts, etc.)
-                    # We need to save the entire module state, not just instructions
+                context.log.info("Running MIPROv2 optimization...")
+                try:
                     try:
-                        # Try to use DSPy's save mechanism if available
-                        if hasattr(dspy, "save"):
-                            # Save module to a temporary buffer
-                            import io
-
-                            buffer = io.BytesIO()
-                            dspy.save(buffer, optimized_module)
-                            module_bytes = buffer.getvalue()
-                            module_state_b64 = base64.b64encode(module_bytes).decode(
-                                "utf-8"
-                            )
-                        else:
-                            # Fall back to pickle
-                            module_bytes = pickle.dumps(optimized_module)
-                            module_state_b64 = base64.b64encode(module_bytes).decode(
-                                "utf-8"
-                            )
-                    except Exception as e:
-                        context.log.warning(
-                            f"Could not serialize module state: {e}, saving metadata only"
+                        optimizer = dspy.MIPROv2(
+                            metric=recommendation_accuracy_metric,
+                            num_candidates=config.max_trials,
                         )
-                        module_state_b64 = None
+                    except AttributeError:
+                        context.log.warning("MIPROv2 not available, using MIPRO")
+                        optimizer = dspy.MIPRO(
+                            metric=recommendation_accuracy_metric,
+                            num_candidates=config.max_trials,
+                        )
 
-                    # Also extract instructions for metadata
-                    instructions = None
-                    if hasattr(optimized_module, "generate_recommendations"):
-                        if hasattr(
-                            optimized_module.generate_recommendations, "signature"
-                        ):
+                    optimized_module = optimizer.compile(
+                        student=baseline_module,
+                        trainset=train_examples,
+                        valset=val_examples[:100],
+                    )
+
+                    context.log.info("Evaluating optimized module...")
+                    optimized_scores = []
+                    for example in val_examples[:50]:
+                        try:
+                            optimized_module(
+                                economy_state_analysis=example.economy_state_analysis,
+                                asset_class_relationship_analysis=example.asset_class_relationship_analysis,
+                                personality=example.personality,
+                            )
+                            pass_through = dspy.Prediction(
+                                recommendation=example.recommendation,
+                                outcomes=example.outcomes,
+                            )
+                            score = recommendation_accuracy_metric(
+                                example, pass_through
+                            )
+                            optimized_scores.append(score)
+                        except Exception as e:
+                            context.log.warning(f"Error evaluating optimized: {e}")
+                            continue
+
+                    optimized_accuracy = (
+                        sum(optimized_scores) / len(optimized_scores)
+                        if optimized_scores
+                        else 0.0
+                    )
+                    improvement_pct = (
+                        (optimized_accuracy - baseline_accuracy)
+                        / baseline_accuracy
+                        * 100
+                        if baseline_accuracy > 0
+                        else 0.0
+                    )
+
+                    context.log.info(f"Optimized accuracy: {optimized_accuracy:.4f}")
+                    context.log.info(f"Improvement: {improvement_pct:.2f}%")
+
+                    if improvement_pct >= config.promotion_threshold_pct:
+                        version = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        module_name = "investment_recommendations"
+
+                        try:
+                            if hasattr(dspy, "save"):
+                                import io
+
+                                buffer = io.BytesIO()
+                                dspy.save(buffer, optimized_module)
+                                module_bytes = buffer.getvalue()
+                                module_state_b64 = base64.b64encode(
+                                    module_bytes
+                                ).decode("utf-8")
+                            else:
+                                module_bytes = pickle.dumps(optimized_module)
+                                module_state_b64 = base64.b64encode(
+                                    module_bytes
+                                ).decode("utf-8")
+                        except Exception as e:
+                            context.log.warning(
+                                f"Could not serialize module state: {e}, saving metadata only"
+                            )
+                            module_state_b64 = None
+
+                        instructions = None
+                        if hasattr(optimized_module, "generate_recommendations"):
                             if hasattr(
-                                optimized_module.generate_recommendations.signature,
-                                "instructions",
+                                optimized_module.generate_recommendations, "signature"
                             ):
-                                instructions = optimized_module.generate_recommendations.signature.instructions
+                                if hasattr(
+                                    optimized_module.generate_recommendations.signature,
+                                    "instructions",
+                                ):
+                                    instructions = optimized_module.generate_recommendations.signature.instructions
 
-                    model_data = {
-                        "module_name": module_name,
-                        "version": version,
-                        "personality": config.personality,
-                        "model_provider": config.model_provider,
-                        "model_name": config.model_name,
-                        "baseline_accuracy": baseline_accuracy,
-                        "optimized_accuracy": optimized_accuracy,
-                        "improvement_pct": improvement_pct,
-                        "optimization_date": datetime.now().isoformat(),
-                        "module_state": module_state_b64,  # Serialized module
-                        "instructions": instructions,  # For metadata/reference
-                        "dspy_version": dspy.__version__
-                        if hasattr(dspy, "__version__")
-                        else "unknown",
-                        "serialization_method": "dspy.save"
-                        if hasattr(dspy, "save")
-                        else "pickle",
-                    }
+                        model_data = {
+                            "module_name": module_name,
+                            "version": version,
+                            "personality": personality,
+                            "model_provider": config.model_provider,
+                            "model_name": config.model_name,
+                            "baseline_accuracy": baseline_accuracy,
+                            "optimized_accuracy": optimized_accuracy,
+                            "improvement_pct": improvement_pct,
+                            "optimization_date": datetime.now().isoformat(),
+                            "module_state": module_state_b64,
+                            "instructions": instructions,
+                            "dspy_version": dspy.__version__
+                            if hasattr(dspy, "__version__")
+                            else "unknown",
+                            "serialization_method": "dspy.save"
+                            if hasattr(dspy, "save")
+                            else "pickle",
+                        }
 
-                    gcs_path = gcs.upload_model(
-                        module_name=module_name,
-                        version=version,
-                        model_data=model_data,
-                        context=context,
+                        gcs_path = gcs.upload_model(
+                            module_name=module_name,
+                            version=version,
+                            model_data=model_data,
+                            context=context,
+                        )
+
+                        version_record = {
+                            "module_name": module_name,
+                            "version": version,
+                            "personality": personality,
+                            "optimization_date": datetime.now().isoformat(),
+                            "baseline_accuracy": baseline_accuracy,
+                            "optimized_accuracy": optimized_accuracy,
+                            "improvement_pct": improvement_pct,
+                            "is_production": False,
+                            "gcs_path": gcs_path,
+                            "metadata": json.dumps(
+                                {
+                                    "personality": personality,
+                                    "model_provider": config.model_provider,
+                                    "model_name": config.model_name,
+                                    "num_examples": len(examples),
+                                }
+                            ),
+                        }
+
+                        md.write_results_to_table(
+                            [version_record],
+                            output_table="dspy_model_versions",
+                            if_exists="append",
+                            context=context,
+                        )
+
+                        if module_name not in results:
+                            results[module_name] = {}
+                        results[module_name][personality] = {
+                            "optimized": True,
+                            "baseline_accuracy": baseline_accuracy,
+                            "optimized_accuracy": optimized_accuracy,
+                            "improvement_pct": improvement_pct,
+                            "version": version,
+                            "gcs_path": gcs_path,
+                        }
+                    else:
+                        context.log.info(
+                            f"Improvement {improvement_pct:.2f}% below threshold "
+                            f"{config.promotion_threshold_pct}%, not saving"
+                        )
+                        if module_name not in results:
+                            results[module_name] = {}
+                        results[module_name][personality] = {
+                            "optimized": False,
+                            "baseline_accuracy": baseline_accuracy,
+                            "optimized_accuracy": optimized_accuracy,
+                            "improvement_pct": improvement_pct,
+                            "reason": "below_threshold",
+                        }
+
+                except Exception as e:
+                    context.log.error(
+                        f"Error during optimization for personality {personality}: {e}"
                     )
-
-                    # Update database
-                    version_record = {
-                        "module_name": module_name,
-                        "version": version,
-                        "optimization_date": datetime.now().isoformat(),
-                        "baseline_accuracy": baseline_accuracy,
-                        "optimized_accuracy": optimized_accuracy,
-                        "improvement_pct": improvement_pct,
-                        "is_production": False,
-                        "gcs_path": gcs_path,
-                        "metadata": json.dumps(
-                            {
-                                "personality": config.personality,
-                                "model_provider": config.model_provider,
-                                "model_name": config.model_name,
-                                "num_examples": len(examples),
-                            }
-                        ),
-                    }
-
-                    md.write_results_to_table(
-                        [version_record],
-                        output_table="dspy_model_versions",
-                        if_exists="append",
-                        context=context,
-                    )
-
-                    results[module_name] = {
-                        "optimized": True,
-                        "baseline_accuracy": baseline_accuracy,
-                        "optimized_accuracy": optimized_accuracy,
-                        "improvement_pct": improvement_pct,
-                        "version": version,
-                        "gcs_path": gcs_path,
-                    }
-                else:
-                    context.log.info(
-                        f"Improvement {improvement_pct:.2f}% below threshold "
-                        f"{config.promotion_threshold_pct}%, not saving"
-                    )
-                    results[module_name] = {
+                    if "investment_recommendations" not in results:
+                        results["investment_recommendations"] = {}
+                    results["investment_recommendations"][personality] = {
                         "optimized": False,
-                        "baseline_accuracy": baseline_accuracy,
-                        "optimized_accuracy": optimized_accuracy,
-                        "improvement_pct": improvement_pct,
-                        "reason": "below_threshold",
+                        "error": str(e),
                     }
-
-            except Exception as e:
-                context.log.error(f"Error during optimization: {e}")
-                results["investment_recommendations"] = {
-                    "optimized": False,
-                    "error": str(e),
-                }
 
     return dg.MaterializeResult(metadata={"optimization_results": results})
 
@@ -710,7 +734,6 @@ def promote_optimized_model_to_production(
         f"Promoting {config.module_name} version {config.version} to production..."
     )
 
-    # Get model version from database
     query = f"""
     SELECT 
         module_name,
@@ -735,13 +758,11 @@ def promote_optimized_model_to_production(
     row = df.iter_rows(named=True).__next__()
     improvement_pct = row["improvement_pct"] or 0.0
 
-    # Check threshold unless forced
     if not config.force and improvement_pct < 5.0:
         raise ValueError(
             f"Improvement {improvement_pct:.2f}% below 5% threshold. Use force=True to override."
         )
 
-    # Download model from GCS to verify it exists
     try:
         model_data = gcs.download_model(
             module_name=config.module_name,
@@ -752,10 +773,8 @@ def promote_optimized_model_to_production(
     except Exception as e:
         raise ValueError(f"Could not download model from GCS: {e}")
 
-    # Update database: set old production to False, new to True
     conn = md.get_connection()
     try:
-        # Set all versions of this module to not production
         conn.execute(
             f"""
             UPDATE dspy_model_versions
@@ -764,7 +783,6 @@ def promote_optimized_model_to_production(
             """
         )
 
-        # Set this version to production
         conn.execute(
             f"""
             UPDATE dspy_model_versions
@@ -786,5 +804,169 @@ def promote_optimized_model_to_production(
             "module_name": config.module_name,
             "version": config.version,
             "improvement_pct": improvement_pct,
+        }
+    )
+
+
+@dg.asset(
+    kinds={"dspy", "duckdb", "gcs"},
+    group_name="optimization",
+    description="Automatically promote the best optimized model to production for each module",
+    deps=[optimize_dspy_modules],
+)
+def auto_promote_best_models_to_production(
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    gcs: GCSResource,
+) -> dg.MaterializeResult:
+    """
+    Automatically promote the best optimized model to production for each module and personality.
+
+    This asset:
+    1. Finds the best (highest accuracy) optimized model for each module-personality combination
+    2. Promotes it to production if it meets the threshold
+    3. Ensures only one production model per module-personality combination exists
+
+    This is used to ensure current analysis assets always use the best available models for each personality.
+    """
+    context.log.info("Auto-promoting best models to production for each personality...")
+
+    create_model_versions_table(md, context)
+
+    modules_query = """
+    SELECT DISTINCT module_name, personality
+    FROM dspy_model_versions
+    WHERE optimized_accuracy IS NOT NULL
+        AND improvement_pct >= 5.0
+    ORDER BY module_name, personality
+    """
+
+    modules_df = md.execute_query(modules_query, read_only=True)
+
+    if modules_df.is_empty():
+        context.log.info("No optimized models available for promotion")
+        return dg.MaterializeResult(
+            metadata={
+                "promoted_modules": [],
+                "message": "No optimized models available for promotion",
+            }
+        )
+
+    promoted_modules = []
+
+    for row in modules_df.iter_rows(named=True):
+        module_name = row["module_name"]
+        personality = row["personality"]
+
+        best_model_query = f"""
+        SELECT 
+            module_name,
+            version,
+            personality,
+            baseline_accuracy,
+            optimized_accuracy,
+            improvement_pct,
+            gcs_path,
+            is_production
+        FROM dspy_model_versions
+        WHERE module_name = '{module_name}'
+            AND personality = '{personality}'
+            AND optimized_accuracy IS NOT NULL
+            AND improvement_pct >= 5.0
+        ORDER BY optimized_accuracy DESC, improvement_pct DESC
+        LIMIT 1
+        """
+
+        best_model_df = md.execute_query(best_model_query, read_only=True)
+
+        if best_model_df.is_empty():
+            context.log.warning(f"No eligible models found for {module_name}")
+            continue
+
+        best_model = best_model_df.iter_rows(named=True).__next__()
+        version = best_model["version"]
+        best_personality = best_model["personality"]
+        improvement_pct = best_model["improvement_pct"] or 0.0
+        is_already_prod = best_model.get("is_production", False)
+
+        if is_already_prod:
+            context.log.info(
+                f"{module_name} v{version} (personality: {best_personality}) is already the best production model, skipping"
+            )
+            promoted_modules.append(
+                {
+                    "module_name": module_name,
+                    "version": version,
+                    "personality": best_personality,
+                    "status": "already_best_production",
+                }
+            )
+            continue
+
+        try:
+            model_data = gcs.download_model(
+                module_name=module_name,
+                version=version,
+                context=context,
+            )
+            context.log.info(
+                f"Verified {module_name} v{version} (personality: {best_personality}) exists in GCS"
+            )
+        except Exception as e:
+            context.log.warning(
+                f"Could not download {module_name} v{version} (personality: {best_personality}) from GCS: {e}, skipping"
+            )
+            continue
+
+        conn = md.get_connection()
+        try:
+            conn.execute(
+                f"""
+                UPDATE dspy_model_versions
+                SET is_production = FALSE
+                WHERE module_name = '{module_name}'
+                    AND personality = '{best_personality}'
+                """
+            )
+
+            conn.execute(
+                f"""
+                UPDATE dspy_model_versions
+                SET is_production = TRUE
+                WHERE module_name = '{module_name}'
+                    AND version = '{version}'
+                    AND personality = '{best_personality}'
+                """
+            )
+            conn.commit()
+
+            context.log.info(
+                f"Promoted {module_name} v{version} (personality: {best_personality}) to production "
+                f"(accuracy: {best_model['optimized_accuracy']:.4f}, "
+                f"improvement: {improvement_pct:.2f}%)"
+            )
+
+            promoted_modules.append(
+                {
+                    "module_name": module_name,
+                    "version": version,
+                    "personality": best_personality,
+                    "optimized_accuracy": float(best_model["optimized_accuracy"]),
+                    "improvement_pct": improvement_pct,
+                    "status": "promoted",
+                }
+            )
+        except Exception as e:
+            context.log.error(f"Error promoting {module_name} v{version}: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
+
+    return dg.MaterializeResult(
+        metadata={
+            "promoted_modules": promoted_modules,
+            "total_promoted": len(
+                [m for m in promoted_modules if m.get("status") == "promoted"]
+            ),
         }
     )

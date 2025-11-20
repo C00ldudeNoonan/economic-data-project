@@ -1,5 +1,5 @@
 import dspy
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from typing import Dict, Any, Optional
 from datetime import datetime
 import dagster as dg
 from pydantic import Field
@@ -7,8 +7,6 @@ import re
 import os
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
-# Import GCSResource at module level since it's used in type annotations
-# that Dagster needs to resolve at runtime
 from macro_agents.defs.resources.gcs import GCSResource
 
 
@@ -32,6 +30,10 @@ class EconomyStateAnalysisSignature(dspy.Signature):
         desc="CSV data containing commodity price performance across energy, industrial/input, and agricultural commodities with returns, volatility, and trends over different time periods"
     )
 
+    financial_conditions_index: str = dspy.InputField(
+        desc="CSV data containing full historical Financial Conditions Index (FCI) values with date, FCI score, and component scores. FCI values above zero indicate expansionary conditions, below zero indicate contractionary conditions. Use the full history to identify trends, cycles, and current position relative to historical norms."
+    )
+
     personality: str = dspy.InputField(
         desc="Analytical personality: 'skeptical' (default, bearish, focuses on risks and downside), 'neutral' (balanced, objective), or 'bullish' (optimistic, focuses on opportunities and upside)"
     )
@@ -39,7 +41,14 @@ class EconomyStateAnalysisSignature(dspy.Signature):
     analysis: str = dspy.OutputField(
         desc="""Comprehensive economic state analysis reflecting the specified personality perspective, including:
         1. Current Economic Cycle Position (Early/Expansion/Late/Recession with confidence level 0-1)
-        2. Key Economic Indicators Analysis:
+        2. Financial Conditions Index Analysis:
+           - Current FCI value and its interpretation (expansionary if >0, contractionary if <0)
+           - FCI trend over recent periods (3m, 6m, 1y) to assess whether conditions are improving or deteriorating
+           - Historical context: current FCI position relative to historical range, percentiles, and past cycles
+           - Component analysis: which financial indicators (equity, credit spreads, rates, housing, dollar) are driving FCI changes
+           - FCI as a leading indicator: how current FCI levels and trends relate to economic expansion/contraction phases
+           - Comparison of FCI trajectory with other economic indicators for consistency
+        3. Key Economic Indicators Analysis:
            - GDP growth trends and outlook
            - Inflation levels and trajectory (CPI, PCE, core inflation)
            - Employment metrics (unemployment rate, job growth, labor force participation)
@@ -47,35 +56,37 @@ class EconomyStateAnalysisSignature(dspy.Signature):
            - Consumer sentiment and spending indicators
            - Housing market indicators
            - Manufacturing and services PMI
-        3. Commodity Market Analysis:
+        4. Commodity Market Analysis:
            - Energy commodity trends (oil, gas, coal) and implications for economic activity
            - Industrial/input commodity prices (metals, materials) and manufacturing signals
            - Agricultural commodity prices and food inflation pressures
            - Commodity price trends as leading indicators of economic activity
            - Supply chain and cost pressure signals from commodity markets
-        4. Leading Indicators Assessment:
+        5. Leading Indicators Assessment:
            - Yield curve analysis (normal, flat, inverted)
-           - Credit spreads and financial conditions
+           - Credit spreads and financial conditions (integrate with FCI analysis)
            - Business confidence indicators
            - Leading economic index components
            - Commodity price momentum as economic signals
-        5. Economic Cycle Phase Characteristics:
-           - Current phase identification with supporting evidence
+        6. Economic Cycle Phase Characteristics:
+           - Current phase identification with supporting evidence (use FCI to confirm expansion/contraction)
            - Phase duration and typical progression patterns
-           - Key indicators suggesting phase transitions
+           - Key indicators suggesting phase transitions (FCI trends are particularly important here)
            - Commodity cycle alignment with economic cycle
-        6. Risk Factors (skeptical: emphasize risks, neutral: balanced, bullish: acknowledge but minimize):
+           - FCI cycle alignment with economic cycle
+        7. Risk Factors (skeptical: emphasize risks, neutral: balanced, bullish: acknowledge but minimize):
            - Economic imbalances or vulnerabilities
-           - Potential inflection points
+           - Potential inflection points (watch for FCI turning points)
            - External risks (geopolitical, trade, etc.)
            - Commodity price shocks and their economic impact
+           - Financial conditions tightening or loosening (from FCI analysis)
         
         Personality Guidelines:
-        - SKEPTICAL/BEARISH: Emphasize downside risks, vulnerabilities, potential recessions, negative indicators. Be cautious and highlight what could go wrong. Focus on defensive positioning.
-        - NEUTRAL: Provide balanced, objective analysis weighing both positive and negative factors equally. Avoid extreme positions.
-        - BULLISH/HOPEFUL: Emphasize opportunities, positive trends, resilience, and upside potential. Highlight strengths and growth prospects. Focus on expansionary positioning.
+        - SKEPTICAL/BEARISH: Emphasize downside risks, vulnerabilities, potential recessions, negative indicators. Be cautious and highlight what could go wrong. Focus on defensive positioning. If FCI is declining or negative, emphasize contractionary risks.
+        - NEUTRAL: Provide balanced, objective analysis weighing both positive and negative factors equally. Avoid extreme positions. Present FCI data objectively.
+        - BULLISH/HOPEFUL: Emphasize opportunities, positive trends, resilience, and upside potential. Highlight strengths and growth prospects. Focus on expansionary positioning. If FCI is positive or improving, emphasize expansionary conditions.
         
-        Focus on quantitative metrics, trends, and leading indicators including commodity markets to provide a clear assessment of the current economic state from the specified perspective."""
+        Focus on quantitative metrics, trends, and leading indicators including commodity markets and the Financial Conditions Index to provide a clear assessment of the current economic state from the specified perspective."""
     )
 
 
@@ -87,11 +98,18 @@ class EconomyStateModule(dspy.Module):
         self.personality = personality
         self.analyze_state = dspy.ChainOfThought(EconomyStateAnalysisSignature)
 
-    def forward(self, economic_data: str, commodity_data: str, personality: str = None):
+    def forward(
+        self,
+        economic_data: str,
+        commodity_data: str,
+        financial_conditions_index: str,
+        personality: str = None,
+    ):
         personality_to_use = personality or self.personality
         return self.analyze_state(
             economic_data=economic_data,
             commodity_data=commodity_data,
+            financial_conditions_index=financial_conditions_index,
             personality=personality_to_use,
         )
 
@@ -126,15 +144,12 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def setup_for_execution(self, context) -> None:
         """Initialize DSPy when the resource is used."""
-        # Get provider from env var if not set directly
-        # Access Field value directly using object.__getattribute__ to avoid property
         provider = object.__getattribute__(self, "provider")
         if isinstance(provider, dg.EnvVar):
             provider = provider.value or "openai"
         elif not provider:
             provider = os.getenv("LLM_PROVIDER", "openai")
 
-        # Get API keys from env vars if not set directly
         openai_key = self.openai_api_key
         if isinstance(openai_key, dg.EnvVar):
             openai_key = openai_key.value
@@ -153,13 +168,11 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         elif not anthropic_key:
             anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
-        # Determine API key based on provider
         api_key = None
         if provider == "openai":
             api_key = openai_key
             if not api_key:
                 raise ValueError("openai_api_key is required when provider='openai'")
-            # Format model name for OpenAI
             model_name_val = self.model_name
             if isinstance(model_name_val, dg.EnvVar):
                 model_name_val = model_name_val.value
@@ -168,7 +181,6 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             api_key = gemini_key
             if not api_key:
                 raise ValueError("gemini_api_key is required when provider='gemini'")
-            # Format model name for Gemini
             model_name_val = self.model_name
             if isinstance(model_name_val, dg.EnvVar):
                 model_name_val = model_name_val.value
@@ -179,7 +191,6 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 raise ValueError(
                     "anthropic_api_key is required when provider='anthropic'"
                 )
-            # Format model name for Anthropic
             model_name_val = self.model_name
             if isinstance(model_name_val, dg.EnvVar):
                 model_name_val = model_name_val.value
@@ -189,7 +200,6 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 f"Unknown provider: {provider}. Must be 'openai', 'gemini', or 'anthropic'"
             )
 
-        # Store provider for metadata
         self._provider = provider
 
         lm = dspy.LM(model=model_str, api_key=api_key)
@@ -200,7 +210,6 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def _get_provider(self) -> str:
         """Get the current LLM provider (resolved value, not the Field)."""
-        # Return the resolved provider value, fallback to field default
         return getattr(self, "_provider", getattr(self, "provider", "openai"))
 
     @property
@@ -214,6 +223,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         md_resource: Optional["MotherDuckResource"] = None,
         gcs_resource: Optional[Any] = None,
         context: Optional[dg.AssetExecutionContext] = None,
+        personality: Optional[str] = None,
     ) -> Optional[dspy.Module]:
         """
         Load optimized module from GCS if available.
@@ -223,6 +233,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             md_resource: MotherDuck resource for querying model versions
             gcs_resource: GCS resource for downloading models
             context: Optional Dagster context for logging
+            personality: Optional personality to filter by. If None, uses the best model regardless of personality.
 
         Returns:
             Optimized module if available, None otherwise
@@ -230,23 +241,43 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         if not self.use_optimized_models or not md_resource or not gcs_resource:
             return None
 
-        # Check cache first
-        cache_key = f"{module_name}_optimized"
+        cache_key = (
+            f"{module_name}_{personality}_optimized"
+            if personality
+            else f"{module_name}_optimized"
+        )
         if cache_key in self._optimized_modules_cache:
-            return self._optimized_modules_cache[cache_key]
+            cached_module = self._optimized_modules_cache[cache_key]
+            if personality and hasattr(cached_module, "personality"):
+                if cached_module.personality != personality:
+                    del self._optimized_modules_cache[cache_key]
+                else:
+                    return cached_module
+            else:
+                return cached_module
 
         log = context.log if context else None
 
         try:
-            # Query for production version
-            query = f"""
-            SELECT version, gcs_path, metadata
-            FROM dspy_model_versions
-            WHERE module_name = '{module_name}'
-                AND is_production = TRUE
-            ORDER BY optimization_date DESC
-            LIMIT 1
-            """
+            if personality:
+                query = f"""
+                SELECT version, gcs_path, metadata, personality
+                FROM dspy_model_versions
+                WHERE module_name = '{module_name}'
+                    AND personality = '{personality}'
+                    AND is_production = TRUE
+                ORDER BY optimized_accuracy DESC, optimization_date DESC
+                LIMIT 1
+                """
+            else:
+                query = f"""
+                SELECT version, gcs_path, metadata, personality
+                FROM dspy_model_versions
+                WHERE module_name = '{module_name}'
+                    AND is_production = TRUE
+                ORDER BY optimized_accuracy DESC, optimization_date DESC
+                LIMIT 1
+                """
             df = md_resource.execute_query(query, read_only=True)
 
             if df.is_empty():
@@ -258,20 +289,18 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
             row = df.iter_rows(named=True).__next__()
             version = row["version"]
+            model_personality = row.get("personality", personality)
 
-            # Download model from GCS
             model_data = gcs_resource.download_model(
                 module_name=module_name,
                 version=version,
                 context=context,
             )
 
-            # Reconstruct module from saved state
             module = None
             module_state_b64 = model_data.get("module_state")
 
             if module_state_b64:
-                # Deserialize the full module state
                 try:
                     import base64
                     import io
@@ -285,7 +314,6 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                         buffer = io.BytesIO(module_bytes)
                         module = dspy.load(buffer)
                     else:
-                        # Use pickle
                         import pickle
 
                         module = pickle.loads(module_bytes)
@@ -301,11 +329,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                         )
                     module = None
 
-            # Fall back to creating baseline module and applying instructions if deserialization failed
             if module is None:
                 if module_name == "economy_state":
                     module = EconomyStateModule()
-                    # Apply optimized instructions if available
                     if model_data.get("instructions") and hasattr(
                         module.analyze_state, "signature"
                     ):
@@ -329,8 +355,14 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                         InvestmentRecommendationsModule,
                     )
 
-                    personality = model_data.get("personality", "skeptical")
-                    module = InvestmentRecommendationsModule(personality=personality)
+                    module_personality = (
+                        model_data.get("personality")
+                        or model_personality
+                        or "skeptical"
+                    )
+                    module = InvestmentRecommendationsModule(
+                        personality=module_personality
+                    )
                     if model_data.get("instructions") and hasattr(
                         module.generate_recommendations, "signature"
                     ):
@@ -342,7 +374,6 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                         log.warning(f"Unknown module name: {module_name}")
                     return None
 
-            # Cache the module
             self._optimized_modules_cache[cache_key] = module
 
             if log:
@@ -474,6 +505,48 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             """
 
         df = md_resource.execute_query(query)
+        csv_buffer = df.write_csv()
+        return csv_buffer
+
+    def get_financial_conditions_index(
+        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+    ) -> str:
+        """Get full historical Financial Conditions Index data.
+
+        Args:
+            md_resource: MotherDuck resource
+            cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
+                        If provided, uses snapshot tables.
+        """
+        if cutoff_date:
+            query = f"""
+            SELECT 
+                date,
+                FCI,
+                equity_score,
+                housing_score,
+                "10yr_score" as treasury_10yr_score
+            FROM financial_conditions_index
+            WHERE date <= '{cutoff_date}'
+                AND FCI IS NOT NULL
+            ORDER BY date DESC
+            """
+        else:
+            query = """
+            SELECT 
+                date,
+                FCI,
+                equity_score,
+                housing_score,
+                "10yr_score" as treasury_10yr_score
+            FROM financial_conditions_index
+            WHERE FCI IS NOT NULL
+            ORDER BY date DESC
+            """
+
+        df = md_resource.execute_query(query, read_only=True)
+
+        df = md_resource.execute_query(query, read_only=True)
         csv_buffer = df.write_csv()
         return csv_buffer
 
@@ -771,46 +844,35 @@ def _get_token_usage(
         lm = economic_analysis._lm
         history = lm.history
 
-        # Get new history entries since initial
         new_entries = history[initial_history_length:]
 
-        # Sum up tokens from all new entries
         for entry in new_entries:
-            # DSPy history entries typically have 'prompt_tokens' and 'completion_tokens'
-            # or we can calculate from the messages
             if hasattr(entry, "prompt_tokens"):
                 token_usage["prompt_tokens"] += entry.prompt_tokens
             if hasattr(entry, "completion_tokens"):
                 token_usage["completion_tokens"] += entry.completion_tokens
             elif hasattr(entry, "response"):
-                # Try to estimate from response if tokens not directly available
-                # This is a fallback - actual token counts depend on the provider
                 if hasattr(lm, "tokenizer"):
                     try:
-                        # Estimate tokens (rough approximation)
                         prompt_text = str(entry.get("messages", ""))
                         response_text = str(entry.get("response", ""))
-                        # Rough estimate: ~4 chars per token
                         token_usage["prompt_tokens"] += len(prompt_text) // 4
                         token_usage["completion_tokens"] += len(response_text) // 4
                     except Exception:
                         pass
 
-        token_usage["total_tokens"] = (
-            token_usage["prompt_tokens"] + token_usage["completion_tokens"]
-        )
+            token_usage["total_tokens"] = (
+                token_usage["prompt_tokens"] + token_usage["completion_tokens"]
+            )
 
-        # Try to get actual token counts from LM if available
         if hasattr(lm, "get_token_count"):
             try:
-                # Some LM implementations provide this
                 actual_counts = lm.get_token_count()
                 if actual_counts:
                     token_usage.update(actual_counts)
             except Exception:
                 pass
 
-        # Check if LM has usage tracking (OpenAI, Anthropic, etc. provide this)
         if hasattr(lm, "usage"):
             usage = lm.usage
             if usage:
@@ -890,6 +952,8 @@ def extract_economy_state_summary(analysis_content: str) -> Dict[str, Any]:
         dg.AssetKey(["energy_commodities_summary"]),
         dg.AssetKey(["input_commodities_summary"]),
         dg.AssetKey(["agriculture_commodities_summary"]),
+        dg.AssetKey(["financial_conditions_index"]),
+        dg.AssetKey(["auto_promote_best_models_to_production"]),
     ],
 )
 def analyze_economy_state(
@@ -897,7 +961,7 @@ def analyze_economy_state(
     config: EconomicAnalysisConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
-    gcs: Optional[GCSResource] = None,
+    gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
     Asset that analyzes the current state of the economy based on economic indicators.
@@ -918,14 +982,17 @@ def analyze_economy_state(
     context.log.info("Gathering commodity data...")
     commodity_data = economic_analysis.get_commodity_data(md)
 
-    # Try to load optimized module
+    context.log.info("Gathering Financial Conditions Index data...")
+    fci_data = economic_analysis.get_financial_conditions_index(md)
+
     optimized_analyzer = None
-    if economic_analysis.use_optimized_models and gcs:
+    if economic_analysis.use_optimized_models:
         optimized_analyzer = economic_analysis.load_optimized_module(
             module_name="economy_state",
             md_resource=md,
             gcs_resource=gcs,
             context=context,
+            personality=config.personality,
         )
 
     analyzer_to_use = (
@@ -934,21 +1001,20 @@ def analyze_economy_state(
         else economic_analysis.economy_state_analyzer
     )
 
-    # Track token usage
     initial_history_length = (
         len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
     )
 
     context.log.info(
-        f"Running economy state analysis with economic and commodity data (personality: {config.personality})..."
+        f"Running economy state analysis with economic, commodity, and FCI data (personality: {config.personality})..."
     )
     analysis_result = analyzer_to_use(
         economic_data=economic_data,
         commodity_data=commodity_data,
+        financial_conditions_index=fci_data,
         personality=config.personality,
     )
 
-    # Calculate token usage
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()
@@ -966,6 +1032,7 @@ def analyze_economy_state(
                 "input_commodities_summary",
                 "agriculture_commodities_summary",
             ],
+            "financial_conditions_index_table": "financial_conditions_index",
         },
     }
 

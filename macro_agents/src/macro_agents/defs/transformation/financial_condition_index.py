@@ -477,6 +477,23 @@ def financial_conditions_index(
             f"Std={stats.get('std_fci', 'N/A'):.4f}"
         )
 
+        # Convert first 10 rows to JSON-serializable format
+        # Convert date/datetime columns to strings before serialization
+        first_10_rows = []
+        if len(fci_df) > 0:
+            sample_df = fci_df.head(10)
+            # Convert date and datetime columns to strings
+            for col in sample_df.columns:
+                if sample_df[col].dtype == pl.Date:
+                    sample_df = sample_df.with_columns(
+                        pl.col(col).cast(pl.Utf8).alias(col)
+                    )
+                elif sample_df[col].dtype == pl.Datetime:
+                    sample_df = sample_df.with_columns(
+                        pl.col(col).dt.strftime("%Y-%m-%d %H:%M:%S").alias(col)
+                    )
+            first_10_rows = sample_df.to_dicts()
+
         return dg.MaterializeResult(
             metadata={
                 "total_records": len(fci_df),
@@ -501,7 +518,7 @@ def financial_conditions_index(
                 ],
                 "window_size": 12,
                 "created_at": datetime.now().isoformat(),
-                "first_10_rows": fci_df.head(10).to_dicts(),
+                "first_10_rows": first_10_rows,
             }
         )
 
