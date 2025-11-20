@@ -6,12 +6,6 @@ from dagster_sling.asset_decorator import DagsterSlingTranslator
 
 _replication_yaml_path = Path(__file__).parent / "replication.yaml"
 
-# Use the same monthly partitions as market_stack ingestion assets
-# This aligns replication with the ingestion partition logic
-monthly_partitions = dg.MonthlyPartitionsDefinition(
-    start_date="2012-01-01", end_offset=1
-)
-
 REPLICATION_DEPS = {
     ("target", "main", "stg_fred_series"): ["stg_fred_series"],
     ("target", "main", "stg_housing_inventory"): ["stg_housing_inventory"],
@@ -133,7 +127,6 @@ sling_resource = SlingResource(
 @sling_assets(
     replication_config=str(_replication_yaml_path),
     dagster_sling_translator=CustomDagsterSlingTranslator(),
-    partitions_def=monthly_partitions,
 )
 def replication_assets(
     context,
@@ -141,12 +134,9 @@ def replication_assets(
 ):
     """Sling assets for replicating data from MotherDuck to BigQuery.
 
-    Partitioned by month to align with market_stack ingestion assets.
-    Each partition represents a month, allowing for incremental replication
-    and tracking of which months have been replicated.
+    Replicates entire tables from MotherDuck to BigQuery.
     """
-    partition_key = context.partition_key
-    context.log.info(f"Processing replication for partition: {partition_key}")
+    context.log.info("Processing replication for all tables")
 
     yield from sling.replicate(context=context)
     for row in sling.stream_raw_logs():

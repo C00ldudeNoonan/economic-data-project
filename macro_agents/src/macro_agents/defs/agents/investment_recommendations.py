@@ -13,6 +13,7 @@ from macro_agents.defs.agents.economy_state_analyzer import (
 from macro_agents.defs.agents.asset_class_relationship_analyzer import (
     analyze_asset_class_relationships,
 )
+from macro_agents.defs.resources.gcs import GCSResource
 
 
 class InvestmentRecommendationsSignature(dspy.Signature):
@@ -215,13 +216,18 @@ def extract_recommendations_summary(recommendations_content: str) -> Dict[str, A
     kinds={"dspy", "duckdb"},
     group_name="economic_analysis",
     description="Generate actionable investment recommendations based on economy state and asset class relationships",
-    deps=[analyze_economy_state, analyze_asset_class_relationships],
+    deps=[
+        analyze_economy_state,
+        analyze_asset_class_relationships,
+        dg.AssetKey(["auto_promote_best_models_to_production"]),
+    ],
 )
 def generate_investment_recommendations(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
+    gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
     Asset that generates actionable investment recommendations.
@@ -256,8 +262,34 @@ def generate_investment_recommendations(
             "No asset class relationship analysis found. Please run analyze_asset_class_relationships first."
         )
 
-    recommendations_generator = InvestmentRecommendationsModule(
-        personality=config.personality
+    recommendations_generator = None
+    if economic_analysis.use_optimized_models:
+        recommendations_generator = economic_analysis.load_optimized_module(
+            module_name="investment_recommendations",
+            md_resource=md,
+            gcs_resource=gcs,
+            context=context,
+            personality=config.personality,
+        )
+        if recommendations_generator and hasattr(
+            recommendations_generator, "personality"
+        ):
+            if recommendations_generator.personality != config.personality:
+                context.log.warning(
+                    f"Optimized model personality ({recommendations_generator.personality}) "
+                    f"doesn't match config ({config.personality}), using baseline"
+                )
+                recommendations_generator = None
+
+    if recommendations_generator is None:
+        recommendations_generator = InvestmentRecommendationsModule(
+            personality=config.personality
+        )
+
+    from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
+
+    initial_history_length = (
+        len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
     )
 
     context.log.info(
@@ -268,6 +300,8 @@ def generate_investment_recommendations(
         asset_class_relationship_analysis=relationship_analysis,
         personality=config.personality,
     )
+
+    token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()
     result = {
@@ -320,6 +354,8 @@ def generate_investment_recommendations(
         "recommendations_preview": result["recommendations_content"][:500]
         if result["recommendations_content"]
         else "",
+        "token_usage": token_usage,
+        "provider": economic_analysis._get_provider(),
     }
 
     context.log.info(

@@ -219,22 +219,27 @@ def create_ingestion_sensor():
     return weekly_ingestion_sensor
 
 
-def create_backtesting_model_sensor(model_name: str = "gpt-4-turbo-preview"):
+def create_backtesting_model_sensor(
+    model_provider: str = "openai", model_name: str = "gpt-4-turbo-preview"
+):
     """
     Create a sensor that triggers backtesting job for each month from 2018 to 1 year ago.
 
     Args:
-        model_name: LLM model to use for backtesting (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo')
+        model_provider: LLM provider to use for backtesting (e.g., 'openai', 'gemini', 'anthropic')
+        model_name: LLM model to use for backtesting (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo', 'gemini-2.0-flash-exp', 'claude-3-opus-20240229')
 
     Returns:
         Sensor that generates RunRequests for each month
     """
     # Sanitize model_name for sensor name (replace dots and dashes with underscores)
-    sensor_name_suffix = model_name.replace(".", "_").replace("-", "_")
+    sensor_name_suffix = f"{model_provider}_{model_name}".replace(".", "_").replace(
+        "-", "_"
+    )
 
     @dg.sensor(
         name=f"backtesting_model_sensor_{sensor_name_suffix}",
-        description=f"Triggers backtesting job for each month from 2018-01-01 to 1 year ago with model {model_name}",
+        description=f"Triggers backtesting job for each month from 2018-01-01 to 1 year ago with provider {model_provider} and model {model_name}",
         default_status=DefaultSensorStatus.STOPPED,  # Start stopped, enable manually
         minimum_interval_seconds=3600,
         job_name="backtesting_model_run",
@@ -255,37 +260,41 @@ def create_backtesting_model_sensor(model_name: str = "gpt-4-turbo-preview"):
             current_date += relativedelta(months=1)
 
         context.log.info(
-            f"Generating {len(dates)} backtest runs for model {model_name} "
+            f"Generating {len(dates)} backtest runs for provider {model_provider} and model {model_name} "
             f"from {dates[0]} to {dates[-1]}"
         )
 
         # Generate RunRequest for each date
         for backtest_date in dates:
             yield dg.RunRequest(
-                run_key=f"backtest-{model_name}-{backtest_date}",
+                run_key=f"backtest-{model_provider}-{model_name}-{backtest_date}",
                 run_config={
                     "ops": {
                         "backtest_analyze_economy_state": {
                             "config": {
                                 "backtest_date": backtest_date,
+                                "model_provider": model_provider,
                                 "model_name": model_name,
                             }
                         },
                         "backtest_analyze_asset_class_relationships": {
                             "config": {
                                 "backtest_date": backtest_date,
+                                "model_provider": model_provider,
                                 "model_name": model_name,
                             }
                         },
                         "backtest_generate_investment_recommendations": {
                             "config": {
                                 "backtest_date": backtest_date,
+                                "model_provider": model_provider,
                                 "model_name": model_name,
                             }
                         },
                         "evaluate_backtest_recommendations": {
                             "config": {
                                 "backtest_date": backtest_date,
+                                "model_provider": model_provider,
                                 "model_name": model_name,
                             }
                         },
@@ -293,6 +302,7 @@ def create_backtesting_model_sensor(model_name: str = "gpt-4-turbo-preview"):
                 },
                 tags={
                     "trigger": "backtesting_model_sensor",
+                    "model_provider": model_provider,
                     "model_name": model_name,
                     "backtest_date": backtest_date,
                 },
@@ -345,7 +355,7 @@ def create_scheduled_jobs():
     backtesting_job = dg.define_asset_job(
         name="backtesting_job",
         selection=dg.AssetSelection.groups("backtesting"),
-        description="Backtesting pipeline: economy state -> asset relationships -> recommendations -> evaluation. Requires config with 'backtest_date' (YYYY-MM-DD), optional 'model_name' (default: gpt-4-turbo-preview), and optional 'personality' (default: skeptical) for each asset. Provide config at runtime.",
+        description="Backtesting pipeline: economy state -> asset relationships -> recommendations -> evaluation. Requires config with 'backtest_date' (YYYY-MM-DD), optional 'model_provider' (default: openai), optional 'model_name' (default: gpt-4-turbo-preview), and optional 'personality' (default: skeptical) for each asset. Provide config at runtime.",
     )
 
     # Monthly partitioned backtesting job - runs from 2018 to 1 year ago
@@ -353,7 +363,7 @@ def create_scheduled_jobs():
     backtesting_model_run = dg.define_asset_job(
         name="backtesting_model_run",
         selection=dg.AssetSelection.groups("backtesting"),
-        description="Monthly partitioned backtesting job: runs backtests for each month from 2018-01-01 to 1 year ago. Provide 'model_name' as config parameter when materializing. The backtest_date should be provided in config for each asset.",
+        description="Monthly partitioned backtesting job: runs backtests for each month from 2018-01-01 to 1 year ago. Provide 'model_provider' and 'model_name' as config parameters when materializing. The backtest_date should be provided in config for each asset.",
     )
 
     return {
@@ -374,9 +384,11 @@ schedules = [
 ]
 
 # Create sensors for different models
-backtesting_gpt4_sensor = create_backtesting_model_sensor("gpt-4-turbo-preview")
-backtesting_gpt4o_sensor = create_backtesting_model_sensor("gpt-4o")
-backtesting_gpt35_sensor = create_backtesting_model_sensor("gpt-3.5-turbo")
+backtesting_gpt4_sensor = create_backtesting_model_sensor(
+    "openai", "gpt-4-turbo-preview"
+)
+backtesting_gpt4o_sensor = create_backtesting_model_sensor("openai", "gpt-4o")
+backtesting_gpt35_sensor = create_backtesting_model_sensor("openai", "gpt-3.5-turbo")
 
 sensors = [
     create_ingestion_sensor(),

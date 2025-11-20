@@ -64,12 +64,14 @@ class TestEconomyStateModule:
         result = module.forward(
             economic_data="test economic data",
             commodity_data="test commodity data",
+            financial_conditions_index="test financial conditions",
         )
 
         assert result.analysis == "Test analysis output"
         module.analyze_state.assert_called_once_with(
             economic_data="test economic data",
             commodity_data="test commodity data",
+            financial_conditions_index="test financial conditions",
             personality="neutral",
         )
 
@@ -84,6 +86,7 @@ class TestEconomyStateModule:
         result = module.forward(
             economic_data="test economic data",
             commodity_data="test commodity data",
+            financial_conditions_index="test financial conditions",
             personality="bullish",
         )
 
@@ -91,6 +94,7 @@ class TestEconomyStateModule:
         module.analyze_state.assert_called_once_with(
             economic_data="test economic data",
             commodity_data="test commodity data",
+            financial_conditions_index="test financial conditions",
             personality="bullish",
         )
 
@@ -105,6 +109,7 @@ class TestEconomyStateModule:
         result = module.forward(
             economic_data="",
             commodity_data="",
+            financial_conditions_index="",
         )
 
         assert result.analysis == "Analysis with empty data"
@@ -350,12 +355,14 @@ class TestPersonalityHandling:
         module.forward(
             economic_data="test",
             commodity_data="test",
+            financial_conditions_index="test financial conditions",
             personality="bullish",
         )
 
         module.analyze_state.assert_called_once_with(
             economic_data="test",
             commodity_data="test",
+            financial_conditions_index="test financial conditions",
             personality="bullish",
         )
 
@@ -374,6 +381,7 @@ class TestModuleIntegration:
         result = module.forward(
             economic_data="GDP,100.0,0.01,0.02,0.03",
             commodity_data="Oil,50.0,0.05",
+            financial_conditions_index="FCI: 0.5",
         )
 
         assert result.analysis == "Comprehensive economic analysis"

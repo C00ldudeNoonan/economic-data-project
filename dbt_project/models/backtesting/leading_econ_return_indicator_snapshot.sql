@@ -34,34 +34,34 @@ economic_changes AS (
         pct_change_q2_forward,
         pct_change_q3_forward,
         LAG(value, 1) OVER (
-            PARTITION BY snapshot_date, symbol, series_name
+            PARTITION BY snapshot_date, symbol, bha.series_name
             ORDER BY month_date
         ) AS prev_econ_value,
         CASE
             WHEN LAG(value, 1) OVER (
-                PARTITION BY snapshot_date, symbol, series_name
+                PARTITION BY snapshot_date, symbol, bha.series_name
                 ORDER BY month_date
             ) IS NOT NULL
             AND LAG(value, 1) OVER (
-                PARTITION BY snapshot_date, symbol, series_name
+                PARTITION BY snapshot_date, symbol, bha.series_name
                 ORDER BY month_date
             ) != 0
             THEN (
                 (
                     value
                     - LAG(value, 1) OVER (
-                        PARTITION BY snapshot_date, symbol, series_name
+                        PARTITION BY snapshot_date, symbol, bha.series_name
                         ORDER BY month_date
                     )
                 )
                 / LAG(value, 1) OVER (
-                    PARTITION BY snapshot_date, symbol, series_name
+                    PARTITION BY snapshot_date, symbol, bha.series_name
                     ORDER BY month_date
                 )
             ) * 100
         END AS econ_mom_change_pct,
         AVG(value) OVER (
-            PARTITION BY snapshot_date, symbol, series_name
+            PARTITION BY snapshot_date, symbol, bha.series_name
             ORDER BY month_date
             ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
         ) AS econ_3mo_avg

@@ -3,6 +3,7 @@ import dagster as dg
 from pydantic import Field
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.agents.economy_state_analyzer import (
     EconomicAnalysisResource,
     extract_economy_state_summary,
@@ -15,13 +16,21 @@ class BacktestConfig(dg.Config):
     backtest_date: str = Field(
         description="Backtest date (YYYY-MM-DD), first day of month"
     )
+    model_provider: str = Field(
+        default="openai",
+        description="LLM provider: 'openai', 'gemini', or 'anthropic'",
+    )
     model_name: str = Field(
         default="gpt-4-turbo-preview",
-        description="LLM model to use for analysis (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo')",
+        description="LLM model to use for analysis (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo', 'gemini-2.0-flash-exp', 'claude-3-opus-20240229')",
     )
     personality: str = Field(
         default="skeptical",
         description="Analytical personality: 'skeptical' (default, bearish), 'neutral' (balanced), or 'bullish' (optimistic)",
+    )
+    use_optimized_models: bool = Field(
+        default=False,
+        description="If True, use optimized models for backtesting. If False (default), use baseline models to avoid circular dependencies in optimization.",
     )
 
 
@@ -36,6 +45,7 @@ class BacktestConfig(dg.Config):
         dg.AssetKey(["energy_commodities_summary_snapshot"]),
         dg.AssetKey(["input_commodities_summary_snapshot"]),
         dg.AssetKey(["agriculture_commodities_summary_snapshot"]),
+        dg.AssetKey(["financial_conditions_index"]),
     ],
 )
 def backtest_analyze_economy_state(
@@ -43,6 +53,7 @@ def backtest_analyze_economy_state(
     config: BacktestConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
+    gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
     Asset that analyzes economy state for backtesting with historical data cutoff.
@@ -59,10 +70,15 @@ def backtest_analyze_economy_state(
     """
     context.log.info(
         f"Starting backtest economy state analysis for {config.backtest_date} "
-        f"with model {config.model_name}..."
+        f"with provider {config.model_provider} and model {config.model_name}..."
     )
 
-    if economic_analysis.model_name != config.model_name:
+    current_provider = economic_analysis._get_provider()
+    if (
+        current_provider != config.model_provider
+        or economic_analysis.model_name != config.model_name
+    ):
+        object.__setattr__(economic_analysis, "provider", config.model_provider)
         economic_analysis.model_name = config.model_name
         economic_analysis.setup_for_execution(context)
 
@@ -76,14 +92,50 @@ def backtest_analyze_economy_state(
         md, cutoff_date=config.backtest_date
     )
 
-    context.log.info(
-        f"Running economy state analysis with historical data (personality: {config.personality})..."
+    context.log.info("Gathering Financial Conditions Index data with cutoff date...")
+    fci_data = economic_analysis.get_financial_conditions_index(
+        md, cutoff_date=config.backtest_date
     )
-    analysis_result = economic_analysis.economy_state_analyzer(
+
+    optimized_analyzer = None
+    if config.use_optimized_models and economic_analysis.use_optimized_models:
+        optimized_analyzer = economic_analysis.load_optimized_module(
+            module_name="economy_state",
+            md_resource=md,
+            gcs_resource=gcs,
+            context=context,
+            personality=config.personality,
+        )
+        if optimized_analyzer:
+            context.log.info(
+                f"Using optimized model for backtest (personality: {config.personality})"
+            )
+        else:
+            context.log.info("No optimized model found, falling back to baseline model")
+
+    analyzer_to_use = (
+        optimized_analyzer
+        if optimized_analyzer
+        else economic_analysis.economy_state_analyzer
+    )
+
+    from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
+
+    initial_history_length = (
+        len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
+    )
+
+    context.log.info(
+        f"Running economy state analysis with historical data including FCI (personality: {config.personality})..."
+    )
+    analysis_result = analyzer_to_use(
         economic_data=economic_data,
         commodity_data=commodity_data,
+        financial_conditions_index=fci_data,
         personality=config.personality,
     )
+
+    token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
     analysis_timestamp = datetime.now()
     result = {
@@ -91,6 +143,7 @@ def backtest_analyze_economy_state(
         "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
         "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
         "backtest_date": config.backtest_date,
+        "model_provider": config.model_provider,
         "model_name": config.model_name,
         "personality": config.personality,
         "analysis_content": analysis_result.analysis,
@@ -101,6 +154,7 @@ def backtest_analyze_economy_state(
                 "input_commodities_summary_snapshot",
                 "agriculture_commodities_summary_snapshot",
             ],
+            "financial_conditions_index_table": "financial_conditions_index",
         },
     }
 
@@ -111,6 +165,7 @@ def backtest_analyze_economy_state(
         "analysis_date": result["analysis_date"],
         "analysis_time": result["analysis_time"],
         "backtest_date": result["backtest_date"],
+        "model_provider": result["model_provider"],
         "model_name": result["model_name"],
         "personality": result["personality"],
         "data_sources": result["data_sources"],
@@ -132,6 +187,7 @@ def backtest_analyze_economy_state(
         "analysis_completed": True,
         "analysis_timestamp": result["analysis_timestamp"],
         "backtest_date": result["backtest_date"],
+        "model_provider": result["model_provider"],
         "model_name": result["model_name"],
         "personality": result["personality"],
         "output_table": "backtest_economy_state_analysis",
@@ -141,6 +197,8 @@ def backtest_analyze_economy_state(
         "analysis_preview": result["analysis_content"][:500]
         if result["analysis_content"]
         else "",
+        "token_usage": token_usage,
+        "provider": economic_analysis._get_provider(),
     }
 
     context.log.info(f"Backtest economy state analysis complete: {result_metadata}")

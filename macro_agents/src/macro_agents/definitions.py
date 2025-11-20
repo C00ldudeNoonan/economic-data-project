@@ -27,6 +27,13 @@ from macro_agents.defs.agents.backtest_investment_recommendations import (
 from macro_agents.defs.agents.backtest_evaluator import (
     evaluate_backtest_recommendations,
 )
+from macro_agents.defs.agents.backtest_optimizer import (
+    prepare_optimization_training_data,
+    optimize_dspy_modules,
+    promote_optimized_model_to_production,
+    auto_promote_best_models_to_production,
+)
+from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.schedules import schedules, sensors, jobs
 from macro_agents.defs.replication.sling import replication_assets, sling_resource
 from macro_agents.defs.transformation.dbt import full_dbt_assets
@@ -96,6 +103,10 @@ defs = dg.Definitions(
         backtest_analyze_asset_class_relationships,
         backtest_generate_investment_recommendations,
         evaluate_backtest_recommendations,
+        prepare_optimization_training_data,
+        optimize_dspy_modules,
+        promote_optimized_model_to_production,
+        auto_promote_best_models_to_production,
     ],
     asset_checks=[
         us_sector_etfs_weekly_coverage_check,
@@ -114,8 +125,15 @@ defs = dg.Definitions(
         "dbt": dbt_cli_resource,
         "sling": sling_resource,
         "economic_analysis": EconomicAnalysisResource(
+            provider=dg.EnvVar("LLM_PROVIDER"),
             model_name=dg.EnvVar("MODEL_NAME"),
             openai_api_key=dg.EnvVar("OPENAI_API_KEY"),
+            gemini_api_key=dg.EnvVar("GEMINI_API_KEY"),
+            anthropic_api_key=dg.EnvVar("ANTHROPIC_API_KEY"),
+        ),
+        "gcs": GCSResource(
+            bucket_name=dg.EnvVar("GCS_BUCKET_NAME"),
+            credentials_path=dg.EnvVar("GOOGLE_APPLICATION_CREDENTIALS"),
         ),
     },
     schedules=schedules,

@@ -64,3 +64,11 @@ models:
       including returns, volatility, win rates, and trading statistics for US sectors 
       over 12 weeks, 6 months, 1 year, and 5 year periods. Enables sector rotation 
       analysis and relative performance comparison across different market sectors.
+
+  - name: fixed_income_analysis_return
+    description: >
+      Performance analysis of fixed income ETFs across multiple time periods.
+      This model calculates key financial metrics including total returns, volatility, 
+      win rates, and trading activity statistics for fixed income ETFs over 12 weeks, 
+      6 months, 1 year, and 5 year periods. Provides insights into fixed income market 
+      trends and risk characteristics.
