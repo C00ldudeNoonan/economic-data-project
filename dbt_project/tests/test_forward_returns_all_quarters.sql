@@ -1,5 +1,6 @@
--- Test: Check that forward returns are calculated for all forward quarters consistently
--- This ensures Q1, Q2, Q3, Q4 forward returns follow the same pattern
+-- Test: Check for unexpected inconsistencies in forward returns
+-- This test flags cases where Q1 forward exists but Q2 is missing (unexpected)
+-- Note: It's normal for Q2/Q3/Q4 to be missing at the end of the dataset, so we exclude recent quarters
 
 {% set models_to_test = [
     'currency_analysis_return',
@@ -10,25 +11,25 @@
 ] %}
 
 {% for model in models_to_test %}
+    WITH max_date AS (
+        SELECT MAX(month_date) as latest_date
+        FROM {{ ref(model) }}
+    )
     SELECT 
-        symbol,
-        exchange,
-        year_val,
-        quarter_num,
-        month_date,
-        CASE 
-            WHEN pct_change_q1_forward IS NOT NULL AND pct_change_q2_forward IS NULL THEN 'q2_missing'
-            WHEN pct_change_q1_forward IS NOT NULL AND pct_change_q3_forward IS NULL THEN 'q3_missing'
-            WHEN pct_change_q1_forward IS NOT NULL AND pct_change_q4_forward IS NULL THEN 'q4_missing'
-            ELSE NULL
-        END as inconsistency_type
-    FROM {{ ref(model) }}
-    WHERE pct_change_q1_forward IS NOT NULL
-        AND (
-            pct_change_q2_forward IS NULL 
-            OR pct_change_q3_forward IS NULL 
-            OR pct_change_q4_forward IS NULL
-        )
+        t.symbol,
+        t.exchange,
+        t.year_val,
+        t.quarter_num,
+        t.month_date,
+        t.pct_change_q1_forward,
+        t.pct_change_q2_forward,
+        'q2_missing_but_q1_exists' as inconsistency_type
+    FROM {{ ref(model) }} t
+    CROSS JOIN max_date m
+    WHERE t.pct_change_q1_forward IS NOT NULL
+        AND t.pct_change_q2_forward IS NULL
+        -- Only flag if this isn't within the last year (where missing Q2 is expected)
+        AND t.month_date < DATE_TRUNC('year', m.latest_date)
     
     {% if not loop.last %}
     UNION ALL

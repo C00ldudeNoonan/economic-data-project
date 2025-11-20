@@ -94,6 +94,24 @@ WITH return_data as (
     'sector' as category
   FROM {{ ref('us_sector_analysis_return') }}
 
+),
+
+quarterly_returns AS (
+  SELECT
+    *,
+    -- Get first month's close price in the quarter (earliest date)
+    FIRST_VALUE(monthly_avg_close) OVER (
+      PARTITION BY symbol, category, year_val, quarter_num
+      ORDER BY month_date ASC
+      ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+    ) AS quarter_first_month_close,
+    -- Get last month's close price in the quarter (latest date)
+    LAST_VALUE(monthly_avg_close) OVER (
+      PARTITION BY symbol, category, year_val, quarter_num
+      ORDER BY month_date ASC
+      ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+    ) AS quarter_last_month_close
+  FROM return_data
 )
 
 SELECT 
@@ -110,9 +128,22 @@ SELECT
   rt.pct_change_q3_forward,
   rt.pct_change_q4_forward,
   rt.category,
+  -- Calculate quarterly total return: (last month - first month) / first month * 100
+  CASE
+    WHEN rt.quarter_first_month_close IS NOT NULL 
+         AND rt.quarter_first_month_close > 0
+         AND rt.quarter_last_month_close IS NOT NULL
+    THEN ROUND(
+      (rt.quarter_last_month_close - rt.quarter_first_month_close) / rt.quarter_first_month_close * 100, 
+      2
+    )
+    ELSE NULL
+  END AS quarterly_total_return_pct,
+  rt.quarter_first_month_close,
+  rt.quarter_last_month_close,
   fr.series_name,
   fr.value,
   fr.period_diff
-FROM return_data rt
+FROM quarterly_returns rt
 LEFT JOIN {{ ref('fred_monthly_diff') }} fr
   on rt.month_date = cast(fr.date as date) 

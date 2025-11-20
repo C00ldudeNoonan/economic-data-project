@@ -15,6 +15,7 @@ WITH economic_changes AS (
         fsm.category AS economic_category,
         bha.value AS current_econ_value,
         bha.monthly_avg_close,
+        bha.quarterly_total_return_pct,
         bha.pct_change_q1_forward,
         bha.pct_change_q2_forward,
         bha.pct_change_q3_forward,
@@ -88,12 +89,22 @@ correlation_analysis AS (
             AS corr_econ_q2_returns,
         CORR(econ_mom_change_pct, pct_change_q3_forward)
             AS corr_econ_q3_returns,
+        
+        -- Correlation between economic MoM change and quarterly total returns
+        CORR(econ_mom_change_pct, quarterly_total_return_pct)
+            AS corr_econ_quarterly_total_return,
 
         -- Average returns when economic data is growing vs declining
         AVG(CASE WHEN econ_mom_change_pct > 0 THEN pct_change_q1_forward END)
             AS avg_q1_return_when_econ_growing,
         AVG(CASE WHEN econ_mom_change_pct < 0 THEN pct_change_q1_forward END)
             AS avg_q1_return_when_econ_declining,
+        
+        -- Average quarterly total returns when economic data is growing vs declining
+        AVG(CASE WHEN econ_mom_change_pct > 0 THEN quarterly_total_return_pct END)
+            AS avg_quarterly_total_return_when_econ_growing,
+        AVG(CASE WHEN econ_mom_change_pct < 0 THEN quarterly_total_return_pct END)
+            AS avg_quarterly_total_return_when_econ_declining,
 
         -- Standard deviations
         STDDEV(econ_mom_change_pct) AS econ_change_volatility,
@@ -117,6 +128,7 @@ detailed_monthly_view AS (
         category,
         economic_category,
         econ_mom_change_pct,
+        quarterly_total_return_pct,
         pct_change_q1_forward,
         pct_change_q2_forward,
         pct_change_q3_forward,
@@ -149,9 +161,15 @@ SELECT
     ROUND(corr_econ_q1_returns, 4) AS correlation_econ_vs_q1_returns,
     ROUND(corr_econ_q2_returns, 4) AS correlation_econ_vs_q2_returns,
     ROUND(corr_econ_q3_returns, 4) AS correlation_econ_vs_q3_returns,
+    ROUND(corr_econ_quarterly_total_return, 4) AS correlation_econ_vs_quarterly_total_return,
     ROUND(avg_q1_return_when_econ_growing, 2) AS avg_q1_return_econ_up,
     ROUND(avg_q1_return_when_econ_declining, 2) AS avg_q1_return_econ_down,
-    ROUND(avg_q1_return_when_econ_declining, 2) AS return_difference
+    ROUND(avg_quarterly_total_return_when_econ_growing, 2) AS avg_quarterly_total_return_econ_up,
+    ROUND(avg_quarterly_total_return_when_econ_declining, 2) AS avg_quarterly_total_return_econ_down,
+    ROUND(
+        COALESCE(avg_q1_return_when_econ_growing, 0) - COALESCE(avg_q1_return_when_econ_declining, 0), 
+        2
+    ) AS return_difference
 FROM correlation_analysis
 WHERE observation_count >= 10  -- Filter for meaningful sample sizes
 
@@ -168,8 +186,11 @@ SELECT
     econ_change_quintile AS correlation_econ_vs_q1_returns,
     NULL AS correlation_econ_vs_q2_returns,
     NULL AS correlation_econ_vs_q3_returns,
+    NULL AS correlation_econ_vs_quarterly_total_return,
     ROUND(AVG(pct_change_q1_forward), 2) AS avg_q1_return_econ_up,
     COUNT(*) AS avg_q1_return_econ_down,
+    ROUND(AVG(quarterly_total_return_pct), 2) AS avg_quarterly_total_return_econ_up,
+    NULL AS avg_quarterly_total_return_econ_down,
     ROUND(AVG(econ_mom_change_pct), 2) AS return_difference
 FROM detailed_monthly_view
 GROUP BY symbol, series_name, category, economic_category, econ_change_quintile

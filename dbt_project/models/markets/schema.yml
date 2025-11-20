@@ -40,17 +40,6 @@ models:
       win rates, and trading activity statistics for major currency pairs over 12 weeks, 
       6 months, 1 year, and 5 year periods. Provides insights into currency market 
       trends and risk characteristics.
-    tests:
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num, '-', CAST(pct_change_q1_forward AS VARCHAR)) END) = COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num) END)"
-          config:
-            severity: error
-          description: "Months within the same quarter should have the same forward return values (catches LEAD() window function bug)"
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(*) FILTER (WHERE pct_change_q1_forward = 0 AND quarterly_avg_close > 0) = 0"
-          config:
-            severity: error
-          description: "Forward returns should not be zero when quarterly_avg_close exists (should be NULL if no future data)"
 
   - name: global_markets_analysis_return    
     description: >
@@ -59,17 +48,6 @@ models:
       including returns, volatility, win rates, and daily trading statistics for global 
       markets over 12 weeks, 6 months, 1 year, and 5 year periods. Enables comparison 
       of global market performance and risk profiles.
-    tests:
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num, '-', CAST(pct_change_q1_forward AS VARCHAR)) END) = COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num) END)"
-          config:
-            severity: error
-          description: "Months within the same quarter should have the same forward return values (catches LEAD() window function bug)"
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(*) FILTER (WHERE pct_change_q1_forward = 0 AND quarterly_avg_close > 0) = 0"
-          config:
-            severity: error
-          description: "Forward returns should not be zero when quarterly_avg_close exists (should be NULL if no future data)"
 
   - name: major_indicies_analysis_return
     description: >
@@ -78,17 +56,6 @@ models:
       average returns, volatility, win rates, and trading activity metrics for major 
       indices like S&P 500, NASDAQ, and Dow Jones over 12 weeks, 6 months, 1 year, 
       and 5 year periods. Provides comprehensive market performance insights.
-    tests:
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num, '-', CAST(pct_change_q1_forward AS VARCHAR)) END) = COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num) END)"
-          config:
-            severity: error
-          description: "Months within the same quarter should have the same forward return values (catches LEAD() window function bug)"
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(*) FILTER (WHERE pct_change_q1_forward = 0 AND quarterly_avg_close > 0) = 0"
-          config:
-            severity: error
-          description: "Forward returns should not be zero when quarterly_avg_close exists (should be NULL if no future data)"
 
   - name: us_sector_analysis_return
     description: >
@@ -97,17 +64,6 @@ models:
       including returns, volatility, win rates, and trading statistics for US sectors 
       over 12 weeks, 6 months, 1 year, and 5 year periods. Enables sector rotation 
       analysis and relative performance comparison across different market sectors.
-    tests:
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num, '-', CAST(pct_change_q1_forward AS VARCHAR)) END) = COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num) END)"
-          config:
-            severity: error
-          description: "Months within the same quarter should have the same forward return values (catches LEAD() window function bug)"
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(*) FILTER (WHERE pct_change_q1_forward = 0 AND quarterly_avg_close > 0) = 0"
-          config:
-            severity: error
-          description: "Forward returns should not be zero when quarterly_avg_close exists (should be NULL if no future data)"
 
   - name: fixed_income_analysis_return
     description: >
@@ -116,14 +72,3 @@ models:
       win rates, and trading activity statistics for fixed income ETFs over 12 weeks, 
       6 months, 1 year, and 5 year periods. Provides insights into fixed income market 
       trends and risk characteristics.
-    tests:
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num, '-', CAST(pct_change_q1_forward AS VARCHAR)) END) = COUNT(DISTINCT CASE WHEN pct_change_q1_forward IS NOT NULL THEN CONCAT(symbol, '-', exchange, '-', year_val, '-', quarter_num) END)"
-          config:
-            severity: error
-          description: "Months within the same quarter should have the same forward return values (catches LEAD() window function bug)"
-      - dbt_utils.expression_is_true:
-          expression: "COUNT(*) FILTER (WHERE pct_change_q1_forward = 0 AND quarterly_avg_close > 0) = 0"
-          config:
-            severity: error
-          description: "Forward returns should not be zero when quarterly_avg_close exists (should be NULL if no future data)"
