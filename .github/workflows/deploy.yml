@@ -69,6 +69,11 @@ jobs:
           cd project-repo/macro_agents/dbt_project
           dbt deps || true
           dbt parse --target prod || dbt parse
+        env:
+          MOTHERDUCK_PROD_SCHEMA: ${{ secrets.MOTHERDUCK_PROD_SCHEMA }}
+          MOTHERDUCK_DATABASE: ${{ secrets.MOTHERDUCK_DATABASE }}
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+          DBT_TARGET: prod
 
       - name: Python Executable Deploy
         if: steps.prerun.outputs.result == 'pex-deploy'
