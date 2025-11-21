@@ -34,7 +34,7 @@ jobs:
     - name: Install dependencies with uv
       run: |
         cd macro_agents
-        uv sync --dev
+        uv sync --extra dev
     
     - name: Lint with ruff
       continue-on-error: true

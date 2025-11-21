@@ -9,7 +9,7 @@ fix:
 	sqlfluff fix ./dbt_project/models --disable-progress-bar --processes 4
 
 test:
-	cd macro_agents && uv sync && source .venv/bin/activate && python -m pytest tests/ -v
+	cd macro_agents && uv sync --extra dev && uv run pytest tests/ -v
 
 dbt-manifest:
 	cd dbt_project && dbt parse
@@ -17,7 +17,7 @@ dbt-manifest:
 pre-pr:
 	@echo "Running pre-PR checks..."
 	@echo "1. Installing dependencies..."
-	cd macro_agents && uv sync && source .venv/bin/activate && pip install -e .[dev] pytest-cov pytest-xdist mypy bandit safety
+	cd macro_agents && uv sync --extra dev && uv pip install pytest-cov pytest-xdist mypy bandit safety
 	@echo "2. Running ruff linting..."
 	cd macro_agents && source .venv/bin/activate && ruff check macro_agents/
 	@echo "3. Running ruff formatting check..."
