@@ -34,6 +34,18 @@ class EconomyStateAnalysisSignature(dspy.Signature):
         desc="CSV data containing full historical Financial Conditions Index (FCI) values with date, FCI score, and component scores. FCI values above zero indicate expansionary conditions, below zero indicate contractionary conditions. Use the full history to identify trends, cycles, and current position relative to historical norms."
     )
 
+    housing_data: str = dspy.InputField(
+        desc="CSV data containing housing market indicators including inventory levels (with 3m, 6m, 1y changes) and mortgage rates with affordability metrics (median prices, monthly payments). Housing is a leading economic indicator - rising inventory suggests slowing demand, while affordability metrics indicate consumer purchasing power."
+    )
+
+    yield_curve_data: str = dspy.InputField(
+        desc="CSV data containing Treasury yield curve data with key spreads (10Y-2Y, 10Y-3M) and curve shape classification (Steep/Normal/Flat/Inverted). Inverted yield curves (10Y-2Y < 0) historically precede recessions. Normal curves indicate healthy economic expectations."
+    )
+
+    economic_trends: str = dspy.InputField(
+        desc="CSV data containing month-over-month changes for key economic indicators (GDP, CPI, unemployment, payrolls, Fed funds rate, industrial production, retail sales, housing starts). These trends show momentum and direction of economic activity."
+    )
+
     personality: str = dspy.InputField(
         desc="Analytical personality: 'skeptical' (default, bearish, focuses on risks and downside), 'neutral' (balanced, objective), or 'bullish' (optimistic, focuses on opportunities and upside)"
     )
@@ -63,11 +75,13 @@ class EconomyStateAnalysisSignature(dspy.Signature):
            - Commodity price trends as leading indicators of economic activity
            - Supply chain and cost pressure signals from commodity markets
         5. Leading Indicators Assessment:
-           - Yield curve analysis (normal, flat, inverted)
+           - Yield curve analysis (normal, flat, inverted) - use yield_curve_data to assess curve shape and spreads (10Y-2Y, 10Y-3M). Inverted curves signal recession risk.
            - Credit spreads and financial conditions (integrate with FCI analysis)
            - Business confidence indicators
            - Leading economic index components
            - Commodity price momentum as economic signals
+           - Housing market trends from housing_data - inventory levels, affordability, mortgage rates
+           - Economic momentum from economic_trends - month-over-month changes in key indicators
         6. Economic Cycle Phase Characteristics:
            - Current phase identification with supporting evidence (use FCI to confirm expansion/contraction)
            - Phase duration and typical progression patterns
@@ -103,6 +117,9 @@ class EconomyStateModule(dspy.Module):
         economic_data: str,
         commodity_data: str,
         financial_conditions_index: str,
+        housing_data: str = "",
+        yield_curve_data: str = "",
+        economic_trends: str = "",
         personality: str = None,
     ):
         personality_to_use = personality or self.personality
@@ -110,6 +127,9 @@ class EconomyStateModule(dspy.Module):
             economic_data=economic_data,
             commodity_data=commodity_data,
             financial_conditions_index=financial_conditions_index,
+            housing_data=housing_data or "No housing data available",
+            yield_curve_data=yield_curve_data or "No yield curve data available",
+            economic_trends=economic_trends or "No economic trends data available",
             personality=personality_to_use,
         )
 
@@ -439,7 +459,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
     def get_market_data(
         self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
     ) -> str:
-        """Get latest market performance data.
+        """Get latest market performance data including US sectors and major indices.
 
         Args:
             md_resource: MotherDuck resource
@@ -469,11 +489,42 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 negative_days,
                 neutral_days,
                 period_start_price,
-                period_end_price
+                period_end_price,
+                'sector' as market_category
             FROM us_sector_summary_snapshot
             WHERE snapshot_date = '{cutoff_date}'
                 AND time_period IN ('12_weeks', '6_months', '1_year')
-            ORDER BY asset_type, time_period, total_return_pct DESC
+            
+            UNION ALL
+            
+            SELECT 
+                symbol,
+                asset_type,
+                time_period,
+                exchange,
+                name,
+                period_start_date,
+                period_end_date,
+                trading_days,
+                total_return_pct,
+                avg_daily_return_pct,
+                volatility_pct,
+                win_rate_pct,
+                total_price_change,
+                avg_daily_price_change,
+                worst_day_change,
+                best_day_change,
+                positive_days,
+                negative_days,
+                neutral_days,
+                period_start_price,
+                period_end_price,
+                'major_index' as market_category
+            FROM major_indicies_summary
+            WHERE time_period IN ('12_weeks', '6_months', '1_year')
+                AND period_end_date <= '{cutoff_date}'
+            
+            ORDER BY market_category, asset_type, time_period, total_return_pct DESC
             """
         else:
             query = """
@@ -498,10 +549,40 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 negative_days,
                 neutral_days,
                 period_start_price,
-                period_end_price
+                period_end_price,
+                'sector' as market_category
             FROM us_sector_summary
             WHERE time_period IN ('12_weeks', '6_months', '1_year')
-            ORDER BY asset_type, time_period, total_return_pct DESC
+            
+            UNION ALL
+            
+            SELECT 
+                symbol,
+                asset_type,
+                time_period,
+                exchange,
+                name,
+                period_start_date,
+                period_end_date,
+                trading_days,
+                total_return_pct,
+                avg_daily_return_pct,
+                volatility_pct,
+                win_rate_pct,
+                total_price_change,
+                avg_daily_price_change,
+                worst_day_change,
+                best_day_change,
+                positive_days,
+                negative_days,
+                neutral_days,
+                period_start_price,
+                period_end_price,
+                'major_index' as market_category
+            FROM major_indicies_summary
+            WHERE time_period IN ('12_weeks', '6_months', '1_year')
+            
+            ORDER BY market_category, asset_type, time_period, total_return_pct DESC
             """
 
         df = md_resource.execute_query(query)
@@ -820,6 +901,217 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 df = md_resource.execute_query(query)
                 return df.write_csv()
 
+    def get_housing_data(
+        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+    ) -> str:
+        """Get housing market data including inventory and mortgage rates.
+
+        Args:
+            md_resource: MotherDuck resource
+            cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
+                        If provided, filters data up to that date.
+        """
+        # Get housing inventory data
+        inventory_query = """
+        SELECT 
+            series_code,
+            series_name,
+            month,
+            current_value,
+            pct_change_3m,
+            pct_change_6m,
+            pct_change_1y,
+            date_grain
+        FROM housing_inventory_latest_aggregates
+        WHERE current_value IS NOT NULL
+        ORDER BY series_name, month DESC
+        """
+
+        # Get mortgage rates data (latest available)
+        mortgage_query = """
+        SELECT 
+            date,
+            mortgage_rate,
+            median_price_no_down_payment,
+            median_price_20_pct_down_payment,
+            monthly_payment_no_down_payment,
+            monthly_payment_20_pct_down_payment
+        FROM housing_mortgage_rates
+        WHERE date = (SELECT MAX(date) FROM housing_mortgage_rates)
+        """
+
+        if cutoff_date:
+            inventory_query = f"""
+            SELECT 
+                series_code,
+                series_name,
+                month,
+                current_value,
+                pct_change_3m,
+                pct_change_6m,
+                pct_change_1y,
+                date_grain
+            FROM housing_inventory_latest_aggregates
+            WHERE month <= '{cutoff_date}'
+                AND current_value IS NOT NULL
+            ORDER BY series_name, month DESC
+            """
+            mortgage_query = f"""
+            SELECT 
+                date,
+                mortgage_rate,
+                median_price_no_down_payment,
+                median_price_20_pct_down_payment,
+                monthly_payment_no_down_payment,
+                monthly_payment_20_pct_down_payment
+            FROM housing_mortgage_rates
+            WHERE date <= '{cutoff_date}'
+                AND date = (
+                    SELECT MAX(date) 
+                    FROM housing_mortgage_rates 
+                    WHERE date <= '{cutoff_date}'
+                )
+            """
+
+        inventory_df = md_resource.execute_query(inventory_query, read_only=True)
+        mortgage_df = md_resource.execute_query(mortgage_query, read_only=True)
+
+        # Combine into single CSV
+        inventory_csv = inventory_df.write_csv() if not inventory_df.is_empty() else ""
+        mortgage_csv = mortgage_df.write_csv() if not mortgage_df.is_empty() else ""
+
+        # Combine with separator
+        if inventory_csv and mortgage_csv:
+            return f"Housing Inventory Data:\n{inventory_csv}\n\nMortgage Rates Data:\n{mortgage_csv}"
+        elif inventory_csv:
+            return f"Housing Inventory Data:\n{inventory_csv}"
+        elif mortgage_csv:
+            return f"Mortgage Rates Data:\n{mortgage_csv}"
+        else:
+            return ""
+
+    def get_yield_curve_data(
+        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+    ) -> str:
+        """Get yield curve data and calculate spreads.
+
+        Args:
+            md_resource: MotherDuck resource
+            cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
+                        If provided, filters data up to that date.
+        """
+        date_filter = f"AND date <= '{cutoff_date}'" if cutoff_date else ""
+
+        query = f"""
+        WITH pivoted_yields AS (
+            SELECT 
+                date,
+                MAX(CASE WHEN yield_type = 'BC_1MONTH' THEN value END) as yield_1m,
+                MAX(CASE WHEN yield_type = 'BC_3MONTH' THEN value END) as yield_3m,
+                MAX(CASE WHEN yield_type = 'BC_6MONTH' THEN value END) as yield_6m,
+                MAX(CASE WHEN yield_type = 'BC_1YEAR' THEN value END) as yield_1y,
+                MAX(CASE WHEN yield_type = 'BC_2YEAR' THEN value END) as yield_2y,
+                MAX(CASE WHEN yield_type = 'BC_3YEAR' THEN value END) as yield_3y,
+                MAX(CASE WHEN yield_type = 'BC_5YEAR' THEN value END) as yield_5y,
+                MAX(CASE WHEN yield_type = 'BC_7YEAR' THEN value END) as yield_7y,
+                MAX(CASE WHEN yield_type = 'BC_10YEAR' THEN value END) as yield_10y,
+                MAX(CASE WHEN yield_type = 'BC_20YEAR' THEN value END) as yield_20y,
+                MAX(CASE WHEN yield_type = 'BC_30YEAR' THEN value END) as yield_30y
+            FROM stg_treasury_yields
+            WHERE date IS NOT NULL {date_filter}
+            GROUP BY date
+        ),
+        latest_date AS (
+            SELECT MAX(date) as max_date
+            FROM pivoted_yields
+        ),
+        current_yields AS (
+            SELECT *
+            FROM pivoted_yields
+            WHERE date = (SELECT max_date FROM latest_date)
+        ),
+        yield_spreads AS (
+            SELECT
+                date,
+                yield_10y,
+                yield_2y,
+                yield_3m,
+                yield_1y,
+                yield_30y,
+                -- Calculate key spreads
+                yield_10y - yield_2y as spread_10y_2y,
+                yield_10y - yield_3m as spread_10y_3m,
+                yield_2y - yield_3m as spread_2y_3m,
+                yield_30y - yield_2y as spread_30y_2y,
+                -- Yield curve shape classification
+                CASE
+                    WHEN yield_10y - yield_2y > 0.5 THEN 'Steep'
+                    WHEN yield_10y - yield_2y > 0 THEN 'Normal'
+                    WHEN yield_10y - yield_2y > -0.5 THEN 'Flat'
+                    ELSE 'Inverted'
+                END as curve_shape,
+                -- Inversion status
+                CASE
+                    WHEN yield_10y - yield_2y < 0 THEN 'Inverted'
+                    WHEN yield_10y - yield_3m < 0 THEN 'Inverted (10Y-3M)'
+                    ELSE 'Normal'
+                END as inversion_status
+            FROM current_yields
+        )
+        SELECT * FROM yield_spreads
+        """
+
+        df = md_resource.execute_query(query, read_only=True)
+        if df.is_empty():
+            return ""
+        return df.write_csv()
+
+    def get_economic_trends(
+        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+    ) -> str:
+        """Get month-over-month changes for key economic indicators using fred_monthly_diff.
+
+        Args:
+            md_resource: MotherDuck resource
+            cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
+                        If provided, filters data up to that date.
+        """
+        # Key indicators to track trends for
+        key_indicators = [
+            "GDPC1",  # Real GDP
+            "CPIAUCSL",  # CPI
+            "UNRATE",  # Unemployment Rate
+            "PAYEMS",  # Nonfarm Payrolls
+            "FEDFUNDS",  # Fed Funds Rate
+            "INDPRO",  # Industrial Production
+            "RSXFS",  # Retail Sales
+            "HOUST",  # Housing Starts
+        ]
+
+        indicators_list = "', '".join(key_indicators)
+        date_filter = f"AND date <= '{cutoff_date}'" if cutoff_date else ""
+
+        query = f"""
+        SELECT 
+            series_code,
+            series_name,
+            date,
+            value,
+            diff_value,
+            pct_change,
+            prev_value
+        FROM fred_monthly_diff
+        WHERE series_code IN ('{indicators_list}')
+            {date_filter}
+        ORDER BY series_name, date DESC
+        LIMIT 100
+        """
+
+        df = md_resource.execute_query(query, read_only=True)
+        if df.is_empty():
+            return ""
+        return df.write_csv()
+
 
 def _get_token_usage(
     economic_analysis: EconomicAnalysisResource,
@@ -947,12 +1239,17 @@ def extract_economy_state_summary(analysis_content: str) -> Dict[str, Any]:
     description="Analyze current economic indicators and commodity data to determine the state of the economy",
     deps=[
         dg.AssetKey(["fred_series_latest_aggregates"]),
+        dg.AssetKey(["fred_monthly_diff"]),
         dg.AssetKey(["leading_econ_return_indicator"]),
         dg.AssetKey(["us_sector_summary"]),
+        dg.AssetKey(["major_indicies_summary"]),
         dg.AssetKey(["energy_commodities_summary"]),
         dg.AssetKey(["input_commodities_summary"]),
         dg.AssetKey(["agriculture_commodities_summary"]),
         dg.AssetKey(["financial_conditions_index"]),
+        dg.AssetKey(["housing_inventory_latest_aggregates"]),
+        dg.AssetKey(["housing_mortgage_rates"]),
+        dg.AssetKey(["stg_treasury_yields"]),
         dg.AssetKey(["auto_promote_best_models_to_production"]),
     ],
 )
@@ -985,6 +1282,15 @@ def analyze_economy_state(
     context.log.info("Gathering Financial Conditions Index data...")
     fci_data = economic_analysis.get_financial_conditions_index(md)
 
+    context.log.info("Gathering housing market data...")
+    housing_data = economic_analysis.get_housing_data(md)
+
+    context.log.info("Gathering yield curve data...")
+    yield_curve_data = economic_analysis.get_yield_curve_data(md)
+
+    context.log.info("Gathering economic trends data...")
+    economic_trends = economic_analysis.get_economic_trends(md)
+
     optimized_analyzer = None
     if economic_analysis.use_optimized_models:
         optimized_analyzer = economic_analysis.load_optimized_module(
@@ -1006,12 +1312,15 @@ def analyze_economy_state(
     )
 
     context.log.info(
-        f"Running economy state analysis with economic, commodity, and FCI data (personality: {config.personality})..."
+        f"Running economy state analysis with economic, commodity, FCI, housing, yield curve, and trends data (personality: {config.personality})..."
     )
     analysis_result = analyzer_to_use(
         economic_data=economic_data,
         commodity_data=commodity_data,
         financial_conditions_index=fci_data,
+        housing_data=housing_data,
+        yield_curve_data=yield_curve_data,
+        economic_trends=economic_trends,
         personality=config.personality,
     )
 
@@ -1033,6 +1342,16 @@ def analyze_economy_state(
                 "agriculture_commodities_summary",
             ],
             "financial_conditions_index_table": "financial_conditions_index",
+            "housing_data_tables": [
+                "housing_inventory_latest_aggregates",
+                "housing_mortgage_rates",
+            ],
+            "yield_curve_table": "stg_treasury_yields",
+            "economic_trends_table": "fred_monthly_diff",
+            "market_data_tables": [
+                "us_sector_summary",
+                "major_indicies_summary",
+            ],
         },
     }
 

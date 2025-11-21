@@ -40,12 +40,17 @@ class BacktestConfig(dg.Config):
     description="Backtest economy state analysis with historical data cutoff",
     deps=[
         dg.AssetKey(["fred_series_latest_aggregates_snapshot"]),
+        dg.AssetKey(["fred_monthly_diff"]),
         dg.AssetKey(["leading_econ_return_indicator_snapshot"]),
         dg.AssetKey(["us_sector_summary_snapshot"]),
+        dg.AssetKey(["major_indicies_summary"]),
         dg.AssetKey(["energy_commodities_summary_snapshot"]),
         dg.AssetKey(["input_commodities_summary_snapshot"]),
         dg.AssetKey(["agriculture_commodities_summary_snapshot"]),
         dg.AssetKey(["financial_conditions_index"]),
+        dg.AssetKey(["housing_inventory_latest_aggregates"]),
+        dg.AssetKey(["housing_mortgage_rates"]),
+        dg.AssetKey(["stg_treasury_yields"]),
     ],
 )
 def backtest_analyze_economy_state(
@@ -97,6 +102,21 @@ def backtest_analyze_economy_state(
         md, cutoff_date=config.backtest_date
     )
 
+    context.log.info("Gathering housing market data with cutoff date...")
+    housing_data = economic_analysis.get_housing_data(
+        md, cutoff_date=config.backtest_date
+    )
+
+    context.log.info("Gathering yield curve data with cutoff date...")
+    yield_curve_data = economic_analysis.get_yield_curve_data(
+        md, cutoff_date=config.backtest_date
+    )
+
+    context.log.info("Gathering economic trends data with cutoff date...")
+    economic_trends = economic_analysis.get_economic_trends(
+        md, cutoff_date=config.backtest_date
+    )
+
     optimized_analyzer = None
     if config.use_optimized_models and economic_analysis.use_optimized_models:
         optimized_analyzer = economic_analysis.load_optimized_module(
@@ -126,12 +146,15 @@ def backtest_analyze_economy_state(
     )
 
     context.log.info(
-        f"Running economy state analysis with historical data including FCI (personality: {config.personality})..."
+        f"Running economy state analysis with historical data including FCI, housing, yield curve, and trends (personality: {config.personality})..."
     )
     analysis_result = analyzer_to_use(
         economic_data=economic_data,
         commodity_data=commodity_data,
         financial_conditions_index=fci_data,
+        housing_data=housing_data,
+        yield_curve_data=yield_curve_data,
+        economic_trends=economic_trends,
         personality=config.personality,
     )
 
@@ -155,6 +178,16 @@ def backtest_analyze_economy_state(
                 "agriculture_commodities_summary_snapshot",
             ],
             "financial_conditions_index_table": "financial_conditions_index",
+            "housing_data_tables": [
+                "housing_inventory_latest_aggregates",
+                "housing_mortgage_rates",
+            ],
+            "yield_curve_table": "stg_treasury_yields",
+            "economic_trends_table": "fred_monthly_diff",
+            "market_data_tables": [
+                "us_sector_summary_snapshot",
+                "major_indicies_summary",
+            ],
         },
     }
 

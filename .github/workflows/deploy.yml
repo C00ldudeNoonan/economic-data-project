@@ -68,7 +68,7 @@ jobs:
           pip install dbt-core dbt-duckdb
           cd project-repo/macro_agents/dbt_project
           dbt deps || true
-          dbt parse --target prod || dbt parse
+          dbt parse
 
       - name: Python Executable Deploy
         if: steps.prerun.outputs.result == 'pex-deploy'

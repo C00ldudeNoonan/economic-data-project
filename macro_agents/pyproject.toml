@@ -3,34 +3,32 @@ name = "macro_agents"
 requires-python = ">=3.10.19,<3.14"
 version = "0.1.0"
 dependencies = [
-    "dagster>=1.11.4",
+    "dagster>=1.11.4,<2.0.0",  # Add upper bound
     "dagster-cloud",
     "dagster-duckdb",
-    "polars",
+    "polars>=0.20.0,<1.0.0",  # Pin polars
     "dagster-dbt",
-    "requests",
-    "dbt-core",
-    "google-api-core",
-    "google-auth",
-    "google-cloud-bigquery",
-    "dbt-duckdb",
-    "dagster-shared>=1.11.4",
-    "dagster-pipes>=1.11.4",
-    "dagster-dg-cli>=1.11.4",
-    "dagster-webserver>=1.11.4",
-    "pyarrow>=21.0.0",
-    "beautifulsoup4",
-    "lxml",
-    "ruff>=0.12.7",
-    "tenacity>=9.1.2",
-    "dspy>=2.6.27",
-    "sqlfluff>=3.4.2",
-    "sqlfluff-templater-dbt>=3.4.2",
+    "requests>=2.31.0,<3.0.0",
+    "dbt-core>=1.10.0,<2.0.0",  # Pin dbt-core
+    "google-api-core>=2.0.0,<3.0.0",
+    "google-auth>=2.0.0,<3.0.0",
+    "google-cloud-bigquery>=3.0.0,<4.0.0",
+    "dbt-duckdb>=1.10.0,<2.0.0",
+    "dagster-shared>=1.11.4,<2.0.0",
+    "dagster-pipes>=1.11.4,<2.0.0",
+    "dagster-dg-cli>=1.11.4,<2.0.0",
+    "dagster-webserver>=1.11.4,<2.0.0",
+    "pyarrow>=21.0.0,<22.0.0",  # Pin pyarrow
+    "beautifulsoup4>=4.12.0,<5.0.0",
+    "lxml>=5.0.0,<6.0.0",
+    # Move dev tools to optional-dependencies
+    "tenacity>=9.1.2,<10.0.0",
+    "dspy>=2.6.27,<3.0.0",
     "dagster-sling",
-    "google-cloud-storage>=2.10.0",
-    "openai>=1.0.0",
-    "anthropic>=0.18.0",
-    "google-generativeai>=0.3.0",
+    "google-cloud-storage>=2.10.0,<3.0.0",
+    "openai>=1.0.0,<2.0.0",
+    "anthropic>=0.18.0,<1.0.0",
+    "google-generativeai>=0.3.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +38,9 @@ dev = [
     "pytest-cov",
     "pytest-xdist",
     "mypy",
-    "ruff",
+    "ruff>=0.12.7,<1.0.0",  # Move ruff here
+    "sqlfluff>=3.4.2,<4.0.0",  # Move sqlfluff here
+    "sqlfluff-templater-dbt>=3.4.2,<4.0.0",  # Move here
 ]
  
 [build-system]

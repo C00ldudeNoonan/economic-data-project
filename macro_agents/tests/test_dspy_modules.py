@@ -29,6 +29,10 @@ class TestEconomyStateAnalysisSignature:
         annotations = EconomyStateAnalysisSignature.__annotations__
         assert "economic_data" in annotations
         assert "commodity_data" in annotations
+        assert "financial_conditions_index" in annotations
+        assert "housing_data" in annotations
+        assert "yield_curve_data" in annotations
+        assert "economic_trends" in annotations
         assert "personality" in annotations
         assert "analysis" in annotations
 
@@ -72,6 +76,9 @@ class TestEconomyStateModule:
             economic_data="test economic data",
             commodity_data="test commodity data",
             financial_conditions_index="test financial conditions",
+            housing_data="No housing data available",
+            yield_curve_data="No yield curve data available",
+            economic_trends="No economic trends data available",
             personality="neutral",
         )
 
@@ -95,6 +102,9 @@ class TestEconomyStateModule:
             economic_data="test economic data",
             commodity_data="test commodity data",
             financial_conditions_index="test financial conditions",
+            housing_data="No housing data available",
+            yield_curve_data="No yield curve data available",
+            economic_trends="No economic trends data available",
             personality="bullish",
         )
 
@@ -114,6 +124,41 @@ class TestEconomyStateModule:
 
         assert result.analysis == "Analysis with empty data"
         module.analyze_state.assert_called_once()
+        # Verify it was called with default values for new parameters
+        call_args = module.analyze_state.call_args
+        assert call_args.kwargs["housing_data"] == "No housing data available"
+        assert call_args.kwargs["yield_curve_data"] == "No yield curve data available"
+        assert (
+            call_args.kwargs["economic_trends"] == "No economic trends data available"
+        )
+
+    def test_module_forward_with_explicit_new_data(self):
+        """Test module forward method with new data parameters explicitly provided."""
+        module = EconomyStateModule(personality="neutral")
+
+        mock_result = Mock()
+        mock_result.analysis = "Test analysis output"
+        module.analyze_state = Mock(return_value=mock_result)
+
+        result = module.forward(
+            economic_data="test economic data",
+            commodity_data="test commodity data",
+            financial_conditions_index="test financial conditions",
+            housing_data="test housing data",
+            yield_curve_data="test yield curve data",
+            economic_trends="test economic trends",
+        )
+
+        assert result.analysis == "Test analysis output"
+        module.analyze_state.assert_called_once_with(
+            economic_data="test economic data",
+            commodity_data="test commodity data",
+            financial_conditions_index="test financial conditions",
+            housing_data="test housing data",
+            yield_curve_data="test yield curve data",
+            economic_trends="test economic trends",
+            personality="neutral",
+        )
 
 
 class TestInvestmentRecommendationsSignature:
@@ -363,6 +408,9 @@ class TestPersonalityHandling:
             economic_data="test",
             commodity_data="test",
             financial_conditions_index="test financial conditions",
+            housing_data="No housing data available",
+            yield_curve_data="No yield curve data available",
+            economic_trends="No economic trends data available",
             personality="bullish",
         )
 
@@ -386,6 +434,11 @@ class TestModuleIntegration:
 
         assert result.analysis == "Comprehensive economic analysis"
         assert module.analyze_state.called
+        # Verify new parameters are included
+        call_args = module.analyze_state.call_args
+        assert "housing_data" in call_args.kwargs
+        assert "yield_curve_data" in call_args.kwargs
+        assert "economic_trends" in call_args.kwargs
 
     def test_investment_recommendations_module_with_mock_lm(self):
         """Test InvestmentRecommendationsModule with mocked LM."""
