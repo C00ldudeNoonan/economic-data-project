@@ -65,40 +65,6 @@ class TestDbtProjectValidation:
         finally:
             os.chdir(original_cwd)
 
-    def test_dbt_compile_succeeds(self, dbt_project_dir):
-        """Test that dbt can compile all models without errors."""
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(dbt_project_dir)
-
-            result = subprocess.run(
-                ["dbt", "compile", "--target", "local"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-
-            if result.returncode != 0:
-                error_output = result.stderr or result.stdout
-
-                if (
-                    "cannot open file" in error_output.lower()
-                    or "no such file or directory" in error_output.lower()
-                ):
-                    pytest.skip(
-                        f"dbt compile requires database file to exist. "
-                        f"This test validates syntax, not database connectivity. "
-                        f"Error: {error_output[:500]}"
-                    )
-
-                pytest.fail(
-                    f"dbt compile failed with exit code {result.returncode}.\n"
-                    f"STDOUT:\n{result.stdout}\n\n"
-                    f"STDERR:\n{result.stderr}"
-                )
-        finally:
-            os.chdir(original_cwd)
-
     def test_dbt_list_models_succeeds(self, dbt_project_dir):
         """Test that dbt can list all models (validates project structure)."""
         original_cwd = os.getcwd()

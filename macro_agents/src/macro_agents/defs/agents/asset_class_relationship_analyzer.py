@@ -8,6 +8,7 @@ from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.agents.economy_state_analyzer import (
     analyze_economy_state,
     EconomicAnalysisResource,
+    EconomicAnalysisConfig,
 )
 from macro_agents.defs.resources.gcs import GCSResource
 
@@ -184,6 +185,7 @@ def extract_relationship_summary(analysis_content: str) -> Dict[str, Any]:
 )
 def analyze_asset_class_relationships(
     context: dg.AssetExecutionContext,
+    config: EconomicAnalysisConfig,
     md: MotherDuckResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
@@ -204,6 +206,12 @@ def analyze_asset_class_relationships(
         Dictionary with analysis metadata and results
     """
     context.log.info("Starting asset class relationship analysis...")
+
+    economic_analysis.setup_for_execution(
+        context,
+        provider_override=config.model_provider,
+        model_name_override=config.model_name,
+    )
 
     context.log.info("Retrieving latest economy state analysis...")
     economy_state_analysis = get_latest_economy_state_analysis(md)
@@ -242,7 +250,10 @@ def analyze_asset_class_relationships(
     if relationship_analyzer is None:
         relationship_analyzer = AssetClassRelationshipModule()
 
-    from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
+    from macro_agents.defs.agents.economy_state_analyzer import (
+        _get_token_usage,
+        _calculate_cost,
+    )
 
     initial_history_length = (
         len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
@@ -260,12 +271,23 @@ def analyze_asset_class_relationships(
 
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
+    if "total_cost_usd" not in token_usage or token_usage.get("total_cost_usd", 0) == 0:
+        provider = economic_analysis._get_provider()
+        model_name = economic_analysis._get_model_name()
+        cost_data = _calculate_cost(
+            provider=provider,
+            model_name=model_name,
+            prompt_tokens=token_usage.get("prompt_tokens", 0),
+            completion_tokens=token_usage.get("completion_tokens", 0),
+        )
+        token_usage.update(cost_data)
+
     analysis_timestamp = datetime.now()
     result = {
         "analysis_timestamp": analysis_timestamp.isoformat(),
         "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
         "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
-        "model_name": economic_analysis.model_name,
+        "model_name": economic_analysis._get_model_name(),
         "analysis_content": analysis_result.relationship_analysis,
         "data_sources": {
             "economy_state_table": "economy_state_analysis",
