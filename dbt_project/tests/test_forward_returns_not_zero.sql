@@ -22,7 +22,8 @@
         quarterly_avg_close,
         'zero_forward_return' as issue_type
     FROM {{ ref(model) }}
-    WHERE pct_change_q1_forward = 0 
+    WHERE ABS(pct_change_q1_forward) < 0.01
+        AND pct_change_q1_forward IS NOT NULL
         AND quarterly_avg_close > 0
         -- Only flag if this seems suspicious (you can adjust this condition)
         -- For now, we'll flag all 0 values for investigation

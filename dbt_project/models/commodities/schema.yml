@@ -6,10 +6,18 @@ models:
     columns:
       - name: commodity_name
         description: "Name of the commodity"
+        tests:
+          - not_null
       - name: commodity_unit
         description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
       - name: time_period
         description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['12_weeks', '6_months', '1_year', '5_years']
       - name: total_return_pct
         description: "Total return percentage for the period"
       - name: volatility_pct
@@ -22,10 +30,18 @@ models:
     columns:
       - name: commodity_name
         description: "Name of the commodity"
+        tests:
+          - not_null
       - name: commodity_unit
         description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
       - name: time_period
         description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['12_weeks', '6_months', '1_year', '5_years']
       - name: total_return_pct
         description: "Total return percentage for the period"
       - name: volatility_pct
@@ -36,10 +52,18 @@ models:
     columns:
       - name: commodity_name
         description: "Name of the commodity"
+        tests:
+          - not_null
       - name: commodity_unit
         description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
       - name: time_period
         description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['12_weeks', '6_months', '1_year', '5_years']
       - name: total_return_pct
         description: "Total return percentage for the period"
       - name: volatility_pct
@@ -50,8 +74,12 @@ models:
     columns:
       - name: commodity_name
         description: "Name of the commodity"
+        tests:
+          - not_null
       - name: commodity_unit
         description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
       - name: monthly_avg_price
         description: "Average price for the month"
       - name: quarterly_avg_price
@@ -70,8 +98,12 @@ models:
     columns:
       - name: commodity_name
         description: "Name of the commodity"
+        tests:
+          - not_null
       - name: commodity_unit
         description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
       - name: monthly_avg_price
         description: "Average price for the month"
       - name: quarterly_avg_price
@@ -82,8 +114,12 @@ models:
     columns:
       - name: commodity_name
         description: "Name of the commodity"
+        tests:
+          - not_null
       - name: commodity_unit
         description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
       - name: monthly_avg_price
         description: "Average price for the month"
       - name: quarterly_avg_price

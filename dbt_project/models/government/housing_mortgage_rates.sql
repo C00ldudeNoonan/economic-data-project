@@ -50,10 +50,8 @@ SELECT
         * (mortgage_rate / 12 / 100 * power(1 + mortgage_rate / 12 / 100, 360))
         / (power(1 + mortgage_rate / 12 / 100, 360) - 1),
         2
-    ) AS monthly_payment_no_down_payment
+    ) AS monthly_payment_20_pct_down_payment
 FROM rate
 INNER JOIN price ON rate.date = price.date
 ORDER BY rate.date ASC
 
-
--- median mortagate payment

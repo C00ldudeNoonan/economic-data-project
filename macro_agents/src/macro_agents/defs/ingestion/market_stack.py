@@ -1,6 +1,5 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, date
 import dagster as dg
-from datetime import datetime, date
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.constants.market_stack_constants import (

@@ -162,13 +162,36 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         description="Whether to use optimized models from GCS if available",
     )
 
-    def setup_for_execution(self, context) -> None:
-        """Initialize DSPy when the resource is used."""
-        provider = object.__getattribute__(self, "provider")
-        if isinstance(provider, dg.EnvVar):
-            provider = provider.value or "openai"
-        elif not provider:
-            provider = os.getenv("LLM_PROVIDER", "openai")
+    def setup_for_execution(
+        self,
+        context,
+        provider_override: Optional[str] = None,
+        model_name_override: Optional[str] = None,
+    ) -> None:
+        """Initialize DSPy when the resource is used.
+
+        Args:
+            context: Dagster execution context
+            provider_override: Optional provider override (e.g., 'openai', 'anthropic', 'gemini')
+            model_name_override: Optional model name override (e.g., 'gpt-4-turbo-preview', 'claude-3-5-haiku-20241022')
+        """
+        # Resolve provider: use override if provided, otherwise resolve from resource field
+        if provider_override:
+            provider = provider_override
+        else:
+            provider = object.__getattribute__(self, "provider")
+            if isinstance(provider, dg.EnvVar):
+                provider = provider.value or "openai"
+            elif not provider:
+                provider = os.getenv("LLM_PROVIDER", "openai")
+
+        # Resolve model_name: use override if provided, otherwise resolve from resource field
+        if model_name_override:
+            model_name_val = model_name_override
+        else:
+            model_name_val = self.model_name
+            if isinstance(model_name_val, dg.EnvVar):
+                model_name_val = model_name_val.value
 
         openai_key = self.openai_api_key
         if isinstance(openai_key, dg.EnvVar):
@@ -193,17 +216,11 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             api_key = openai_key
             if not api_key:
                 raise ValueError("openai_api_key is required when provider='openai'")
-            model_name_val = self.model_name
-            if isinstance(model_name_val, dg.EnvVar):
-                model_name_val = model_name_val.value
             model_str = f"openai/{model_name_val}"
         elif provider == "gemini":
             api_key = gemini_key
             if not api_key:
                 raise ValueError("gemini_api_key is required when provider='gemini'")
-            model_name_val = self.model_name
-            if isinstance(model_name_val, dg.EnvVar):
-                model_name_val = model_name_val.value
             model_str = f"gemini/{model_name_val}"
         elif provider == "anthropic":
             api_key = anthropic_key
@@ -211,9 +228,6 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 raise ValueError(
                     "anthropic_api_key is required when provider='anthropic'"
                 )
-            model_name_val = self.model_name
-            if isinstance(model_name_val, dg.EnvVar):
-                model_name_val = model_name_val.value
             model_str = f"anthropic/{model_name_val}"
         else:
             raise ValueError(
@@ -1097,9 +1111,8 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             series_name,
             date,
             value,
-            diff_value,
-            pct_change,
-            prev_value
+            period_diff,
+            data_source
         FROM fred_monthly_diff
         WHERE series_code IN ('{indicators_list}')
             {date_filter}

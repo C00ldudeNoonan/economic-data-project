@@ -34,27 +34,28 @@ economic-data-project/
 │   │       │   ├── dbt.py                 # dbt integration
 │   │       │   └── financial_condition_index.py
 │   │       ├── agents/                    # AI analysis agents (DSPy)
-│   │       │   ├── analysis_agent.py
-│   │       │   ├── economic_cycle_analyzer.py
-│   │       │   ├── enhanced_economic_cycle_analyzer.py
-│   │       │   ├── asset_allocation_analyzer.py
-│   │       │   ├── backtesting.py
-│   │       │   ├── backtesting_visualization.py
-│   │       │   ├── dspy_evaluation.py
-│   │       │   ├── model_improvement_pipeline.py
-│   │       │   └── economic_dashboard.py
+│   │       │   ├── ai_models_fetcher.py
+│   │       │   ├── economy_state_analyzer.py
+│   │       │   ├── asset_class_relationship_analyzer.py
+│   │       │   ├── investment_recommendations.py
+│   │       │   ├── backtest_economy_state_analyzer.py
+│   │       │   ├── backtest_asset_class_relationship_analyzer.py
+│   │       │   ├── backtest_investment_recommendations.py
+│   │       │   ├── backtest_evaluator.py
+│   │       │   ├── backtest_optimizer.py
+│   │       │   └── backtest_utils.py
 │   │       ├── resources/                 # Dagster resources
 │   │       │   ├── motherduck.py          # DuckDB/MotherDuck connection
 │   │       │   ├── fred.py                # FRED API resource
-│   │       │   └── market_stack.py        # Market Stack API resource
+│   │       │   ├── market_stack.py        # Market Stack API resource
+│   │       │   └── gcs.py                 # Google Cloud Storage resource
 │   │       ├── constants/                 # Configuration constants
 │   │       │   ├── fred_series_lists.py
 │   │       │   └── market_stack_constants.py
 │   │       └── schedules.py               # Dagster schedules, sensors, jobs
 │   └── tests/                             # Test suite
 │       ├── test_analysis_agents.py
-│       ├── test_dagster_assets_descriptions.py
-│       ├── test_dbt_models_descriptions.py
+│       ├── test_dspy_modules.py
 │       ├── test_integration.py
 │       ├── test_schedules.py
 │       └── test_resources.py
@@ -65,18 +66,23 @@ economic-data-project/
 │       ├── staging/                       # Staging layer models
 │       │   ├── stg_fred_series.sql
 │       │   ├── stg_housing_inventory.sql
+│       │   ├── stg_housing_pulse.sql
 │       │   ├── stg_major_indices.sql
 │       │   ├── stg_us_sectors.sql
 │       │   ├── stg_global_markets.sql
 │       │   ├── stg_currency.sql
 │       │   ├── stg_fixed_income.sql
-│       │   └── stg_treasury_yields.sql
+│       │   ├── stg_treasury_yields.sql
+│       │   ├── stg_energy_commodities.sql
+│       │   ├── stg_input_commodities.sql
+│       │   └── stg_agriculture_commodities.sql
 │       ├── government/                    # Government data models
 │       │   ├── fred_series_grain.sql
 │       │   ├── fred_monthly_diff.sql
 │       │   ├── fred_quarterly_roc.sql
 │       │   ├── fred_series_latest_aggregates.sql
 │       │   ├── housing_inventory.sql
+│       │   ├── housing_inventory_latest_aggregates.sql
 │       │   ├── housing_mortgage_rates.sql
 │       │   └── housing_inventory_and_population.sql
 │       ├── markets/                       # Market data models
@@ -89,6 +95,20 @@ economic-data-project/
 │       │   ├── currency_summary.sql
 │       │   ├── currency_analysis_return.sql
 │       │   └── fixed_income_analysis_return.sql
+│       ├── commodities/                   # Commodity data models
+│       │   ├── energy_commodities_summary.sql
+│       │   ├── energy_commodities_analysis_return.sql
+│       │   ├── input_commodities_summary.sql
+│       │   ├── input_commodities_analysis_return.sql
+│       │   ├── agriculture_commodities_summary.sql
+│       │   └── agriculture_commodities_analysis_return.sql
+│       ├── backtesting/                   # Backtesting snapshot models
+│       │   ├── fred_series_latest_aggregates_snapshot.sql
+│       │   ├── us_sector_summary_snapshot.sql
+│       │   ├── leading_econ_return_indicator_snapshot.sql
+│       │   ├── energy_commodities_summary_snapshot.sql
+│       │   ├── input_commodities_summary_snapshot.sql
+│       │   └── agriculture_commodities_summary_snapshot.sql
 │       └── analysis/                      # Analysis layer models
 │           ├── base_historical_analysis.sql
 │           ├── market_economic_analysis.sql
@@ -129,36 +149,47 @@ Located in `dbt_project/models/`:
 ### 3. AI Analysis Agents (DSPy)
 Located in `macro_agents/src/macro_agents/defs/agents/`:
 
-#### EconomicAnalyzer
-General-purpose economic analysis using LLMs
+#### EconomyStateAnalyzer (`economy_state_analyzer.py`)
+Analyzes current economic indicators and commodity data to determine the state of the economy. Supports multiple analytical personalities (skeptical, neutral, bullish) and integrates Financial Conditions Index, housing data, and commodity trends.
 
-#### EconomicCycleAnalyzer / EnhancedEconomicCycleAnalyzer
-Identifies and analyzes economic cycles (expansion, peak, contraction, trough)
+#### AssetClassRelationshipAnalyzer (`asset_class_relationship_analyzer.py`)
+Analyzes relationships between different asset classes based on economic conditions and market data.
 
-#### AssetAllocationAnalyzer
-Provides asset allocation recommendations based on economic conditions
+#### InvestmentRecommendations (`investment_recommendations.py`)
+Generates investment recommendations based on economic state analysis and asset class relationships.
 
-#### BacktestingEngine
-Tests investment strategies against historical data
+#### BacktestEconomyStateAnalyzer (`backtest_economy_state_analyzer.py`)
+Runs historical backtests of the economy state analysis by analyzing past economic data at specific dates.
 
-#### BacktestingVisualizer
-Creates visualizations of backtesting results
+#### BacktestAssetClassRelationshipAnalyzer (`backtest_asset_class_relationship_analyzer.py`)
+Runs historical backtests of asset class relationship analysis.
 
-#### FinancialEvaluator
-Evaluates the performance of AI models using DSPy metrics
+#### BacktestInvestmentRecommendations (`backtest_investment_recommendations.py`)
+Runs historical backtests of investment recommendations.
 
-#### PromptOptimizer
-Optimizes prompts for better AI agent performance
+#### BacktestEvaluator (`backtest_evaluator.py`)
+Evaluates backtest results by comparing recommendations to actual market performance using DSPy metrics.
 
-#### ModelImprovementPipeline
-Continuous improvement pipeline for AI models
+#### BacktestOptimizer (`backtest_optimizer.py`)
+Optimizes DSPy modules using MIPROv2 optimizer with backtest data. Includes:
+- `prepare_optimization_training_data`: Prepares training data from backtest results
+- `optimize_dspy_modules`: Runs MIPROv2 optimization
+- `promote_optimized_model_to_production`: Promotes optimized models to production
+- `auto_promote_best_models_to_production`: Automatically promotes best-performing models
+
+#### AIModelsFetcher (`ai_models_fetcher.py`)
+Fetches and stores available chat/completion AI models from OpenAI, Anthropic, and Gemini APIs suitable for economic analysis.
+
+#### BacktestUtils (`backtest_utils.py`)
+Utility functions for backtesting operations.
 
 ### 4. Resources
 Located in `macro_agents/src/macro_agents/defs/resources/`:
 - **motherduck_resource**: DuckDB/MotherDuck database connection
 - **fred_resource**: FRED API client
 - **marketstack_resource**: Market Stack API client
-- **dbt_cli_resource**: dbt command-line integration
+- **gcs_resource**: Google Cloud Storage resource for storing optimized DSPy models
+- **dbt_cli_resource**: dbt command-line integration (in `transformation/dbt.py`)
 
 ### 5. Orchestration
 Located in `macro_agents/src/macro_agents/defs/schedules.py`:
@@ -312,8 +343,9 @@ The project is configured for deployment on Dagster Cloud using the `dagster_clo
                    ▼
 ┌─────────────────────────────────────────┐
 │         DSPy Analysis Agents            │◄── Depends on dbt models
-│  (EconomicAnalyzer, BacktestingEngine,  │    Runs on-demand or scheduled
-│   AssetAllocationAnalyzer, etc.)        │
+│  (EconomyStateAnalyzer, AssetClass      │    Runs on-demand or scheduled
+│   RelationshipAnalyzer, Investment      │
+│   Recommendations, Backtesting, etc.)   │
 └─────────────────────────────────────────┘
 ```
 
@@ -359,14 +391,29 @@ fred_raw (Dagster)
 - `fred_monthly_diff` → Month-over-month changes
 - `fred_quarterly_roc` → Quarterly rate of change
 - `fred_series_latest_aggregates` → Most recent values by series
-- `housing_*` → Housing-specific marts
+- `housing_inventory` → Housing inventory data
+- `housing_inventory_latest_aggregates` → Latest housing inventory aggregates
+- `housing_mortgage_rates` → Mortgage rate analysis
+- `housing_inventory_and_population` → Housing data with population context
 
 **Markets Models** (`models/markets/`):
 - `major_indicies_summary` → S&P 500, DJIA, etc.
+- `major_indicies_analysis_return` → Return calculations for major indices
 - `us_sector_summary` → Sector performance (Tech, Finance, etc.)
+- `us_sector_analysis_return` → Return calculations for US sectors
 - `global_markets_summary` → International markets
+- `global_markets_analysis_return` → Return calculations for global markets
 - `currency_summary` → FX pairs
-- `*_analysis_return` → Return calculations (daily, monthly, quarterly)
+- `currency_analysis_return` → Return calculations for currencies
+- `fixed_income_analysis_return` → Return calculations for fixed income
+
+**Commodities Models** (`models/commodities/`):
+- `energy_commodities_summary` → Energy commodity summaries (oil, gas, coal)
+- `energy_commodities_analysis_return` → Return calculations for energy commodities
+- `input_commodities_summary` → Industrial/input commodity summaries (metals, materials)
+- `input_commodities_analysis_return` → Return calculations for input commodities
+- `agriculture_commodities_summary` → Agricultural commodity summaries
+- `agriculture_commodities_analysis_return` → Return calculations for agriculture commodities
 
 #### 4. dbt Analysis Layer
 Located in `models/analysis/`:
@@ -388,22 +435,37 @@ Located in `models/analysis/`:
 #### 5. AI Analysis Assets (DSPy)
 Located in `macro_agents/src/macro_agents/defs/agents/`:
 
-**sector_inflation_analysis** (analysis_agent.py):
-- Depends on: `leading_econ_return_indicator` dbt model
-- Analyzes correlations by sector
-- Outputs to: `economic_analysis_results` table
-- Uses: EconomicAnalyzer resource with DSPy
+**analyze_economy_state** (economy_state_analyzer.py):
+- Depends on: Multiple dbt models including `fred_series_latest_aggregates`, `leading_econ_return_indicator`, `financial_conditions_index`, commodity summaries, housing data, and treasury yields
+- Analyzes current economic state with support for multiple personalities (skeptical, neutral, bullish)
+- Outputs to: `economy_state_analysis` table
+- Uses: EconomicAnalysisResource with DSPy
 
-**Economic Cycle Detection** (economic_cycle_analyzer.py):
-- Analyzes current economic phase (expansion, peak, contraction, trough)
-- Multiple implementations: basic and enhanced versions
+**analyze_asset_class_relationships** (asset_class_relationship_analyzer.py):
+- Depends on: Economic state analysis and market data
+- Analyzes relationships between asset classes
+- Outputs to: `asset_class_relationship_analysis` table
 
-**Asset Allocation** (asset_allocation_analyzer.py):
-- Generates portfolio recommendations based on cycle
+**generate_investment_recommendations** (investment_recommendations.py):
+- Depends on: Economy state analysis and asset class relationships
+- Generates investment recommendations
+- Outputs to: `investment_recommendations` table
 
-**Backtesting** (backtesting.py):
-- Tests strategies against historical data
-- Depends on: transformed market + economic data
+**Backtesting Assets**:
+- `backtest_analyze_economy_state`: Historical backtests of economy state analysis
+- `backtest_analyze_asset_class_relationships`: Historical backtests of asset class analysis
+- `backtest_generate_investment_recommendations`: Historical backtests of recommendations
+- `evaluate_backtest_recommendations`: Evaluates backtest accuracy using DSPy metrics
+
+**Optimization Assets** (backtest_optimizer.py):
+- `prepare_optimization_training_data`: Prepares training data from backtest results
+- `optimize_dspy_modules`: Optimizes DSPy modules using MIPROv2
+- `promote_optimized_model_to_production`: Promotes optimized models
+- `auto_promote_best_models_to_production`: Auto-promotes best models
+
+**fetch_available_ai_models** (ai_models_fetcher.py):
+- Fetches available models from OpenAI, Anthropic, and Gemini APIs
+- Outputs to: `available_ai_models` table
 
 ### Key Dependency Chains
 
@@ -413,21 +475,35 @@ FRED API
   → fred_raw (Dagster asset, partitioned)
   → stg_fred_series (dbt staging)
   → fred_monthly_diff (dbt government)
+  → fred_series_latest_aggregates (dbt government)
   → base_historical_analysis (dbt analysis)
   → leading_econ_return_indicator (dbt analysis)
-  → sector_inflation_analysis (DSPy agent)
-  → economic_analysis_results (output table)
+  → analyze_economy_state (DSPy agent)
+  → analyze_asset_class_relationships (DSPy agent)
+  → generate_investment_recommendations (DSPy agent)
+  → investment_recommendations (output table)
 ```
 
 **Market Analysis Flow:**
 ```
 Market Stack API
-  → market_stack_raw (Dagster)
-  → stg_major_indices (dbt staging)
-  → major_indicies_summary (dbt markets)
-  → major_indicies_analysis_return (dbt markets)
+  → us_sector_etfs_raw, major_indices_raw, etc. (Dagster)
+  → stg_us_sectors, stg_major_indices, etc. (dbt staging)
+  → us_sector_summary, major_indicies_summary (dbt markets)
+  → us_sector_analysis_return, major_indicies_analysis_return (dbt markets)
   → base_historical_analysis (joins with economic)
-  → AI analysis agents
+  → leading_econ_return_indicator (dbt analysis)
+  → AI analysis agents (economy state, asset relationships, recommendations)
+```
+
+**Commodity Analysis Flow:**
+```
+Market Stack API
+  → energy_commodities_raw, input_commodities_raw, agriculture_commodities_raw (Dagster)
+  → stg_energy_commodities, stg_input_commodities, stg_agriculture_commodities (dbt staging)
+  → energy_commodities_summary, input_commodities_summary, agriculture_commodities_summary (dbt commodities)
+  → energy_commodities_analysis_return, etc. (dbt commodities)
+  → analyze_economy_state (includes commodity data)
 ```
 
 ### Automation Strategy
@@ -436,6 +512,38 @@ Market Stack API
 - **dbt Models**: Eager automation (run when upstream changes)
 - **Analysis Agents**: On-demand or scheduled via Dagster jobs
 - **Partitioning**: Used for FRED series to enable incremental updates
+
+## Code Style Guidelines
+
+### Comments and Naming
+
+**CRITICAL: Do not use comments in code. Instead, use descriptive variable and function names that make the code self-documenting.**
+
+- Use descriptive function names that explain what the function does
+- Use descriptive variable names that explain what the variable represents
+- Break complex logic into well-named functions rather than adding comments
+- If code needs explanation, refactor it to be clearer with better naming
+
+**Bad:**
+```python
+# Calculate the monthly return percentage
+def calc(x, y):
+    return (y - x) / x * 100
+```
+
+**Good:**
+```python
+def calculate_monthly_return_percentage(
+    previous_value: float,
+    current_value: float
+) -> float:
+    return (current_value - previous_value) / previous_value * 100
+```
+
+For SQL/dbt models:
+- Do not use inline SQL comments
+- Use descriptive table, column, and CTE names
+- Add descriptions in schema.yml for documentation purposes only
 
 ## Development Workflow
 
@@ -447,12 +555,19 @@ Market Stack API
 
 ## Testing
 
+**CRITICAL: Create at least one test for every dbt model and every Dagster resource or asset you create.**
+
+- Every new dbt model must have at least one test (in `schema.yml` or as a separate test file)
+- Every new Dagster resource must have at least one test in the test suite
+- Every new Dagster asset should have at least one test to verify it materializes successfully
+- Tests should verify core functionality, data quality, and expected outputs
+
 Test suite located in `macro_agents/tests/`:
-- Unit tests for analysis agents
-- Integration tests for end-to-end workflows
-- Tests for Dagster asset descriptions
-- Tests for dbt model descriptions
-- Resource and schedule tests
+- `test_analysis_agents.py`: Unit tests for analysis agents
+- `test_dspy_modules.py`: Tests for DSPy module functionality
+- `test_integration.py`: Integration tests for end-to-end workflows
+- `test_resources.py`: Tests for Dagster resources
+- `test_schedules.py`: Tests for schedules and sensors
 
 Run tests using the makefile or pytest directly.
 
@@ -479,9 +594,12 @@ Run tests using the makefile or pytest directly.
 # The flow automatically triggers:
 # 1. stg_fred_series (dbt staging)
 # 2. fred_series_grain (dbt government)
-# 3. base_historical_analysis (dbt analysis)
-# 4. leading_econ_return_indicator (dbt analysis)
-# 5. sector_inflation_analysis (DSPy agent) - if scheduled or manually triggered
+# 3. fred_series_latest_aggregates (dbt government)
+# 4. base_historical_analysis (dbt analysis)
+# 5. leading_econ_return_indicator (dbt analysis)
+# 6. analyze_economy_state (DSPy agent) - if scheduled or manually triggered
+# 7. analyze_asset_class_relationships (DSPy agent)
+# 8. generate_investment_recommendations (DSPy agent)
 ```
 
 ### Example 2: Creating a New Data Ingestion Asset
@@ -521,6 +639,8 @@ def new_source_raw(
     )
 ```
 
+**Important:** After creating the asset, create at least one test in `macro_agents/tests/` to verify it materializes successfully.
+
 ### Example 3: Creating a New dbt Model
 
 ```sql
@@ -548,6 +668,21 @@ sources:
     tables:
       - name: new_source_raw
         description: "Raw data from new source"
+```
+
+**Important:** Add at least one test in `schema.yml` for the model:
+```yaml
+models:
+  - name: stg_new_source
+    description: "Standardized new source data"
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: identifier
+        tests:
+          - not_null
+          - unique
 ```
 
 ### Example 4: Creating a DSPy Analysis Agent
@@ -708,7 +843,8 @@ dbt test --select leading_econ_return_indicator
    dbt run --select fred_monthly_diff
    ```
 
-5. **Test the model** (if tests exist)
+5. **Add at least one test** in `schema.yml` if not already present
+6. **Test the model**
    ```bash
    dbt test --select fred_monthly_diff
    ```
@@ -745,9 +881,20 @@ dbt test --select leading_econ_return_indicator
    resources={"my_analyzer": MyAnalyzer(...)}
    ```
 
-5. **Test the asset**
+5. **Create at least one test** for the resource and asset in `tests/`
+   ```python
+   def test_my_analyzer():
+       analyzer = MyAnalyzer(api_key="test_key")
+       # Test analyzer functionality
+   
+   def test_my_analysis_asset():
+       # Test asset materialization
+   ```
+
+6. **Test the asset**
    ```bash
    dagster asset materialize -s my_analysis
+   make test
    ```
 
 ### Running the Project Locally
@@ -813,10 +960,41 @@ my_schedule = ScheduleDefinition(
 schedules = [my_schedule, ...]
 ```
 
+### Using the Makefile
+
+**Always use the makefile commands for formatting, linting, and testing. This ensures consistency and uses the correct project configuration.**
+
+```bash
+# Format Python code (checks and fixes issues, then formats)
+make ruff
+
+# Lint SQL code (check for issues only)
+make lint
+
+# Fix SQL code (auto-fix linting issues)
+make fix
+
+# Run all tests
+make test
+
+# Generate dbt manifest (parse dbt project)
+make dbt-manifest
+```
+
+**Recommended Workflow:**
+1. After making code changes, run `make ruff` to format and fix Python code
+2. Run `make lint` to check SQL code for issues
+3. Run `make fix` to auto-fix SQL issues
+4. Run `make test` to verify all tests pass
+5. Before committing, run all checks: `make ruff && make lint && make test`
+
 ### Running Tests
 
 ```bash
-# All tests
+# Recommended: Use makefile
+make test
+
+# Alternative: Direct pytest commands
 cd macro_agents
 pytest tests/ -v
 
@@ -825,20 +1003,27 @@ pytest tests/test_analysis_agents.py -v
 
 # With coverage
 pytest tests/ --cov=macro_agents --cov-report=html
-
-# Use makefile
-make test
 ```
 
 ### Linting and Formatting
 
 ```bash
-# Python (ruff)
+# Recommended: Use makefile commands
+
+# Python formatting (checks, fixes, and formats)
 make ruff
 
-# SQL (sqlfluff)
-make lint      # Check only
-make fix       # Auto-fix issues
+# SQL linting (check only)
+make lint
+
+# SQL auto-fix
+make fix
+
+# Alternative: Direct commands (use makefile instead)
+ruff check --fix .
+ruff format .
+sqlfluff lint ./dbt_project/models
+sqlfluff fix ./dbt_project/models
 ```
 
 ### Pre-PR Checklist
@@ -860,6 +1045,8 @@ This runs:
 
 ## Notes for Development
 
+- **Always use makefile commands** for formatting, linting, and testing: `make ruff`, `make lint`, `make fix`, `make test`
+- **Create at least one test** for every dbt model and every Dagster resource/asset you create
 - All models are materialized as tables in dbt by default
 - The database profile is named "econ_database" in dbt
 - dbt packages used: dbt_utils (1.1.1), dbt-duckdb (1.9.2)

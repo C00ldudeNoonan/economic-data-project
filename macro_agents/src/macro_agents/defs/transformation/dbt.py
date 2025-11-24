@@ -124,12 +124,47 @@ else:
             f"or set DBT_PROJECT_DIR environment variable."
         )
 
+dbt_packages_dir = dbt_project_dir / "dbt_packages"
+dbt_utils_dir = dbt_packages_dir / "dbt_utils" if dbt_packages_dir.exists() else None
+
+if not dbt_packages_dir.exists() or not dbt_utils_dir or not dbt_utils_dir.exists():
+    import subprocess
+    import logging
+
+    logger = logging.getLogger("dagster_dbt")
+    logger.warning(
+        f"dbt packages not found. Running 'dbt deps' in {dbt_project_dir}..."
+    )
+    try:
+        result = subprocess.run(
+            ["dbt", "deps", "--target", environment],
+            cwd=dbt_project_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            logger.error(
+                f"Failed to install dbt packages: {result.stderr or result.stdout}"
+            )
+        else:
+            logger.info("dbt packages installed successfully")
+    except Exception as e:
+        logger.warning(f"Could not automatically install dbt packages: {e}")
+
 dbt_project = DbtProject(
     project_dir=dbt_project_dir,
     target=environment,
 )
 
 dbt_project.prepare_if_dev()
+
+manifest_path = dbt_project.manifest_path
+if manifest_path and manifest_path.exists():
+    import logging
+
+    logger = logging.getLogger("dagster_dbt")
+    logger.info(f"Using dbt manifest at: {manifest_path}")
 
 dbt_cli_resource = DbtCliResource(project_dir=dbt_project)
 
@@ -139,4 +174,28 @@ dbt_cli_resource = DbtCliResource(project_dir=dbt_project)
     dagster_dbt_translator=CustomizedDagsterDbtTranslator(),
 )
 def full_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCliResource):
+    dbt_packages_dir = dbt_project_dir / "dbt_packages"
+    dbt_utils_dir = (
+        dbt_packages_dir / "dbt_utils" if dbt_packages_dir.exists() else None
+    )
+
+    if not dbt_packages_dir.exists() or not dbt_utils_dir or not dbt_utils_dir.exists():
+        context.log.info("dbt packages not found. Running 'dbt deps' before build...")
+        try:
+            deps_result = dbt.cli(["deps"], context=context).wait()
+            if deps_result.return_code != 0:
+                context.log.error(
+                    f"Failed to install dbt packages. Return code: {deps_result.return_code}"
+                )
+                raise RuntimeError(
+                    f"dbt packages installation failed. Please run 'dbt deps' manually in {dbt_project_dir}"
+                )
+            else:
+                context.log.info("dbt packages installed successfully")
+        except Exception as e:
+            context.log.error(f"Could not install dbt packages: {e}")
+            raise RuntimeError(
+                f"dbt packages are required but could not be installed. Please run 'dbt deps' manually in {dbt_project_dir}"
+            ) from e
+
     yield from dbt.cli(["build"], context=context).stream()

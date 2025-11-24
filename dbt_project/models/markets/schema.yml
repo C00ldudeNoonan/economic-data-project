@@ -8,6 +8,15 @@ models:
       win rates, and trading activity statistics for major currency pairs over 12 weeks, 
       6 months, 1 year, and 5 year periods. Provides insights into currency market 
       trends and risk characteristics.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['12_weeks', '6_months', '1_year', '5_years']
 
   - name: global_markets_summary
     description: >
@@ -16,6 +25,15 @@ models:
       including returns, volatility, win rates, and daily trading statistics for global 
       markets over 12 weeks, 6 months, 1 year, and 5 year periods. Enables comparison 
       of global market performance and risk profiles.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['12_weeks', '6_months', '1_year', '5_years']
 
   - name: major_indicies_summary
     description: >
@@ -24,6 +42,15 @@ models:
       average returns, volatility, win rates, and trading activity metrics for major 
       indices like S&P 500, NASDAQ, and Dow Jones over 12 weeks, 6 months, 1 year, 
       and 5 year periods. Provides comprehensive market performance insights.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['12_weeks', '6_months', '1_year', '5_years']
 
   - name: us_sector_summary
     description: >
@@ -32,6 +59,15 @@ models:
       including returns, volatility, win rates, and trading statistics for US sectors 
       over 12 weeks, 6 months, 1 year, and 5 year periods. Enables sector rotation 
       analysis and relative performance comparison across different market sectors.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['12_weeks', '6_months', '1_year', '5_years']
 
   - name: currency_analysis_return
     description: >
@@ -40,6 +76,13 @@ models:
       win rates, and trading activity statistics for major currency pairs over 12 weeks, 
       6 months, 1 year, and 5 year periods. Provides insights into currency market 
       trends and risk characteristics.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: month_date
+        tests:
+          - not_null
 
   - name: global_markets_analysis_return    
     description: >
@@ -48,6 +91,13 @@ models:
       including returns, volatility, win rates, and daily trading statistics for global 
       markets over 12 weeks, 6 months, 1 year, and 5 year periods. Enables comparison 
       of global market performance and risk profiles.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: month_date
+        tests:
+          - not_null
 
   - name: major_indicies_analysis_return
     description: >
@@ -56,6 +106,13 @@ models:
       average returns, volatility, win rates, and trading activity metrics for major 
       indices like S&P 500, NASDAQ, and Dow Jones over 12 weeks, 6 months, 1 year, 
       and 5 year periods. Provides comprehensive market performance insights.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: month_date
+        tests:
+          - not_null
 
   - name: us_sector_analysis_return
     description: >
@@ -64,6 +121,13 @@ models:
       including returns, volatility, win rates, and trading statistics for US sectors 
       over 12 weeks, 6 months, 1 year, and 5 year periods. Enables sector rotation 
       analysis and relative performance comparison across different market sectors.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: month_date
+        tests:
+          - not_null
 
   - name: fixed_income_analysis_return
     description: >
@@ -72,3 +136,10 @@ models:
       win rates, and trading activity statistics for fixed income ETFs over 12 weeks, 
       6 months, 1 year, and 5 year periods. Provides insights into fixed income market 
       trends and risk characteristics.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: month_date
+        tests:
+          - not_null

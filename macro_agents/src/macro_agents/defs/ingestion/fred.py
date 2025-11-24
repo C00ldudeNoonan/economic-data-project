@@ -49,7 +49,8 @@ fred_series_partition = dg.StaticPartitionsDefinition(_all_series_codes)
     group_name="ingestion",
     kinds={"polars", "duckdb"},
     partitions_def=fred_series_partition,
-    description="Raw data from FRED API",
+    automation_condition=dg.AutomationCondition.on_cron("0 2 * * 0"),
+    description="Raw data from FRED API - runs weekly on Sundays at 2 AM EST",
 )
 def fred_raw(
     context: dg.AssetExecutionContext, fred: FredResource, md: MotherDuckResource
@@ -65,6 +66,6 @@ def fred_raw(
             "num_records": len(data),
             "max_date": str(data["date"].max()),
             "min_date": str(data["date"].min()),
-            "first_10_rows": data.head(10).to_dicts(),
+            "first_10_rows": str(data.head(10)) if data.shape[0] > 0 else "No data",
         }
     )

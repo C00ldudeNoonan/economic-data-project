@@ -13,6 +13,13 @@ models:
       materialized: incremental
       unique_key: ['snapshot_date', 'symbol', 'asset_type', 'time_period']
       incremental_strategy: delete+insert
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
 
   - name: leading_econ_return_indicator_snapshot
     description: >
@@ -25,6 +32,13 @@ models:
       materialized: incremental
       unique_key: ['snapshot_date', 'symbol', 'series_name', 'category', 'economic_category']
       incremental_strategy: delete+insert
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
 
   - name: fred_series_latest_aggregates_snapshot
     description: >
@@ -37,6 +51,13 @@ models:
       materialized: incremental
       unique_key: ['snapshot_date', 'series_code', 'month']
       incremental_strategy: delete+insert
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: series_code
+        tests:
+          - not_null
 
   - name: energy_commodities_summary_snapshot
     description: >
@@ -50,6 +71,13 @@ models:
       materialized: incremental
       unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
       incremental_strategy: delete+insert
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
 
   - name: input_commodities_summary_snapshot
     description: >
@@ -63,6 +91,13 @@ models:
       materialized: incremental
       unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
       incremental_strategy: delete+insert
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
 
   - name: agriculture_commodities_summary_snapshot
     description: >
@@ -76,4 +111,11 @@ models:
       materialized: incremental
       unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
       incremental_strategy: delete+insert
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
 

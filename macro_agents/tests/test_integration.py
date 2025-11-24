@@ -22,7 +22,7 @@ class TestDagsterDefinitions:
         """Test that all resources are configurable."""
         for resource_key, resource in defs.resources.items():
             assert hasattr(resource, "model_config")
-            assert hasattr(resource, "model_fields")
+            assert hasattr(type(resource), "model_fields")
 
 
 class TestDataValidation:
