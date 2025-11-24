@@ -12,6 +12,7 @@ from macro_agents.defs.agents.investment_recommendations import (
 from macro_agents.defs.agents.backtest_economy_state_analyzer import (
     BacktestConfig,
     backtest_analyze_economy_state,
+    get_backtest_dates,
 )
 from macro_agents.defs.agents.backtest_asset_class_relationship_analyzer import (
     backtest_analyze_asset_class_relationships,
@@ -89,45 +90,30 @@ def backtest_generate_investment_recommendations(
 
     This is the backtest version of generate_investment_recommendations.
 
+    Configuration (specify at runtime):
+        - backtest_date: Single date string (YYYY-MM-DD), first day of month, OR
+        - backtest_date_start and backtest_date_end: Date range (YYYY-MM-DD), first day of month
+        - model_name: LLM model to use (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'claude-3-5-haiku-20241022')
+
     Returns:
         Dictionary with recommendations metadata and results
     """
+    # Get list of dates to process
+    backtest_dates = get_backtest_dates(config)
+
     context.log.info(
-        f"Starting backtest investment recommendations generation for {config.backtest_date} "
+        f"Starting backtest investment recommendations generation for {len(backtest_dates)} date(s) "
         f"with provider {config.model_provider} and model {config.model_name}..."
     )
 
-    current_provider = economic_analysis._get_provider()
-    if (
-        current_provider != config.model_provider
-        or economic_analysis.model_name != config.model_name
-    ):
-        object.__setattr__(economic_analysis, "provider", config.model_provider)
-        economic_analysis.model_name = config.model_name
-        economic_analysis.setup_for_execution(context)
-
-    context.log.info("Retrieving backtest economy state analysis...")
-    economy_state_analysis = get_latest_backtest_economy_state_analysis(
-        md, config.backtest_date, config.model_provider, config.model_name
+    # Setup resource with overrides (respects frozen nature of resource)
+    economic_analysis.setup_for_execution(
+        context,
+        provider_override=config.model_provider,
+        model_name_override=config.model_name,
     )
 
-    if not economy_state_analysis:
-        raise ValueError(
-            f"No backtest economy state analysis found for {config.backtest_date} "
-            f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_economy_state first."
-        )
-
-    context.log.info("Retrieving backtest asset class relationship analysis...")
-    relationship_analysis = get_latest_backtest_relationship_analysis(
-        md, config.backtest_date, config.model_provider, config.model_name
-    )
-
-    if not relationship_analysis:
-        raise ValueError(
-            f"No backtest asset class relationship analysis found for {config.backtest_date} "
-            f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_asset_class_relationships first."
-        )
-
+    # Prepare recommendations generator (only need to do this once for all dates)
     recommendations_generator = None
     if config.use_optimized_models and economic_analysis.use_optimized_models:
         recommendations_generator = economic_analysis.load_optimized_module(
@@ -161,79 +147,118 @@ def backtest_generate_investment_recommendations(
 
     from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
 
-    initial_history_length = (
-        len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
-    )
+    # Process each date
+    all_results = []
+    total_token_usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
+
+    for backtest_date in backtest_dates:
+        context.log.info(
+            f"Processing backtest date: {backtest_date} ({backtest_dates.index(backtest_date) + 1}/{len(backtest_dates)})"
+        )
+
+        initial_history_length = (
+            len(economic_analysis._lm.history)
+            if hasattr(economic_analysis, "_lm")
+            else 0
+        )
+
+        context.log.info("Retrieving backtest economy state analysis...")
+        economy_state_analysis = get_latest_backtest_economy_state_analysis(
+            md, backtest_date, config.model_provider, config.model_name
+        )
+
+        if not economy_state_analysis:
+            raise ValueError(
+                f"No backtest economy state analysis found for {backtest_date} "
+                f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_economy_state first."
+            )
+
+        context.log.info("Retrieving backtest asset class relationship analysis...")
+        relationship_analysis = get_latest_backtest_relationship_analysis(
+            md, backtest_date, config.model_provider, config.model_name
+        )
+
+        if not relationship_analysis:
+            raise ValueError(
+                f"No backtest asset class relationship analysis found for {backtest_date} "
+                f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_asset_class_relationships first."
+            )
+
+        context.log.info(
+            f"Generating backtest investment recommendations (personality: {config.personality})..."
+        )
+        recommendations_result = recommendations_generator(
+            economy_state_analysis=economy_state_analysis,
+            asset_class_relationship_analysis=relationship_analysis,
+            personality=config.personality,
+        )
+
+        token_usage = _get_token_usage(
+            economic_analysis, initial_history_length, context
+        )
+        total_token_usage["prompt_tokens"] += token_usage.get("prompt_tokens", 0)
+        total_token_usage["completion_tokens"] += token_usage.get(
+            "completion_tokens", 0
+        )
+        total_token_usage["total_tokens"] += token_usage.get("total_tokens", 0)
+
+        analysis_timestamp = datetime.now()
+        json_result = {
+            "analysis_type": "investment_recommendations",
+            "recommendations_content": recommendations_result.recommendations,
+            "analysis_timestamp": analysis_timestamp.isoformat(),
+            "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
+            "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
+            "backtest_date": backtest_date,
+            "model_provider": config.model_provider,
+            "model_name": config.model_name,
+            "personality": config.personality,
+            "data_sources": {
+                "economy_state_table": "backtest_economy_state_analysis",
+                "relationship_analysis_table": "backtest_asset_class_relationship_analysis",
+            },
+            "dagster_run_id": context.run_id,
+            "dagster_asset_key": str(context.asset_key),
+        }
+
+        all_results.append(json_result)
 
     context.log.info(
-        f"Generating backtest investment recommendations (personality: {config.personality})..."
+        f"Writing {len(all_results)} backtest investment recommendations records to database..."
     )
-    recommendations_result = recommendations_generator(
-        economy_state_analysis=economy_state_analysis,
-        asset_class_relationship_analysis=relationship_analysis,
-        personality=config.personality,
-    )
-
-    token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
-
-    analysis_timestamp = datetime.now()
-    result = {
-        "analysis_timestamp": analysis_timestamp.isoformat(),
-        "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
-        "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
-        "backtest_date": config.backtest_date,
-        "model_provider": config.model_provider,
-        "model_name": config.model_name,
-        "personality": config.personality,
-        "recommendations_content": recommendations_result.recommendations,
-        "data_sources": {
-            "economy_state_table": "backtest_economy_state_analysis",
-            "relationship_analysis_table": "backtest_asset_class_relationship_analysis",
-        },
-    }
-
-    json_result = {
-        "analysis_type": "investment_recommendations",
-        "recommendations_content": result["recommendations_content"],
-        "analysis_timestamp": result["analysis_timestamp"],
-        "analysis_date": result["analysis_date"],
-        "analysis_time": result["analysis_time"],
-        "backtest_date": result["backtest_date"],
-        "model_provider": result["model_provider"],
-        "model_name": result["model_name"],
-        "personality": result["personality"],
-        "data_sources": result["data_sources"],
-        "dagster_run_id": context.run_id,
-        "dagster_asset_key": str(context.asset_key),
-    }
-
-    context.log.info("Writing backtest investment recommendations to database...")
     md.write_results_to_table(
-        [json_result],
+        all_results,
         output_table="backtest_investment_recommendations",
         if_exists="append",
         context=context,
     )
 
+    # Create summary metadata from first result
+    first_result = all_results[0]
     recommendations_summary = extract_recommendations_summary(
-        result["recommendations_content"]
+        first_result["recommendations_content"]
     )
 
     result_metadata = {
         "analysis_completed": True,
-        "analysis_timestamp": result["analysis_timestamp"],
-        "backtest_date": result["backtest_date"],
-        "model_provider": result["model_provider"],
-        "model_name": result["model_name"],
-        "personality": result["personality"],
+        "analysis_timestamp": first_result["analysis_timestamp"],
+        "backtest_dates_processed": backtest_dates,
+        "num_dates_processed": len(backtest_dates),
+        "model_provider": config.model_provider,
+        "model_name": config.model_name,
+        "personality": config.personality,
         "output_table": "backtest_investment_recommendations",
-        "records_written": 1,
-        "data_sources": result["data_sources"],
+        "records_written": len(all_results),
+        "data_sources": first_result["data_sources"],
         "recommendations_summary": recommendations_summary,
-        "recommendations_preview": result["recommendations_content"][:500]
-        if result["recommendations_content"]
+        "recommendations_preview": first_result["recommendations_content"][:500]
+        if first_result["recommendations_content"]
         else "",
-        "token_usage": token_usage,
+        "token_usage": total_token_usage,
         "provider": economic_analysis._get_provider(),
     }
 

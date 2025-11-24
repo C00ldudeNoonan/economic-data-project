@@ -6,6 +6,10 @@ models:
       Contains historical real estate gain/loss data from FRED (Federal Reserve Economic Data).
       This table tracks changes in real estate values over time, providing insights into
       market trends and property appreciation/depreciation rates.
+    columns:
+      - name: series_code
+        tests:
+          - not_null
 
 
   - name: fred_series_latest_aggregates
@@ -13,6 +17,10 @@ models:
       Aggregated view of the most recent FRED series data points, providing a
       snapshot of current real estate market conditions. This table is updated
       daily with the latest available metrics from various FRED series.
+    columns:
+      - name: series_code
+        tests:
+          - not_null
 
 
   - name: housing_inventory_and_population
@@ -20,6 +28,10 @@ models:
       Combines housing inventory data with population statistics to provide
       insights into housing availability relative to population size. This table
       helps analyze housing supply and demand dynamics across different regions.
+    columns:
+      - name: time_date
+        tests:
+          - not_null
 
 
   - name: housing_inventory_latest_aggregates
@@ -34,15 +46,41 @@ models:
       Historical housing inventory data tracking the number of available housing
       units over time. This table serves as the primary source for analyzing
       housing supply trends and seasonal patterns in the market.
+    columns:
+      - name: time_date
+        tests:
+          - not_null
 
   - name: housing_mortgage_rates
     description: >
       Contains historical mortgage rate data from FRED (Federal Reserve Economic Data).
       This table tracks changes in mortgage rates over time, providing insights into
-      market trends and interest rate fluctuations. It uses the median sales price data from FRED and performs the calculations to get the mortgage rate and median monthly payment with and without a 20% down payment. 
+      market trends and interest rate fluctuations. It uses the median sales price data from FRED and performs the calculations to get the mortgage rate and median monthly payment with and without a 20% down payment.
+    columns:
+      - name: date
+        tests:
+          - not_null
 
   - name: fred_quarterly_roc
     description: >
       Contains historical quarterly real estate gain/loss data from FRED (Federal Reserve Economic Data).
       This table tracks changes in real estate values over time, providing insights into
       market trends and property appreciation/depreciation rates.
+    columns:
+      - name: series_code
+        tests:
+          - not_null
+      - name: month_date
+        tests:
+          - not_null
+
+  - name: fred_monthly_diff
+    description: >
+      Economic time series data with monthly grain and simple difference imputation
+    columns:
+      - name: series_code
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null

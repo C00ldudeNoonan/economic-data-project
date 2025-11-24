@@ -4,6 +4,13 @@ models:
   - name: market_economic_analysis
     description: >
       Combines market return analysis tables (currency, fixed income, global markets, major indices, US sectors) with government economic indicators to provide a comprehensive view of the relationship between economic changes and forward market returns. This model enables analysis of how macroeconomic factors such as GDP, inflation, interest rates, employment, producer prices, industrial production, and housing impact future market performance. It includes lagged economic changes, regime classification, and composite economic stress indicators for advanced economic and market research.
+    columns:
+      - name: year_month
+        tests:
+          - not_null
+      - name: month_date
+        tests:
+          - not_null
 
   - name: base_historical_analysis
     description: >
@@ -49,3 +56,20 @@ models:
         description: "Value of the economic indicator"
       - name: period_diff
         description: "Period-over-period difference in the economic indicator value"
+
+  - name: leading_econ_return_indicator
+    description: >
+      Analysis of economic data rate of change vs future stock returns, providing correlation analysis and quintile performance insights
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: series_name
+        tests:
+          - not_null
+      - name: analysis_type
+        tests:
+          - not_null
+      - name: economic_category
+        tests:
+          - not_null

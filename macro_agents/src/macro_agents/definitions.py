@@ -64,7 +64,10 @@ from macro_agents.defs.ingestion.market_stack import (
 )
 from macro_agents.defs.ingestion.fred import fred_raw
 from macro_agents.defs.ingestion.treasury_yields import treasury_yields_raw
-from macro_agents.defs.ingestion.bls import housing_inventory_raw, housing_pulse_raw
+from macro_agents.defs.ingestion.bls import (
+    housing_inventory_raw,
+    housing_pulse_raw,
+)
 
 
 def find_project_root():

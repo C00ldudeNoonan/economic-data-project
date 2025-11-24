@@ -2,7 +2,6 @@ import dagster as dg
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import os
-import json
 import polars as pl
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
@@ -221,37 +220,80 @@ def fetch_available_ai_models(
         errors["gemini"] = error_msg
         context.log.warning(f"Failed to fetch Gemini models: {error_msg}")
 
-    # Prepare result for database
+    # Prepare results - one row per model
     fetch_timestamp = datetime.now()
-    result = {
-        "fetch_timestamp": fetch_timestamp.isoformat(),
-        "fetch_date": fetch_timestamp.strftime("%Y-%m-%d"),
-        "fetch_time": fetch_timestamp.strftime("%H:%M:%S"),
-        "openai_models": json.dumps(results["openai"]),
-        "anthropic_models": json.dumps(results["anthropic"]),
-        "gemini_models": json.dumps(results["gemini"]),
-        "openai_count": len(results["openai"]),
-        "anthropic_count": len(results["anthropic"]),
-        "gemini_count": len(results["gemini"]),
-        "errors": json.dumps(errors) if errors else None,
-        "dagster_run_id": context.run_id,
-        "dagster_asset_key": str(context.asset_key),
-    }
+    rows = []
+
+    # Add one row for each OpenAI model
+    for model_name in results["openai"]:
+        rows.append(
+            {
+                "fetch_timestamp": fetch_timestamp.isoformat(),
+                "fetch_date": fetch_timestamp.strftime("%Y-%m-%d"),
+                "fetch_time": fetch_timestamp.strftime("%H:%M:%S"),
+                "model_provider": "openai",
+                "model_name": model_name,
+                "dagster_run_id": context.run_id,
+                "dagster_asset_key": str(context.asset_key),
+            }
+        )
+
+    # Add one row for each Anthropic model
+    for model_name in results["anthropic"]:
+        rows.append(
+            {
+                "fetch_timestamp": fetch_timestamp.isoformat(),
+                "fetch_date": fetch_timestamp.strftime("%Y-%m-%d"),
+                "fetch_time": fetch_timestamp.strftime("%H:%M:%S"),
+                "model_provider": "anthropic",
+                "model_name": model_name,
+                "dagster_run_id": context.run_id,
+                "dagster_asset_key": str(context.asset_key),
+            }
+        )
+
+    # Add one row for each Gemini model
+    for model_name in results["gemini"]:
+        rows.append(
+            {
+                "fetch_timestamp": fetch_timestamp.isoformat(),
+                "fetch_date": fetch_timestamp.strftime("%Y-%m-%d"),
+                "fetch_time": fetch_timestamp.strftime("%H:%M:%S"),
+                "model_provider": "gemini",
+                "model_name": model_name,
+                "dagster_run_id": context.run_id,
+                "dagster_asset_key": str(context.asset_key),
+            }
+        )
 
     # Write to database (drop and recreate table)
     context.log.info(
-        "Writing model list to database (dropping and recreating table)..."
+        f"Writing {len(rows)} model records to database (dropping and recreating table)..."
     )
     try:
-        # Convert result dict to Polars DataFrame
-        df = pl.DataFrame([result])
+        # Convert rows to Polars DataFrame
+        if rows:
+            df = pl.DataFrame(rows)
+        else:
+            # Create empty DataFrame with correct schema if no models found
+            df = pl.DataFrame(
+                {
+                    "fetch_timestamp": [],
+                    "fetch_date": [],
+                    "fetch_time": [],
+                    "model_provider": [],
+                    "model_name": [],
+                    "dagster_run_id": [],
+                    "dagster_asset_key": [],
+                }
+            )
 
         # Drop and recreate table with new data
         md.drop_create_duck_db_table(
             table_name="available_ai_models",
             df=df,
         )
-        context.log.info("Successfully wrote model list to database")
+        context.log.info(f"Successfully wrote {len(rows)} model records to database")
     except Exception as e:
         error_msg = f"Failed to write to database: {e}"
         context.log.error(error_msg)

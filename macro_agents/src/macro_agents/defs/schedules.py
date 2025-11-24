@@ -1,8 +1,17 @@
 import dagster as dg
 from dagster import ScheduleDefinition, DefaultSensorStatus
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 import pytz
+from macro_agents.defs.constants.market_stack_constants import (
+    US_SECTOR_ETFS,
+    CURRENCY_ETFS,
+    MAJOR_INDICES_TICKERS,
+    FIXED_INCOME_ETFS,
+    GLOBAL_MARKETS,
+    ENERGY_COMMODITIES,
+    INPUT_COMMODITIES,
+    AGRICULTURE_COMMODITIES,
+)
 
 
 weekly_replication_schedule = ScheduleDefinition(
@@ -80,239 +89,62 @@ monthly_economic_analysis_schedule_bullish = ScheduleDefinition(
 )
 
 
-def create_ingestion_sensor():
-    """Create a sensor that triggers ingestion job with appropriate partition selection for market_stack assets."""
-
-    @dg.sensor(
-        name="weekly_ingestion_sensor",
-        description="Triggers ingestion job weekly, with dynamic partition selection for market_stack assets (current month or previous month if within first 5 days)",
-        default_status=DefaultSensorStatus.RUNNING,
-        minimum_interval_seconds=3600,
-    )
-    def weekly_ingestion_sensor(context):
-        """Sensor that triggers ingestion job with partition filtering for market_stack assets."""
-        from macro_agents.defs.ingestion.market_stack import (
-            us_sector_etfs_partitions,
-            currency_etfs_partitions,
-            major_indices_tickers_partitions,
-            fixed_income_etfs_partitions,
-            global_markets_partitions,
-            energy_commodities_partitions,
-            input_commodities_partitions,
-            agriculture_commodities_partitions,
-        )
-        from macro_agents.defs.constants.market_stack_constants import (
-            US_SECTOR_ETFS,
-            CURRENCY_ETFS,
-            MAJOR_INDICES_TICKERS,
-            FIXED_INCOME_ETFS,
-            GLOBAL_MARKETS,
-            ENERGY_COMMODITIES,
-            INPUT_COMMODITIES,
-            AGRICULTURE_COMMODITIES,
-        )
-
-        now = datetime.now(pytz.timezone("America/New_York"))
-        current_month = now.strftime("%Y-%m")
-
-        target_months = [current_month]
-        if now.day <= 5:
-            previous_month = (now - relativedelta(months=1)).strftime("%Y-%m")
-            target_months.append(previous_month)
-
-        if now.weekday() == 0:
-            market_stack_configs = [
-                (
-                    "us_sector_etfs_raw",
-                    us_sector_etfs_partitions,
-                    US_SECTOR_ETFS,
-                    "ticker",
-                ),
-                (
-                    "currency_etfs_raw",
-                    currency_etfs_partitions,
-                    CURRENCY_ETFS,
-                    "ticker",
-                ),
-                (
-                    "major_indices_raw",
-                    major_indices_tickers_partitions,
-                    MAJOR_INDICES_TICKERS,
-                    "ticker",
-                ),
-                (
-                    "fixed_income_etfs_raw",
-                    fixed_income_etfs_partitions,
-                    FIXED_INCOME_ETFS,
-                    "ticker",
-                ),
-                (
-                    "global_markets_raw",
-                    global_markets_partitions,
-                    GLOBAL_MARKETS,
-                    "ticker",
-                ),
-                (
-                    "energy_commodities_raw",
-                    energy_commodities_partitions,
-                    ENERGY_COMMODITIES,
-                    "commodity",
-                ),
-                (
-                    "input_commodities_raw",
-                    input_commodities_partitions,
-                    INPUT_COMMODITIES,
-                    "commodity",
-                ),
-                (
-                    "agriculture_commodities_raw",
-                    agriculture_commodities_partitions,
-                    AGRICULTURE_COMMODITIES,
-                    "commodity",
-                ),
-            ]
-
-            for (
-                asset_name,
-                partition_def,
-                static_keys,
-                static_dimension_name,
-            ) in market_stack_configs:
-                partition_keys = []
-                for static_key in static_keys:
-                    for month in target_months:
-                        partition_key = dg.MultiPartitionKey(
-                            {
-                                static_dimension_name: static_key,
-                                "date": month,
-                            }
-                        )
-                        partition_keys.append(partition_key)
-
-                for partition_key in partition_keys:
-                    yield dg.MaterializeRequest(
-                        asset_key=asset_name,
-                        partition_key=partition_key,
-                        tags={
-                            "trigger": "weekly_schedule",
-                            "asset": asset_name,
-                            "target_months": ",".join(target_months),
-                        },
-                    )
-
-            non_market_stack_assets = [
-                "fred_raw",
-                "bls_raw",
-                "treasury_yields_raw",
-                "housing_inventory_raw",
-                "housing_pulse_raw",
-            ]
-            for asset_name in non_market_stack_assets:
-                yield dg.MaterializeRequest(
-                    asset_key=asset_name,
-                    tags={
-                        "trigger": "weekly_schedule",
-                        "asset": asset_name,
-                    },
-                )
-
-    return weekly_ingestion_sensor
-
-
-def create_backtesting_model_sensor(
-    model_provider: str = "openai", model_name: str = "gpt-4-turbo-preview"
-):
-    """
-    Create a sensor that triggers backtesting job for each month from 2018 to 1 year ago.
-
-    Args:
-        model_provider: LLM provider to use for backtesting (e.g., 'openai', 'gemini', 'anthropic')
-        model_name: LLM model to use for backtesting (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo', 'gemini-2.0-flash-exp', 'claude-3-opus-20240229')
-
-    Returns:
-        Sensor that generates RunRequests for each month
-    """
-    # Sanitize model_name for sensor name (replace dots and dashes with underscores)
-    sensor_name_suffix = f"{model_provider}_{model_name}".replace(".", "_").replace(
-        "-", "_"
-    )
-
-    @dg.sensor(
-        name=f"backtesting_model_sensor_{sensor_name_suffix}",
-        description=f"Triggers backtesting job for each month from 2018-01-01 to 1 year ago with provider {model_provider} and model {model_name}",
-        default_status=DefaultSensorStatus.STOPPED,  # Start stopped, enable manually
-        minimum_interval_seconds=3600,
-        job_name="backtesting_model_run",
-    )
-    def backtesting_model_sensor(context):
-        """Sensor that generates backtest runs for each month."""
-        now = datetime.now(pytz.timezone("America/New_York"))
-        one_year_ago = now - relativedelta(years=1)
-
-        # Start from 2018-01-01
-        start_date = datetime(2018, 1, 1, tzinfo=pytz.timezone("America/New_York"))
-
-        # Generate monthly dates (first day of each month)
-        current_date = start_date
-        dates = []
-        while current_date <= one_year_ago:
-            dates.append(current_date.strftime("%Y-%m-%d"))
-            current_date += relativedelta(months=1)
-
-        context.log.info(
-            f"Generating {len(dates)} backtest runs for provider {model_provider} and model {model_name} "
-            f"from {dates[0]} to {dates[-1]}"
-        )
-
-        # Generate RunRequest for each date
-        for backtest_date in dates:
-            yield dg.RunRequest(
-                run_key=f"backtest-{model_provider}-{model_name}-{backtest_date}",
-                run_config={
-                    "ops": {
-                        "backtest_analyze_economy_state": {
-                            "config": {
-                                "backtest_date": backtest_date,
-                                "model_provider": model_provider,
-                                "model_name": model_name,
-                            }
-                        },
-                        "backtest_analyze_asset_class_relationships": {
-                            "config": {
-                                "backtest_date": backtest_date,
-                                "model_provider": model_provider,
-                                "model_name": model_name,
-                            }
-                        },
-                        "backtest_generate_investment_recommendations": {
-                            "config": {
-                                "backtest_date": backtest_date,
-                                "model_provider": model_provider,
-                                "model_name": model_name,
-                            }
-                        },
-                        "evaluate_backtest_recommendations": {
-                            "config": {
-                                "backtest_date": backtest_date,
-                                "model_provider": model_provider,
-                                "model_name": model_name,
-                            }
-                        },
-                    }
-                },
-                tags={
-                    "trigger": "backtesting_model_sensor",
-                    "model_provider": model_provider,
-                    "model_name": model_name,
-                    "backtest_date": backtest_date,
-                },
-            )
-
-    return backtesting_model_sensor
-
-
 def create_scheduled_jobs():
     """Create job definitions for scheduled execution."""
+
+    us_sector_etfs_ingestion_job = dg.define_asset_job(
+        name="us_sector_etfs_ingestion_job",
+        selection=dg.AssetSelection.assets("us_sector_etfs_raw"),
+        description="US Sector ETFs ingestion job - runs current month partition weekly on Sundays",
+    )
+
+    currency_etfs_ingestion_job = dg.define_asset_job(
+        name="currency_etfs_ingestion_job",
+        selection=dg.AssetSelection.assets("currency_etfs_raw"),
+        description="Currency ETFs ingestion job - runs current month partition weekly on Sundays",
+    )
+
+    major_indices_ingestion_job = dg.define_asset_job(
+        name="major_indices_ingestion_job",
+        selection=dg.AssetSelection.assets("major_indices_raw"),
+        description="Major Indices ingestion job - runs current month partition weekly on Sundays",
+    )
+
+    fixed_income_etfs_ingestion_job = dg.define_asset_job(
+        name="fixed_income_etfs_ingestion_job",
+        selection=dg.AssetSelection.assets("fixed_income_etfs_raw"),
+        description="Fixed Income ETFs ingestion job - runs current month partition weekly on Sundays",
+    )
+
+    global_markets_ingestion_job = dg.define_asset_job(
+        name="global_markets_ingestion_job",
+        selection=dg.AssetSelection.assets("global_markets_raw"),
+        description="Global Markets ingestion job - runs current month partition weekly on Sundays",
+    )
+
+    energy_commodities_ingestion_job = dg.define_asset_job(
+        name="energy_commodities_ingestion_job",
+        selection=dg.AssetSelection.assets("energy_commodities_raw"),
+        description="Energy Commodities ingestion job - runs current month partition weekly on Sundays",
+    )
+
+    input_commodities_ingestion_job = dg.define_asset_job(
+        name="input_commodities_ingestion_job",
+        selection=dg.AssetSelection.assets("input_commodities_raw"),
+        description="Input Commodities ingestion job - runs current month partition weekly on Sundays",
+    )
+
+    agriculture_commodities_ingestion_job = dg.define_asset_job(
+        name="agriculture_commodities_ingestion_job",
+        selection=dg.AssetSelection.assets("agriculture_commodities_raw"),
+        description="Agriculture Commodities ingestion job - runs current month partition weekly on Sundays",
+    )
+
+    treasury_yields_ingestion_job = dg.define_asset_job(
+        name="treasury_yields_ingestion_job",
+        selection=dg.AssetSelection.assets("treasury_yields_raw"),
+        description="Treasury Yields ingestion job - runs current year partition weekly on Sundays",
+    )
 
     weekly_replication_job = dg.define_asset_job(
         name="weekly_replication_job",
@@ -320,8 +152,6 @@ def create_scheduled_jobs():
         description="Weekly replication job for syncing MotherDuck tables to BigQuery",
     )
 
-    # Create three separate jobs for different analytical personalities
-    # Config with personality should be provided at runtime when materializing
     monthly_economic_analysis_job_skeptical = dg.define_asset_job(
         name="monthly_economic_analysis_job_skeptical",
         selection=[
@@ -355,25 +185,348 @@ def create_scheduled_jobs():
     backtesting_job = dg.define_asset_job(
         name="backtesting_job",
         selection=dg.AssetSelection.groups("backtesting"),
-        description="Backtesting pipeline: economy state -> asset relationships -> recommendations -> evaluation. Requires config with 'backtest_date' (YYYY-MM-DD), optional 'model_provider' (default: openai), optional 'model_name' (default: gpt-4-turbo-preview), and optional 'personality' (default: skeptical) for each asset. Provide config at runtime.",
+        description="""Backtesting pipeline: economy state -> asset relationships -> recommendations -> evaluation.
+
+        Configuration:
+        - Single date: Use 'backtest_date' (YYYY-MM-DD, first day of month)
+        - Date range: Use 'backtest_date_start' and 'backtest_date_end' (YYYY-MM-DD, first day of month)
+        - Optional: 'model_provider' (default: openai), 'model_name' (default: gpt-4-turbo-preview), 'personality' (default: skeptical)
+
+        Example config for single date:
+        ```yaml
+        ops:
+          backtest_analyze_economy_state:
+            config:
+              backtest_date: "2024-01-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "skeptical"
+          backtest_analyze_asset_class_relationships:
+            config:
+              backtest_date: "2024-01-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+          backtest_generate_investment_recommendations:
+            config:
+              backtest_date: "2024-01-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "skeptical"
+          evaluate_backtest_recommendations:
+            config:
+              backtest_date: "2024-01-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+        ```
+
+        Example config for date range:
+        ```yaml
+        ops:
+          backtest_analyze_economy_state:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "skeptical"
+          backtest_analyze_asset_class_relationships:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+          backtest_generate_investment_recommendations:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "skeptical"
+          evaluate_backtest_recommendations:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+        ```
+
+        Provide config at runtime when launching the job in the UI or via CLI.""",
     )
 
-    # Monthly partitioned backtesting job - runs from 2018 to 1 year ago
-    # Note: Partitioning is inferred from selected assets, so partitions_def is not needed
-    backtesting_model_run = dg.define_asset_job(
-        name="backtesting_model_run",
+    backtesting_job_skeptical = dg.define_asset_job(
+        name="backtesting_job_skeptical",
         selection=dg.AssetSelection.groups("backtesting"),
-        description="Monthly partitioned backtesting job: runs backtests for each month from 2018-01-01 to 1 year ago. Provide 'model_provider' and 'model_name' as config parameters when materializing. The backtest_date should be provided in config for each asset.",
+        description="""Backtesting pipeline with skeptical/bearish personality: economy state -> asset relationships -> recommendations -> evaluation.
+
+        Use this job to run backtests with skeptical personality. Set personality='skeptical' in config.
+
+        Configuration:
+        - Single date: Use 'backtest_date' (YYYY-MM-DD, first day of month)
+        - Date range: Use 'backtest_date_start' and 'backtest_date_end' (YYYY-MM-DD, first day of month)
+        - Optional: 'model_provider' (default: openai), 'model_name' (default: gpt-4-turbo-preview)
+        - Set 'personality' to 'skeptical' for assets that use it
+
+        Example config for date range:
+        ```yaml
+        ops:
+          backtest_analyze_economy_state:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "skeptical"
+          backtest_analyze_asset_class_relationships:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+          backtest_generate_investment_recommendations:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "skeptical"
+          evaluate_backtest_recommendations:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+        ```""",
+    )
+
+    backtesting_job_neutral = dg.define_asset_job(
+        name="backtesting_job_neutral",
+        selection=dg.AssetSelection.groups("backtesting"),
+        description="""Backtesting pipeline with neutral personality: economy state -> asset relationships -> recommendations -> evaluation.
+
+        Use this job to run backtests with neutral personality. Set personality='neutral' in config.
+
+        Configuration:
+        - Single date: Use 'backtest_date' (YYYY-MM-DD, first day of month)
+        - Date range: Use 'backtest_date_start' and 'backtest_date_end' (YYYY-MM-DD, first day of month)
+        - Optional: 'model_provider' (default: openai), 'model_name' (default: gpt-4-turbo-preview)
+        - Set 'personality' to 'neutral' for assets that use it
+
+        Example config for date range:
+        ```yaml
+        ops:
+          backtest_analyze_economy_state:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "neutral"
+          backtest_analyze_asset_class_relationships:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+          backtest_generate_investment_recommendations:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "neutral"
+          evaluate_backtest_recommendations:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+        ```""",
+    )
+
+    backtesting_job_bullish = dg.define_asset_job(
+        name="backtesting_job_bullish",
+        selection=dg.AssetSelection.groups("backtesting"),
+        description="""Backtesting pipeline with bullish/optimistic personality: economy state -> asset relationships -> recommendations -> evaluation.
+
+        Use this job to run backtests with bullish personality. Set personality='bullish' in config.
+
+        Configuration:
+        - Single date: Use 'backtest_date' (YYYY-MM-DD, first day of month)
+        - Date range: Use 'backtest_date_start' and 'backtest_date_end' (YYYY-MM-DD, first day of month)
+        - Optional: 'model_provider' (default: openai), 'model_name' (default: gpt-4-turbo-preview)
+        - Set 'personality' to 'bullish' for assets that use it
+
+        Example config for date range:
+        ```yaml
+        ops:
+          backtest_analyze_economy_state:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "bullish"
+          backtest_analyze_asset_class_relationships:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+          backtest_generate_investment_recommendations:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+              personality: "bullish"
+          evaluate_backtest_recommendations:
+            config:
+              backtest_date_start: "2018-01-01"
+              backtest_date_end: "2023-12-01"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+        ```""",
     )
 
     return {
+        "us_sector_etfs_ingestion_job": us_sector_etfs_ingestion_job,
+        "currency_etfs_ingestion_job": currency_etfs_ingestion_job,
+        "major_indices_ingestion_job": major_indices_ingestion_job,
+        "fixed_income_etfs_ingestion_job": fixed_income_etfs_ingestion_job,
+        "global_markets_ingestion_job": global_markets_ingestion_job,
+        "energy_commodities_ingestion_job": energy_commodities_ingestion_job,
+        "input_commodities_ingestion_job": input_commodities_ingestion_job,
+        "agriculture_commodities_ingestion_job": agriculture_commodities_ingestion_job,
+        "treasury_yields_ingestion_job": treasury_yields_ingestion_job,
         "weekly_replication_job": weekly_replication_job,
         "monthly_economic_analysis_job_skeptical": monthly_economic_analysis_job_skeptical,
         "monthly_economic_analysis_job_neutral": monthly_economic_analysis_job_neutral,
         "monthly_economic_analysis_job_bullish": monthly_economic_analysis_job_bullish,
         "backtesting_job": backtesting_job,
-        "backtesting_model_run": backtesting_model_run,
+        "backtesting_job_skeptical": backtesting_job_skeptical,
+        "backtesting_job_neutral": backtesting_job_neutral,
+        "backtesting_job_bullish": backtesting_job_bullish,
     }
+
+
+def create_market_stack_ingestion_schedule(
+    asset_name, job, tickers_or_commodities, dimension_name
+):
+    """Create a sensor that runs MarketStack assets for current month on Sundays."""
+
+    @dg.sensor(
+        name=f"{asset_name}_ingestion_schedule",
+        job=job,
+        description=f"Weekly schedule for {asset_name} - runs current month partition for all {dimension_name}s every Sunday at 2 AM EST",
+        default_status=DefaultSensorStatus.RUNNING,
+        minimum_interval_seconds=3600,
+    )
+    def market_stack_schedule(context):
+        now = datetime.now(pytz.timezone("America/New_York"))
+        if now.weekday() != 6:
+            return
+
+        current_month = now.strftime("%Y-%m")
+
+        for ticker_or_commodity in tickers_or_commodities:
+            partition_key = dg.MultiPartitionKey(
+                {"date": current_month, dimension_name: ticker_or_commodity}
+            )
+            yield dg.RunRequest(
+                run_key=f"{asset_name}_{ticker_or_commodity}_{current_month}_{now.strftime('%Y%m%d')}",
+                partition_key=partition_key,
+                tags={
+                    "trigger": "weekly_schedule",
+                    "asset": asset_name,
+                    "month": current_month,
+                    dimension_name: ticker_or_commodity,
+                },
+            )
+
+    return market_stack_schedule
+
+
+jobs = create_scheduled_jobs()
+
+us_sector_etfs_schedule = create_market_stack_ingestion_schedule(
+    "us_sector_etfs_raw",
+    jobs["us_sector_etfs_ingestion_job"],
+    US_SECTOR_ETFS,
+    "ticker",
+)
+
+currency_etfs_schedule = create_market_stack_ingestion_schedule(
+    "currency_etfs_raw",
+    jobs["currency_etfs_ingestion_job"],
+    CURRENCY_ETFS,
+    "ticker",
+)
+
+major_indices_schedule = create_market_stack_ingestion_schedule(
+    "major_indices_raw",
+    jobs["major_indices_ingestion_job"],
+    MAJOR_INDICES_TICKERS,
+    "ticker",
+)
+
+fixed_income_etfs_schedule = create_market_stack_ingestion_schedule(
+    "fixed_income_etfs_raw",
+    jobs["fixed_income_etfs_ingestion_job"],
+    FIXED_INCOME_ETFS,
+    "ticker",
+)
+
+global_markets_schedule = create_market_stack_ingestion_schedule(
+    "global_markets_raw",
+    jobs["global_markets_ingestion_job"],
+    GLOBAL_MARKETS,
+    "ticker",
+)
+
+energy_commodities_schedule = create_market_stack_ingestion_schedule(
+    "energy_commodities_raw",
+    jobs["energy_commodities_ingestion_job"],
+    ENERGY_COMMODITIES,
+    "commodity",
+)
+
+input_commodities_schedule = create_market_stack_ingestion_schedule(
+    "input_commodities_raw",
+    jobs["input_commodities_ingestion_job"],
+    INPUT_COMMODITIES,
+    "commodity",
+)
+
+agriculture_commodities_schedule = create_market_stack_ingestion_schedule(
+    "agriculture_commodities_raw",
+    jobs["agriculture_commodities_ingestion_job"],
+    AGRICULTURE_COMMODITIES,
+    "commodity",
+)
+
+
+@dg.sensor(
+    name="treasury_yields_ingestion_schedule",
+    job=jobs["treasury_yields_ingestion_job"],
+    description="Weekly schedule for Treasury Yields - runs current year partition every Sunday at 3 AM EST",
+    default_status=DefaultSensorStatus.RUNNING,
+    minimum_interval_seconds=3600,
+)
+def treasury_yields_schedule(context):
+    now = datetime.now(pytz.timezone("America/New_York"))
+    if now.weekday() != 6:
+        return
+
+    current_year = str(now.year)
+
+    yield dg.RunRequest(
+        run_key=f"treasury_yields_{current_year}_{now.strftime('%Y%m%d')}",
+        partition_key=current_year,
+        tags={
+            "trigger": "weekly_schedule",
+            "year": current_year,
+        },
+    )
 
 
 schedules = [
@@ -383,18 +536,14 @@ schedules = [
     monthly_economic_analysis_schedule_bullish,
 ]
 
-# Create sensors for different models
-backtesting_gpt4_sensor = create_backtesting_model_sensor(
-    "openai", "gpt-4-turbo-preview"
-)
-backtesting_gpt4o_sensor = create_backtesting_model_sensor("openai", "gpt-4o")
-backtesting_gpt35_sensor = create_backtesting_model_sensor("openai", "gpt-3.5-turbo")
-
 sensors = [
-    create_ingestion_sensor(),
-    backtesting_gpt4_sensor,
-    backtesting_gpt4o_sensor,
-    backtesting_gpt35_sensor,
+    us_sector_etfs_schedule,
+    currency_etfs_schedule,
+    major_indices_schedule,
+    fixed_income_etfs_schedule,
+    global_markets_schedule,
+    energy_commodities_schedule,
+    input_commodities_schedule,
+    agriculture_commodities_schedule,
+    treasury_yields_schedule,
 ]
-
-jobs = create_scheduled_jobs()

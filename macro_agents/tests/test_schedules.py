@@ -2,13 +2,23 @@
 Tests for scheduled execution and scheduling configuration.
 """
 
+from dagster import DefaultSensorStatus
+
 from macro_agents.defs.schedules import (
     weekly_replication_schedule,
     monthly_economic_analysis_schedule_skeptical,
     monthly_economic_analysis_schedule_neutral,
     monthly_economic_analysis_schedule_bullish,
-    create_ingestion_sensor,
     create_scheduled_jobs,
+    us_sector_etfs_schedule,
+    currency_etfs_schedule,
+    major_indices_schedule,
+    fixed_income_etfs_schedule,
+    global_markets_schedule,
+    energy_commodities_schedule,
+    input_commodities_schedule,
+    agriculture_commodities_schedule,
+    treasury_yields_schedule,
 )
 from macro_agents.definitions import defs
 
@@ -83,6 +93,15 @@ class TestScheduledJobs:
         assert "monthly_economic_analysis_job_skeptical" in jobs
         assert "monthly_economic_analysis_job_neutral" in jobs
         assert "monthly_economic_analysis_job_bullish" in jobs
+        assert "us_sector_etfs_ingestion_job" in jobs
+        assert "currency_etfs_ingestion_job" in jobs
+        assert "major_indices_ingestion_job" in jobs
+        assert "fixed_income_etfs_ingestion_job" in jobs
+        assert "global_markets_ingestion_job" in jobs
+        assert "energy_commodities_ingestion_job" in jobs
+        assert "input_commodities_ingestion_job" in jobs
+        assert "agriculture_commodities_ingestion_job" in jobs
+        assert "treasury_yields_ingestion_job" in jobs
 
     def test_job_asset_selection(self):
         """Test that jobs select the correct assets."""
@@ -102,15 +121,50 @@ class TestScheduledJobs:
         monthly_economic_job_bullish = jobs["monthly_economic_analysis_job_bullish"]
         assert monthly_economic_job_bullish is not None
 
+        # MarketStack ingestion jobs should exist
+        assert jobs["us_sector_etfs_ingestion_job"] is not None
+        assert jobs["currency_etfs_ingestion_job"] is not None
+        assert jobs["major_indices_ingestion_job"] is not None
+        assert jobs["fixed_income_etfs_ingestion_job"] is not None
+        assert jobs["global_markets_ingestion_job"] is not None
+        assert jobs["energy_commodities_ingestion_job"] is not None
+        assert jobs["input_commodities_ingestion_job"] is not None
+        assert jobs["agriculture_commodities_ingestion_job"] is not None
+        assert jobs["treasury_yields_ingestion_job"] is not None
 
-class TestIngestionSensor:
-    """Test cases for ingestion sensor."""
 
-    def test_sensor_creation(self):
-        """Test that ingestion sensor is created correctly."""
-        sensor = create_ingestion_sensor()
-        assert sensor is not None
-        assert sensor.name == "weekly_ingestion_sensor"
+class TestIngestionSensors:
+    """Test cases for ingestion sensors."""
+
+    def test_market_stack_sensor_creation(self):
+        """Test that MarketStack ingestion sensors are created correctly."""
+        sensors = [
+            us_sector_etfs_schedule,
+            currency_etfs_schedule,
+            major_indices_schedule,
+            fixed_income_etfs_schedule,
+            global_markets_schedule,
+            energy_commodities_schedule,
+            input_commodities_schedule,
+            agriculture_commodities_schedule,
+            treasury_yields_schedule,
+        ]
+
+        expected_names = [
+            "us_sector_etfs_raw_ingestion_schedule",
+            "currency_etfs_raw_ingestion_schedule",
+            "major_indices_raw_ingestion_schedule",
+            "fixed_income_etfs_raw_ingestion_schedule",
+            "global_markets_raw_ingestion_schedule",
+            "energy_commodities_raw_ingestion_schedule",
+            "input_commodities_raw_ingestion_schedule",
+            "agriculture_commodities_raw_ingestion_schedule",
+            "treasury_yields_ingestion_schedule",
+        ]
+
+        for sensor, expected_name in zip(sensors, expected_names):
+            assert sensor is not None
+            assert sensor.name == expected_name
 
 
 class TestDefinitionsIntegration:
@@ -133,12 +187,25 @@ class TestDefinitionsIntegration:
             assert expected_schedule in schedule_names
 
     def test_definitions_include_sensors(self):
-        """Test that definitions include sensors."""
+        """Test that definitions include ingestion sensors."""
         assert defs is not None
         assert len(defs.sensors) > 0
 
         sensor_names = [sensor.name for sensor in defs.sensors]
-        assert "weekly_ingestion_sensor" in sensor_names
+        expected_sensors = [
+            "us_sector_etfs_raw_ingestion_schedule",
+            "currency_etfs_raw_ingestion_schedule",
+            "major_indices_raw_ingestion_schedule",
+            "fixed_income_etfs_raw_ingestion_schedule",
+            "global_markets_raw_ingestion_schedule",
+            "energy_commodities_raw_ingestion_schedule",
+            "input_commodities_raw_ingestion_schedule",
+            "agriculture_commodities_raw_ingestion_schedule",
+            "treasury_yields_ingestion_schedule",
+        ]
+
+        for expected_sensor in expected_sensors:
+            assert expected_sensor in sensor_names
 
     def test_definitions_include_jobs(self):
         """Test that definitions include scheduled jobs."""
@@ -151,6 +218,15 @@ class TestDefinitionsIntegration:
             "monthly_economic_analysis_job_skeptical",
             "monthly_economic_analysis_job_neutral",
             "monthly_economic_analysis_job_bullish",
+            "us_sector_etfs_ingestion_job",
+            "currency_etfs_ingestion_job",
+            "major_indices_ingestion_job",
+            "fixed_income_etfs_ingestion_job",
+            "global_markets_ingestion_job",
+            "energy_commodities_ingestion_job",
+            "input_commodities_ingestion_job",
+            "agriculture_commodities_ingestion_job",
+            "treasury_yields_ingestion_job",
         ]
 
         for expected_job in expected_jobs:
@@ -223,6 +299,27 @@ class TestCronScheduleValidation:
             assert schedule.execution_timezone == expected_timezone, (
                 f"Timezone mismatch for {schedule.name}"
             )
+
+    def test_sensor_configuration(self):
+        """Test that ingestion sensors are configured correctly."""
+        all_sensors = [
+            us_sector_etfs_schedule,
+            currency_etfs_schedule,
+            major_indices_schedule,
+            fixed_income_etfs_schedule,
+            global_markets_schedule,
+            energy_commodities_schedule,
+            input_commodities_schedule,
+            agriculture_commodities_schedule,
+            treasury_yields_schedule,
+        ]
+
+        for sensor in all_sensors:
+            assert sensor is not None
+            assert sensor.name is not None
+            assert hasattr(sensor, "job")
+            assert sensor.job is not None
+            assert sensor.default_status == DefaultSensorStatus.RUNNING
 
 
 class TestScheduleDependencies:

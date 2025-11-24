@@ -333,14 +333,12 @@ def optimize_dspy_modules(
 
     create_model_versions_table(md, context)
 
-    current_provider = economic_analysis._get_provider()
-    if (
-        current_provider != config.model_provider
-        or economic_analysis.model_name != config.model_name
-    ):
-        object.__setattr__(economic_analysis, "provider", config.model_provider)
-        economic_analysis.model_name = config.model_name
-        economic_analysis.setup_for_execution(context)
+    # Setup resource with overrides (respects frozen nature of resource)
+    economic_analysis.setup_for_execution(
+        context,
+        provider_override=config.model_provider,
+        model_name_override=config.model_name,
+    )
 
     results = {}
 

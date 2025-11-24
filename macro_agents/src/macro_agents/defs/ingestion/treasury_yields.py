@@ -159,7 +159,7 @@ def treasury_yields_raw(
                 "avg_records_per_date": round(len(df) / len(df["date"].unique()), 2)
                 if len(df["date"].unique()) > 0
                 else 0,
-                "first_10_rows": df.head(10).to_dicts(),
+                "first_10_rows": str(df.head(10)) if df.shape[0] > 0 else "No data",
             }
         )
 

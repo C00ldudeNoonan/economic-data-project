@@ -64,5 +64,9 @@ markers = [
     "essential: Essential tests that must pass in CI",
     "skip_ci: Tests to skip in CI (brittle or non-essential)",
 ]
+filterwarnings = [
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20:",
+    "ignore::DeprecationWarning:pydantic._internal._config",
+]
 
 

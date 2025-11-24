@@ -59,11 +59,39 @@ dbt_project/models/
 - `staging`: dbt staging models (automated via eager automation)
 - `government`: Economic/government data transformations
 - `markets`: Market data transformations
+- `commodities`: Commodity data transformations
 - `analysis`: Cross-domain analysis models
 - `backtesting`: Backtesting-related assets
-- `dspy`: AI analysis agents
+- `economic_analysis`: Economic state analysis agents
+- `optimization`: DSPy model optimization and training
+- `agents`: Utility agent assets (e.g., AI model fetching)
 
 ## Coding Conventions
+
+### Code Comments and Naming
+
+**CRITICAL: Do not use comments in code. Instead, use descriptive variable and function names that make the code self-documenting.**
+
+- Use descriptive function names that explain what the function does
+- Use descriptive variable names that explain what the variable represents
+- Break complex logic into well-named functions rather than adding comments
+- If code needs explanation, refactor it to be clearer with better naming
+
+**Bad:**
+```python
+# Calculate the monthly return percentage
+def calc(x, y):
+    return (y - x) / x * 100
+```
+
+**Good:**
+```python
+def calculate_monthly_return_percentage(
+    previous_value: float,
+    current_value: float
+) -> float:
+    return (current_value - previous_value) / previous_value * 100
+```
 
 ### Python Code Style
 
@@ -127,7 +155,7 @@ dbt_project/models/
    - Summary models: `*_summary`
    - Analysis models: `*_analysis_*`
 
-5. **Comments**: Add descriptions in schema.yml, not inline SQL comments
+5. **Comments**: Do not use inline SQL comments. Use descriptive table, column, and CTE names instead. Add descriptions in schema.yml for documentation purposes only.
 
 ## Dagster Patterns
 
@@ -442,6 +470,13 @@ When creating tables, MotherDuckResource maps Polars types:
 
 ## Testing Patterns
 
+**CRITICAL: Create at least one test for every dbt model and every Dagster resource or asset you create.**
+
+- Every new dbt model must have at least one test (in `schema.yml` or as a separate test file)
+- Every new Dagster resource must have at least one test in the test suite
+- Every new Dagster asset should have at least one test to verify it materializes successfully
+- Tests should verify core functionality, data quality, and expected outputs
+
 ### Testing Dagster Assets
 
 ```python
@@ -479,6 +514,8 @@ dbt run --select my_model
 dbt test --select my_model
 ```
 
+**Note:** Always run `make test` after writing new tests to ensure they pass.
+
 ## Common Tasks
 
 ### Adding a New FRED Series
@@ -496,6 +533,7 @@ dbt test --select my_model
 5. Use `md.upsert_data()` to store in DuckDB
 6. Return `dg.MaterializeResult` with metadata
 7. Register in `definitions.py`
+8. **Create at least one test** in `tests/` to verify the asset materializes successfully
 
 ### Creating a New dbt Model
 
@@ -503,8 +541,10 @@ dbt test --select my_model
 2. Use `{{ source() }}` for raw tables, `{{ ref() }}` for other models
 3. Add source definition to `sources.yml` if needed
 4. Add model description to `schema.yml`
-5. Test with `dbt compile --select model_name`
-6. Run with `dbt run --select model_name`
+5. **Add at least one test** in `schema.yml` (e.g., `not_null`, `unique`, `accepted_values`, or custom test)
+6. Test with `dbt compile --select model_name`
+7. Run with `dbt run --select model_name`
+8. Run tests with `dbt test --select model_name`
 
 ### Creating a New DSPy Agent
 
@@ -515,6 +555,7 @@ dbt test --select my_model
 5. Register resource in `definitions.py`
 6. Query data using `md.execute_query()` or `md.query_sampled_data()`
 7. Save results using `md.write_results_to_table()`
+8. **Create at least one test** for the resource and asset in `tests/`
 
 ### Adding a Schedule
 
@@ -558,27 +599,30 @@ DBT_TARGET=dev   # or prod
 
 1. **Always use type hints** for function parameters and returns
 2. **Use Polars DataFrames** instead of pandas
-3. **Log appropriately** using `context.log` in assets
-4. **Return meaningful metadata** in `MaterializeResult`
-5. **Use partitions** for large datasets that can be updated incrementally
-6. **Test dbt models** with `dbt compile` before running
-7. **Use `{{ source() }}` and `{{ ref() }}`** in dbt models
-8. **Handle empty DataFrames** gracefully
-9. **Validate inputs** before processing
-10. **Use resource methods** instead of direct database connections when possible
+3. **Use makefile commands** for formatting, linting, and testing (`make ruff`, `make lint`, `make fix`, `make test`)
+4. **Create at least one test** for every dbt model and every Dagster resource/asset
+5. **Log appropriately** using `context.log` in assets
+6. **Return meaningful metadata** in `MaterializeResult`
+7. **Use partitions** for large datasets that can be updated incrementally
+8. **Test dbt models** with `dbt compile` before running
+9. **Use `{{ source() }}` and `{{ ref() }}`** in dbt models
+10. **Handle empty DataFrames** gracefully
+11. **Validate inputs** before processing
+12. **Use resource methods** instead of direct database connections when possible
 
 ### Don'ts
 
 1. **Don't use pandas** - use Polars instead
-2. **Don't hardcode table names** in dbt - use `{{ source() }}`
-3. **Don't skip type hints** - they improve code clarity
-4. **Don't ignore empty DataFrames** - handle them explicitly
-5. **Don't commit API keys** - use environment variables
-6. **Don't create assets without descriptions** - document everything
-7. **Don't use `SELECT *` in production queries** - be explicit
-8. **Don't forget to register** assets/resources in `definitions.py`
-9. **Don't use raw SQL strings** for user input - use parameterized queries
-10. **Don't skip error handling** - provide clear error messages
+2. **Don't run formatting/linting commands directly** - use `make ruff`, `make lint`, `make fix` instead
+3. **Don't hardcode table names** in dbt - use `{{ source() }}`
+4. **Don't skip type hints** - they improve code clarity
+5. **Don't ignore empty DataFrames** - handle them explicitly
+6. **Don't commit API keys** - use environment variables
+7. **Don't create assets without descriptions** - document everything
+8. **Don't use `SELECT *` in production queries** - be explicit
+9. **Don't forget to register** assets/resources in `definitions.py`
+10. **Don't use raw SQL strings** for user input - use parameterized queries
+11. **Don't skip error handling** - provide clear error messages
 
 ## Troubleshooting
 
@@ -669,13 +713,44 @@ pytest tests/test_file.py::test_function -v
 pytest tests/ --cov=macro_agents --cov-report=html
 ```
 
-### Linting Commands
+### Using the Makefile
+
+**Always use the makefile commands for formatting, linting, and testing:**
+
 ```bash
-# Python linting
+# Format Python code (checks and fixes, then formats)
+make ruff
+
+# Lint SQL code (check only)
+make lint
+
+# Fix SQL code (auto-fix issues)
+make fix
+
+# Run all tests
+make test
+
+# Generate dbt manifest
+make dbt-manifest
+```
+
+**Workflow:**
+1. After making code changes, run `make ruff` to format Python code
+2. Run `make lint` to check SQL code for issues
+3. Run `make fix` to auto-fix SQL issues
+4. Run `make test` to verify tests pass
+5. Before committing, run all checks: `make ruff && make lint && make test`
+
+### Linting Commands (Direct - Use Makefile Instead)
+
+For reference, these are the underlying commands, but prefer using `make`:
+
+```bash
+# Python linting (use: make ruff)
 ruff check .
 ruff format .
 
-# SQL linting
+# SQL linting (use: make lint and make fix)
 sqlfluff lint ./dbt_project/models
 sqlfluff fix ./dbt_project/models
 ```
@@ -694,5 +769,7 @@ When helping with this codebase, always:
 2. Use the appropriate resource methods
 3. Include proper error handling and logging
 4. Add type hints and documentation
-5. Test changes before committing
-6. Register new assets/resources in `definitions.py`
+5. Use makefile commands for formatting, linting, and testing (`make ruff`, `make lint`, `make fix`, `make test`)
+6. Create at least one test for every new dbt model and every new Dagster resource/asset
+7. Test changes before committing
+8. Register new assets/resources in `definitions.py`

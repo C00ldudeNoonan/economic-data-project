@@ -3,25 +3,31 @@ import polars as pl
 import requests
 from datetime import datetime
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from pydantic import Field
 import os
 
 census_api_key = os.getenv("CENSUS_API_KEY")
-year_partition = dg.StaticPartitionsDefinition(
-    [str(year) for year in range(1999, 2025)]
-)
+
+
+class HousingInventoryConfig(dg.Config):
+    year: str = Field(
+        default_factory=lambda: str(datetime.now().year),
+        description="Year to fetch housing inventory data for",
+    )
 
 
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
-    partitions_def=year_partition,
-    description="Raw data from BLS API for housing inventory",
+    automation_condition=dg.AutomationCondition.on_cron("0 3 * * 0"),
+    description="Raw data from BLS API for housing inventory - runs weekly on Sundays at 3 AM EST for current year",
 )
 def housing_inventory_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource
+    context: dg.AssetExecutionContext,
+    md: MotherDuckResource,
+    config: HousingInventoryConfig,
 ) -> dg.MaterializeResult:
-    # Get the data from the Census API
-    year = context.partition_key
+    year = config.year
 
     url = f"https://api.census.gov/data/timeseries/eits/hv?get=data_type_code,time_slot_id,seasonally_adj,category_code,cell_value,error_data&for=us:*&time={year}&key={census_api_key}"
     response = requests.get(url)
@@ -40,7 +46,7 @@ def housing_inventory_raw(
             "year": year,
             "num_records": len(df),
             "columns": df.columns,
-            "first_10_rows": df.head(10).to_dicts(),
+            "first_10_rows": str(df.head(10)) if df.shape[0] > 0 else "No data",
         }
     )
 
@@ -48,7 +54,8 @@ def housing_inventory_raw(
 @dg.asset(
     group_name="ingestion",
     kinds={"polars", "duckdb"},
-    description="Raw data from BLS API for housing pulse",
+    automation_condition=dg.AutomationCondition.on_cron("0 4 * * 0"),
+    description="Raw data from BLS API for housing pulse - runs weekly on Sundays at 4 AM EST",
 )
 def housing_pulse_raw(
     context: dg.AssetExecutionContext, md: MotherDuckResource
@@ -77,6 +84,8 @@ def housing_pulse_raw(
     return dg.MaterializeResult(
         metadata={
             "num_records": len(main_df),
-            "first_10_rows": main_df.head(10).to_dicts(),
+            "first_10_rows": str(main_df.head(10))
+            if main_df.shape[0] > 0
+            else "No data",
         }
     )

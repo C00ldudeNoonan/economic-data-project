@@ -4,61 +4,167 @@ models:
   - name: stg_fred_series
     description: >
       raw data from FRED (Federal Reserve Economic Data).
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: series_code
+        tests:
+          - not_null
+      - name: value
+        tests:
+          - not_null
 
   - name: stg_housing_inventory
     description: >
       raw data tracking the number of available housing units over time and other metrics from the BLS (Bureau of labor statistics)
-
+    columns:
+      - name: time
+        tests:
+          - not_null
 
   - name: stg_housing_pulse
     description: >
       raw data from biweekly housing pulse survey from the BLS (Bureau of labor statistics)
+    columns:
+      - name: TIME
+        tests:
+          - not_null
 
   - name: stg_treasury_yields
     description: >
       raw Treasury yield curve data scraped from Treasury.gov XML feed
+    columns:
+      - name: date
+        tests:
+          - not_null:
+              config:
+                severity: warn
 
   - name: stg_us_sectors
     description: >
       raw data from MarketStack API for US Sector ETFs
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
 
   - name: stg_currency
     description: >
       raw data from MarketStack API for Currency ETFs
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
 
   - name: stg_major_indices
     description: >
       raw data from MarketStack API for Major Indices
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
 
   - name: stg_fixed_income 
     description: >
       raw data from MarketStack API for Fixed Income ETFs
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
 
   - name: stg_global_markets
     description: >
       raw data from MarketStack API for Global Markets
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
 
+  - name: stg_agriculture_commodities
+    description: >
+      raw data from agriculture commodities
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
+
+  - name: stg_energy_commodities
+    description: >
+      raw data from energy commodities
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
+
+  - name: stg_input_commodities
+    description: >
+      raw data from input/industrial commodities
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
 
   - name: stg_realtor_country_history
     description: >
       monthly country level housing data from the realtor.com
-
+    columns:
+      - name: date
+        tests:
+          - not_null
 
   - name: stg_realtor_county_history
     description: >
       monthly county level housing data from the realtor.com
-
+    columns:
+      - name: date
+        tests:
+          - not_null
 
   - name: stg_realtor_metro_history
     description: >
       monthly metro level housing data from the realtor.com
-
+    columns:
+      - name: date
+        tests:
+          - not_null
 
   - name: stg_realtor_state_history
     description: >
       monthly state level housing data from the realtor.com
-
+    columns:
+      - name: date
+        tests:
+          - not_null
 
   - name: stg_realtor_zip_history
     description: >
       monthly state level housing data from the realtor.com
+    columns:
+      - name: date
+        tests:
+          - not_null
