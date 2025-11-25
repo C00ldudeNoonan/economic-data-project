@@ -6,9 +6,103 @@ from pydantic import Field
 import re
 import os
 import io
+import time
+from collections import defaultdict
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.resources.gcs import GCSResource
+
+
+ANTHROPIC_RATE_LIMITS = {
+    "claude-3-5-sonnet-20241022": {
+        "input_tokens_per_minute": 200000,
+        "output_tokens_per_minute": 200000,
+        "requests_per_minute": 5000,
+    },
+    "claude-3-5-haiku-20241022": {
+        "input_tokens_per_minute": 50000,
+        "output_tokens_per_minute": 50000,
+        "requests_per_minute": 5000,
+    },
+    "claude-3-opus-20240229": {
+        "input_tokens_per_minute": 50000,
+        "output_tokens_per_minute": 50000,
+        "requests_per_minute": 5000,
+    },
+    "claude-3-sonnet-20240229": {
+        "input_tokens_per_minute": 200000,
+        "output_tokens_per_minute": 200000,
+        "requests_per_minute": 5000,
+    },
+    "claude-3-haiku-20240307": {
+        "input_tokens_per_minute": 50000,
+        "output_tokens_per_minute": 50000,
+        "requests_per_minute": 5000,
+    },
+}
+
+_rate_limit_tracking = defaultdict(lambda: {"tokens": [], "requests": []})
+
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimation: ~4 characters per token."""
+    return len(text) // 4
+
+
+def _check_rate_limit(
+    provider: str,
+    model_name: str,
+    estimated_input_tokens: int,
+    context: Optional[dg.AssetExecutionContext] = None,
+) -> None:
+    """Check if request would exceed rate limits and wait if necessary."""
+    if provider != "anthropic":
+        return
+
+    current_time = time.time()
+    limits = ANTHROPIC_RATE_LIMITS.get(model_name)
+    if not limits:
+        if context:
+            context.log.warning(
+                f"Unknown Anthropic model {model_name}, using default limits"
+            )
+        limits = {
+            "input_tokens_per_minute": 50000,
+            "output_tokens_per_minute": 50000,
+            "requests_per_minute": 5000,
+        }
+
+    key = f"{provider}:{model_name}"
+    tracking = _rate_limit_tracking[key]
+
+    one_minute_ago = current_time - 60
+
+    tracking["tokens"] = [t for t in tracking["tokens"] if t["time"] > one_minute_ago]
+    tracking["requests"] = [r for r in tracking["requests"] if r > one_minute_ago]
+
+    total_tokens_last_minute = sum(t["tokens"] for t in tracking["tokens"])
+
+    if (
+        total_tokens_last_minute + estimated_input_tokens
+        > limits["input_tokens_per_minute"]
+    ):
+        oldest_token_time = min(
+            (t["time"] for t in tracking["tokens"]), default=current_time
+        )
+        wait_time = 60 - (current_time - oldest_token_time) + 1
+        if wait_time > 0:
+            if context:
+                context.log.warning(
+                    f"Rate limit approaching for {model_name}. "
+                    f"Used {total_tokens_last_minute}/{limits['input_tokens_per_minute']} tokens/min. "
+                    f"Waiting {wait_time:.1f}s before proceeding."
+                )
+            time.sleep(wait_time)
+            tracking["tokens"] = []
+            tracking["requests"] = []
+
+    tracking["tokens"].append({"time": current_time, "tokens": estimated_input_tokens})
+    tracking["requests"].append(current_time)
 
 
 class EconomicAnalysisConfig(dg.Config):
@@ -246,9 +340,62 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         self._provider = provider
         self._model_name = model_name_val
 
-        lm = dspy.LM(model=model_str, api_key=api_key)
-        dspy.settings.configure(lm=lm)
-        self._lm = lm  # Store LM reference for token tracking
+        try:
+            lm = dspy.LM(model=model_str, api_key=api_key)
+            dspy.settings.configure(lm=lm)
+            self._lm = lm
+        except Exception as e:
+            error_msg = str(e)
+            if "temperature=0.0" in error_msg and "gpt-5" in error_msg.lower():
+                context.log.warning(
+                    "gpt-5 models don't support temperature=0.0. "
+                    "Setting litellm.drop_params = True to handle unsupported parameters."
+                )
+                try:
+                    import litellm
+
+                    litellm.drop_params = True
+                    lm = dspy.LM(model=model_str, api_key=api_key)
+                    dspy.settings.configure(lm=lm)
+                    self._lm = lm
+                    context.log.info("Successfully configured LM with drop_params=True")
+                except Exception as retry_error:
+                    context.log.error(
+                        f"Failed to configure LM even with drop_params: {retry_error}"
+                    )
+                    raise ValueError(
+                        f"Could not configure LLM for model {model_name_val}. "
+                        f"gpt-5 models require temperature=1.0. Original error: {error_msg}"
+                    ) from retry_error
+            elif (
+                "response_format" in error_msg.lower()
+                or "structured output" in error_msg.lower()
+            ):
+                context.log.warning(
+                    f"Model {model_name_val} may not support structured output format. "
+                    f"Attempting to configure with fallback settings."
+                )
+                try:
+                    import litellm
+
+                    litellm.drop_params = True
+                    lm = dspy.LM(model=model_str, api_key=api_key)
+                    dspy.settings.configure(lm=lm)
+                    self._lm = lm
+                    context.log.info(
+                        "Successfully configured LM with fallback settings"
+                    )
+                except Exception as retry_error:
+                    context.log.error(
+                        f"Failed to configure LM with fallback settings: {retry_error}"
+                    )
+                    raise ValueError(
+                        f"Could not configure LLM for model {model_name_val}. "
+                        f"Model may not support required features. Original error: {error_msg}"
+                    ) from retry_error
+            else:
+                raise
+
         self._economy_state_analyzer = EconomyStateModule()
         self._optimized_modules_cache = {}
 
@@ -441,7 +588,12 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             return None
 
     def get_economic_data(
-        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+        self,
+        md_resource: MotherDuckResource,
+        cutoff_date: Optional[str] = None,
+        max_series: Optional[int] = None,
+        latest_month_only: bool = False,
+        max_months_per_series: Optional[int] = 3,
     ) -> str:
         """Get latest economic data from FRED series.
 
@@ -449,8 +601,20 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             md_resource: MotherDuck resource
             cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
                         If provided, uses snapshot tables.
+            max_series: Optional limit on number of series to return (reduces token usage).
+            latest_month_only: If True, only return data for the most recent month per series.
+                              If False, returns recent months to show trends (controlled by max_months_per_series).
+            max_months_per_series: Maximum months to return per series when latest_month_only=False (reduces token usage).
         """
         if cutoff_date:
+            if latest_month_only:
+                month_filter = f"AND month = (SELECT MAX(month) FROM fred_series_latest_aggregates_snapshot WHERE snapshot_date = '{cutoff_date}')"
+                limit_clause = f"LIMIT {max_series}" if max_series else ""
+            else:
+                month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL '{max_months_per_series - 1} months' FROM fred_series_latest_aggregates_snapshot WHERE snapshot_date = '{cutoff_date}')"
+                limit_clause = (
+                    f"LIMIT {max_series * max_months_per_series}" if max_series else ""
+                )
             query = f"""
             SELECT 
                 series_code,
@@ -464,10 +628,22 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             FROM fred_series_latest_aggregates_snapshot
             WHERE snapshot_date = '{cutoff_date}'
                 AND current_value IS NOT NULL
+                {month_filter}
             ORDER BY series_name, month DESC
+            {limit_clause}
             """
         else:
-            query = """
+            if latest_month_only:
+                month_filter = (
+                    "AND month = (SELECT MAX(month) FROM fred_series_latest_aggregates)"
+                )
+                limit_clause = f"LIMIT {max_series}" if max_series else ""
+            else:
+                month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL '{max_months_per_series - 1} months' FROM fred_series_latest_aggregates)"
+                limit_clause = (
+                    f"LIMIT {max_series * max_months_per_series}" if max_series else ""
+                )
+            query = f"""
             SELECT 
                 series_code,
                 series_name,
@@ -479,7 +655,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 date_grain
             FROM fred_series_latest_aggregates
             WHERE current_value IS NOT NULL
+                {month_filter}
             ORDER BY series_name, month DESC
+            {limit_clause}
             """
 
         df = md_resource.execute_query(query)
@@ -488,7 +666,11 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         return csv_buffer.getvalue().decode("utf-8")
 
     def get_market_data(
-        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+        self,
+        md_resource: MotherDuckResource,
+        cutoff_date: Optional[str] = None,
+        max_assets: Optional[int] = 20,
+        time_periods: Optional[list] = None,
     ) -> str:
         """Get latest market performance data including US sectors and major indices.
 
@@ -496,7 +678,15 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             md_resource: MotherDuck resource
             cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
                         If provided, uses snapshot tables.
+            max_assets: Maximum number of assets to return per category (reduces token usage).
+            time_periods: List of time periods to include. Defaults to ['6_months'] to reduce data.
         """
+        if time_periods is None:
+            time_periods = ["6_months"]
+
+        periods_str = "', '".join(time_periods)
+        limit_clause = f"LIMIT {max_assets}" if max_assets else ""
+
         if cutoff_date:
             query = f"""
             SELECT 
@@ -524,7 +714,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 'sector' as market_category
             FROM us_sector_summary_snapshot
             WHERE snapshot_date = '{cutoff_date}'
-                AND time_period IN ('12_weeks', '6_months', '1_year')
+                AND time_period IN ('{periods_str}')
             
             UNION ALL
             
@@ -552,13 +742,14 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_end_price,
                 'major_index' as market_category
             FROM major_indicies_summary
-            WHERE time_period IN ('12_weeks', '6_months', '1_year')
+            WHERE time_period IN ('{periods_str}')
                 AND period_end_date <= '{cutoff_date}'
             
             ORDER BY market_category, asset_type, time_period, total_return_pct DESC
+            {limit_clause}
             """
         else:
-            query = """
+            query = f"""
             SELECT 
                 symbol,
                 asset_type,
@@ -583,7 +774,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_end_price,
                 'sector' as market_category
             FROM us_sector_summary
-            WHERE time_period IN ('12_weeks', '6_months', '1_year')
+            WHERE time_period IN ('{periods_str}')
             
             UNION ALL
             
@@ -611,9 +802,10 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_end_price,
                 'major_index' as market_category
             FROM major_indicies_summary
-            WHERE time_period IN ('12_weeks', '6_months', '1_year')
+            WHERE time_period IN ('{periods_str}')
             
             ORDER BY market_category, asset_type, time_period, total_return_pct DESC
+            {limit_clause}
             """
 
         df = md_resource.execute_query(query)
@@ -622,15 +814,20 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         return csv_buffer.getvalue().decode("utf-8")
 
     def get_financial_conditions_index(
-        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+        self,
+        md_resource: MotherDuckResource,
+        cutoff_date: Optional[str] = None,
+        max_months: Optional[int] = 12,
     ) -> str:
-        """Get full historical Financial Conditions Index data.
+        """Get Financial Conditions Index data.
 
         Args:
             md_resource: MotherDuck resource
             cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
                         If provided, uses snapshot tables.
+            max_months: Maximum number of months to return (reduces token usage). Defaults to 12.
         """
+        limit_clause = f"LIMIT {max_months}" if max_months else ""
         if cutoff_date:
             query = f"""
             SELECT 
@@ -643,9 +840,10 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             WHERE date <= '{cutoff_date}'
                 AND FCI IS NOT NULL
             ORDER BY date DESC
+            {limit_clause}
             """
         else:
-            query = """
+            query = f"""
             SELECT 
                 date,
                 FCI,
@@ -655,6 +853,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             FROM financial_conditions_index
             WHERE FCI IS NOT NULL
             ORDER BY date DESC
+            {limit_clause}
             """
 
         df = md_resource.execute_query(query, read_only=True)
@@ -663,7 +862,11 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         return csv_buffer.getvalue().decode("utf-8")
 
     def get_commodity_data(
-        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+        self,
+        md_resource: MotherDuckResource,
+        cutoff_date: Optional[str] = None,
+        max_commodities: Optional[int] = 15,
+        time_periods: Optional[list] = None,
     ) -> str:
         """Get latest commodity performance data from all commodity summary tables.
 
@@ -671,7 +874,15 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             md_resource: MotherDuck resource
             cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
                         If provided, uses snapshot tables.
+            max_commodities: Maximum number of commodities per category (reduces token usage).
+            time_periods: List of time periods to include. Defaults to ['6_months'] to reduce data.
         """
+        if time_periods is None:
+            time_periods = ["6_months"]
+
+        periods_str = "', '".join(time_periods)
+        limit_clause = f"LIMIT {max_commodities}" if max_commodities else ""
+
         if cutoff_date:
             query = f"""
             SELECT 
@@ -697,7 +908,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_end_price
             FROM energy_commodities_summary_snapshot
             WHERE snapshot_date = '{cutoff_date}'
-                AND time_period IN ('12_weeks', '6_months', '1_year')
+                AND time_period IN ('{periods_str}')
             
             UNION ALL
             
@@ -724,7 +935,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_end_price
             FROM input_commodities_summary_snapshot
             WHERE snapshot_date = '{cutoff_date}'
-                AND time_period IN ('12_weeks', '6_months', '1_year')
+                AND time_period IN ('{periods_str}')
             
             UNION ALL
             
@@ -751,12 +962,13 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_end_price
             FROM agriculture_commodities_summary_snapshot
             WHERE snapshot_date = '{cutoff_date}'
-                AND time_period IN ('12_weeks', '6_months', '1_year')
+                AND time_period IN ('{periods_str}')
             
             ORDER BY commodity_category, commodity_name, time_period, total_return_pct DESC
+            {limit_clause}
             """
         else:
-            query = """
+            query = f"""
             SELECT 
                 commodity_name,
                 commodity_unit,
@@ -779,7 +991,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_start_price,
                 period_end_price
             FROM energy_commodities_summary
-            WHERE time_period IN ('12_weeks', '6_months', '1_year')
+            WHERE time_period IN ('{periods_str}')
             
             UNION ALL
             
@@ -805,7 +1017,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_start_price,
                 period_end_price
             FROM input_commodities_summary
-            WHERE time_period IN ('12_weeks', '6_months', '1_year')
+            WHERE time_period IN ('{periods_str}')
             
             UNION ALL
             
@@ -831,9 +1043,10 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 period_start_price,
                 period_end_price
             FROM agriculture_commodities_summary
-            WHERE time_period IN ('12_weeks', '6_months', '1_year')
+            WHERE time_period IN ('{periods_str}')
             
             ORDER BY commodity_category, commodity_name, time_period, total_return_pct DESC
+            {limit_clause}
             """
 
         df = md_resource.execute_query(query)
@@ -844,7 +1057,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
     def get_correlation_data(
         self,
         md_resource: MotherDuckResource,
-        sample_size: int = 100,
+        sample_size: int = 50,
         sampling_strategy: str = "top_correlations",
         cutoff_date: Optional[str] = None,
     ) -> str:
@@ -852,7 +1065,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
         Args:
             md_resource: MotherDuck resource
-            sample_size: Number of samples to return
+            sample_size: Number of samples to return (reduced default to save tokens).
             sampling_strategy: Strategy for sampling
             cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
                         If provided, uses snapshot tables.
@@ -938,7 +1151,11 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 return csv_buffer.getvalue()
 
     def get_housing_data(
-        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+        self,
+        md_resource: MotherDuckResource,
+        cutoff_date: Optional[str] = None,
+        latest_month_only: bool = False,
+        max_months: Optional[int] = 6,
     ) -> str:
         """Get housing market data including inventory and mortgage rates.
 
@@ -946,9 +1163,22 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             md_resource: MotherDuck resource
             cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
                         If provided, filters data up to that date.
+            latest_month_only: If True, only return data for the most recent month (reduces token usage).
+                              If False, returns recent months to show trends (controlled by max_months).
+            max_months: Maximum months to return when latest_month_only=False (reduces token usage).
         """
-        # Get housing inventory data
-        inventory_query = """
+        if cutoff_date:
+            if latest_month_only:
+                month_filter = f"AND month = (SELECT MAX(month) FROM housing_inventory_latest_aggregates WHERE month <= '{cutoff_date}')"
+            else:
+                month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL '{max_months - 1} months' FROM housing_inventory_latest_aggregates WHERE month <= '{cutoff_date}')"
+        else:
+            if latest_month_only:
+                month_filter = "AND month = (SELECT MAX(month) FROM housing_inventory_latest_aggregates)"
+            else:
+                month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL '{max_months - 1} months' FROM housing_inventory_latest_aggregates)"
+
+        inventory_query = f"""
         SELECT 
             series_code,
             series_name,
@@ -960,6 +1190,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             date_grain
         FROM housing_inventory_latest_aggregates
         WHERE current_value IS NOT NULL
+            {month_filter}
         ORDER BY series_name, month DESC
         """
 
@@ -1036,7 +1267,10 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             return ""
 
     def get_yield_curve_data(
-        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+        self,
+        md_resource: MotherDuckResource,
+        cutoff_date: Optional[str] = None,
+        max_months: Optional[int] = 12,
     ) -> str:
         """Get yield curve data and calculate spreads.
 
@@ -1044,8 +1278,10 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             md_resource: MotherDuck resource
             cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
                         If provided, filters data up to that date.
+            max_months: Maximum number of months to return (reduces token usage). Defaults to 12.
         """
         date_filter = f"AND date <= '{cutoff_date}'" if cutoff_date else ""
+        limit_clause = f"LIMIT {max_months}" if max_months else ""
 
         query = f"""
         WITH pivoted_yields AS (
@@ -1104,6 +1340,8 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             FROM current_yields
         )
         SELECT * FROM yield_spreads
+        ORDER BY date DESC
+        {limit_clause}
         """
 
         df = md_resource.execute_query(query, read_only=True)
@@ -1114,7 +1352,10 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         return csv_buffer.getvalue().decode("utf-8")
 
     def get_economic_trends(
-        self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
+        self,
+        md_resource: MotherDuckResource,
+        cutoff_date: Optional[str] = None,
+        max_months: Optional[int] = 12,
     ) -> str:
         """Get month-over-month changes for key economic indicators using fred_monthly_diff.
 
@@ -1122,6 +1363,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             md_resource: MotherDuck resource
             cutoff_date: Optional date string (YYYY-MM-DD) for backtesting.
                         If provided, filters data up to that date.
+            max_months: Maximum number of months to return per indicator (reduces token usage). Defaults to 12.
         """
         # Key indicators to track trends for
         key_indicators = [
@@ -1137,6 +1379,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
         indicators_list = "', '".join(key_indicators)
         date_filter = f"AND date <= '{cutoff_date}'" if cutoff_date else ""
+        limit_clause = (
+            f"LIMIT {max_months * len(key_indicators)}" if max_months else "LIMIT 100"
+        )
 
         query = f"""
         SELECT 
@@ -1150,7 +1395,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         WHERE series_code IN ('{indicators_list}')
             {date_filter}
         ORDER BY series_name, date DESC
-        LIMIT 100
+        {limit_clause}
         """
 
         df = md_resource.execute_query(query, read_only=True)
@@ -1528,23 +1773,41 @@ def analyze_economy_state(
         model_name_override=config.model_name,
     )
 
-    context.log.info("Gathering economic data...")
-    economic_data = economic_analysis.get_economic_data(md)
+    context.log.info(
+        "Gathering economic data (with token optimization, preserving trends)..."
+    )
+    economic_data = economic_analysis.get_economic_data(
+        md, max_series=50, latest_month_only=False, max_months_per_series=3
+    )
 
-    context.log.info("Gathering commodity data...")
-    commodity_data = economic_analysis.get_commodity_data(md)
+    context.log.info(
+        "Gathering commodity data (with token optimization, preserving trends)..."
+    )
+    commodity_data = economic_analysis.get_commodity_data(
+        md, max_commodities=15, time_periods=["6_months"]
+    )
 
-    context.log.info("Gathering Financial Conditions Index data...")
-    fci_data = economic_analysis.get_financial_conditions_index(md)
+    context.log.info(
+        "Gathering Financial Conditions Index data (with token optimization, preserving trends)..."
+    )
+    fci_data = economic_analysis.get_financial_conditions_index(md, max_months=12)
 
-    context.log.info("Gathering housing market data...")
-    housing_data = economic_analysis.get_housing_data(md)
+    context.log.info(
+        "Gathering housing market data (with token optimization, preserving trends)..."
+    )
+    housing_data = economic_analysis.get_housing_data(
+        md, latest_month_only=False, max_months=6
+    )
 
-    context.log.info("Gathering yield curve data...")
-    yield_curve_data = economic_analysis.get_yield_curve_data(md)
+    context.log.info(
+        "Gathering yield curve data (with token optimization, preserving trends)..."
+    )
+    yield_curve_data = economic_analysis.get_yield_curve_data(md, max_months=12)
 
-    context.log.info("Gathering economic trends data...")
-    economic_trends = economic_analysis.get_economic_trends(md)
+    context.log.info(
+        "Gathering economic trends data (with token optimization, preserving trends)..."
+    )
+    economic_trends = economic_analysis.get_economic_trends(md, max_months=12)
 
     optimized_analyzer = None
     if economic_analysis.use_optimized_models:
@@ -1566,18 +1829,69 @@ def analyze_economy_state(
         len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
     )
 
+    provider = economic_analysis._get_provider()
+    model_name = economic_analysis._get_model_name()
+
+    combined_input = (
+        economic_data
+        + "\n"
+        + commodity_data
+        + "\n"
+        + fci_data
+        + "\n"
+        + housing_data
+        + "\n"
+        + yield_curve_data
+        + "\n"
+        + economic_trends
+    )
+    estimated_tokens = _estimate_tokens(combined_input)
+    context.log.info(
+        f"Estimated input tokens: {estimated_tokens}. "
+        f"Checking rate limits for {provider}/{model_name}..."
+    )
+    _check_rate_limit(provider, model_name, estimated_tokens, context)
+
     context.log.info(
         f"Running economy state analysis with economic, commodity, FCI, housing, yield curve, and trends data (personality: {config.personality})..."
     )
-    analysis_result = analyzer_to_use(
-        economic_data=economic_data,
-        commodity_data=commodity_data,
-        financial_conditions_index=fci_data,
-        housing_data=housing_data,
-        yield_curve_data=yield_curve_data,
-        economic_trends=economic_trends,
-        personality=config.personality,
-    )
+    try:
+        analysis_result = analyzer_to_use(
+            economic_data=economic_data,
+            commodity_data=commodity_data,
+            financial_conditions_index=fci_data,
+            housing_data=housing_data,
+            yield_curve_data=yield_curve_data,
+            economic_trends=economic_trends,
+            personality=config.personality,
+        )
+    except Exception as e:
+        error_msg = str(e)
+        if "temperature=0.0" in error_msg and "gpt-5" in error_msg.lower():
+            context.log.error(
+                f"gpt-5 model compatibility error: {error_msg}. "
+                f"gpt-5 models only support temperature=1.0. "
+                f"Consider using a different model or setting litellm.drop_params = True."
+            )
+            raise ValueError(
+                f"gpt-5 model compatibility error: {error_msg}. "
+                f"Please use a model that supports temperature=0.0 or configure litellm.drop_params = True."
+            ) from e
+        elif (
+            "response_format" in error_msg.lower()
+            or "structured output" in error_msg.lower()
+            or "JSON mode" in error_msg.lower()
+        ):
+            context.log.error(
+                f"Structured output format error: {error_msg}. "
+                f"Model may not support required response format features."
+            )
+            raise ValueError(
+                f"Model compatibility error: {error_msg}. "
+                f"Please use a model that supports structured output format."
+            ) from e
+        else:
+            raise
 
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 

@@ -8,6 +8,8 @@ from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.agents.economy_state_analyzer import (
     EconomicAnalysisResource,
     extract_economy_state_summary,
+    _estimate_tokens,
+    _check_rate_limit,
 )
 
 
@@ -41,6 +43,10 @@ class BacktestConfig(dg.Config):
     use_optimized_models: bool = Field(
         default=False,
         description="If True, use optimized models for backtesting. If False (default), use baseline models to avoid circular dependencies in optimization.",
+    )
+    token_optimization: bool = Field(
+        default=True,
+        description="If True (default), use token-saving optimizations (limited series/assets, shorter time periods). If False, use full data for maximum accuracy.",
     )
 
 
@@ -191,37 +197,120 @@ def backtest_analyze_economy_state(
                 else 0
             )
 
-            context.log.info("Gathering economic data with cutoff date...")
-            economic_data = economic_analysis.get_economic_data(
-                md, cutoff_date=backtest_date
-            )
+            if config.token_optimization:
+                context.log.info(
+                    "Gathering economic data with cutoff date (with token optimization, preserving trends)..."
+                )
+                economic_data = economic_analysis.get_economic_data(
+                    md,
+                    cutoff_date=backtest_date,
+                    max_series=50,
+                    latest_month_only=False,
+                    max_months_per_series=3,
+                )
 
-            context.log.info("Gathering commodity data with cutoff date...")
-            commodity_data = economic_analysis.get_commodity_data(
-                md, cutoff_date=backtest_date
-            )
+                context.log.info(
+                    "Gathering commodity data with cutoff date (with token optimization, preserving trends)..."
+                )
+                commodity_data = economic_analysis.get_commodity_data(
+                    md,
+                    cutoff_date=backtest_date,
+                    max_commodities=15,
+                    time_periods=["6_months"],
+                )
 
+                context.log.info(
+                    "Gathering Financial Conditions Index data with cutoff date (with token optimization, preserving trends)..."
+                )
+                fci_data = economic_analysis.get_financial_conditions_index(
+                    md, cutoff_date=backtest_date, max_months=12
+                )
+
+                context.log.info(
+                    "Gathering housing market data with cutoff date (with token optimization, preserving trends)..."
+                )
+                housing_data = economic_analysis.get_housing_data(
+                    md, cutoff_date=backtest_date, latest_month_only=False, max_months=6
+                )
+
+                context.log.info(
+                    "Gathering yield curve data with cutoff date (with token optimization, preserving trends)..."
+                )
+                yield_curve_data = economic_analysis.get_yield_curve_data(
+                    md, cutoff_date=backtest_date, max_months=12
+                )
+
+                context.log.info(
+                    "Gathering economic trends data with cutoff date (with token optimization, preserving trends)..."
+                )
+                economic_trends = economic_analysis.get_economic_trends(
+                    md, cutoff_date=backtest_date, max_months=12
+                )
+            else:
+                context.log.info(
+                    "Gathering economic data with cutoff date (full data, no token optimization)..."
+                )
+                economic_data = economic_analysis.get_economic_data(
+                    md, cutoff_date=backtest_date
+                )
+
+                context.log.info(
+                    "Gathering commodity data with cutoff date (full data, no token optimization)..."
+                )
+                commodity_data = economic_analysis.get_commodity_data(
+                    md, cutoff_date=backtest_date
+                )
+
+                context.log.info(
+                    "Gathering Financial Conditions Index data with cutoff date (full data, no token optimization)..."
+                )
+                fci_data = economic_analysis.get_financial_conditions_index(
+                    md, cutoff_date=backtest_date
+                )
+
+                context.log.info(
+                    "Gathering housing market data with cutoff date (full data, no token optimization)..."
+                )
+                housing_data = economic_analysis.get_housing_data(
+                    md, cutoff_date=backtest_date
+                )
+
+                context.log.info(
+                    "Gathering yield curve data with cutoff date (full data, no token optimization)..."
+                )
+                yield_curve_data = economic_analysis.get_yield_curve_data(
+                    md, cutoff_date=backtest_date
+                )
+
+                context.log.info(
+                    "Gathering economic trends data with cutoff date (full data, no token optimization)..."
+                )
+                economic_trends = economic_analysis.get_economic_trends(
+                    md, cutoff_date=backtest_date
+                )
+
+            provider = economic_analysis._get_provider()
+            model_name = economic_analysis._get_model_name()
+
+            combined_input = (
+                economic_data
+                + "\n"
+                + commodity_data
+                + "\n"
+                + fci_data
+                + "\n"
+                + housing_data
+                + "\n"
+                + yield_curve_data
+                + "\n"
+                + economic_trends
+            )
+            estimated_tokens = _estimate_tokens(combined_input)
             context.log.info(
-                "Gathering Financial Conditions Index data with cutoff date..."
+                f"Estimated input tokens for {backtest_date}: {estimated_tokens}. "
+                f"Checking rate limits for {provider}/{model_name}..."
             )
-            fci_data = economic_analysis.get_financial_conditions_index(
-                md, cutoff_date=backtest_date
-            )
-
-            context.log.info("Gathering housing market data with cutoff date...")
-            housing_data = economic_analysis.get_housing_data(
-                md, cutoff_date=backtest_date
-            )
-
-            context.log.info("Gathering yield curve data with cutoff date...")
-            yield_curve_data = economic_analysis.get_yield_curve_data(
-                md, cutoff_date=backtest_date
-            )
-
-            context.log.info("Gathering economic trends data with cutoff date...")
-            economic_trends = economic_analysis.get_economic_trends(
-                md, cutoff_date=backtest_date
-            )
+            _check_rate_limit(provider, model_name, estimated_tokens, context)
 
             context.log.info(
                 f"Running economy state analysis with historical data including FCI, housing, yield curve, and trends (personality: {config.personality})..."
@@ -292,18 +381,44 @@ def backtest_analyze_economy_state(
                     )
 
             except Exception as e:
-                context.log.error(
-                    f"Error during LLM analysis call for {backtest_date}: {str(e)}",
-                    exc_info=True,
-                )
-                if hasattr(economic_analysis, "_lm") and hasattr(
-                    economic_analysis._lm, "history"
-                ):
-                    recent_history = economic_analysis._lm.history[-3:]
-                    context.log.debug(
-                        f"LLM history at error (last 3 entries): {recent_history}"
+                error_msg = str(e)
+
+                if "temperature=0.0" in error_msg and "gpt-5" in error_msg.lower():
+                    context.log.error(
+                        f"gpt-5 model compatibility error for {backtest_date}: {error_msg}. "
+                        f"gpt-5 models only support temperature=1.0. "
+                        f"Consider using a different model or setting litellm.drop_params = True."
                     )
-                raise
+                    raise ValueError(
+                        f"gpt-5 model compatibility error: {error_msg}. "
+                        f"Please use a model that supports temperature=0.0 or configure litellm.drop_params = True."
+                    ) from e
+                elif (
+                    "response_format" in error_msg.lower()
+                    or "structured output" in error_msg.lower()
+                    or "JSON mode" in error_msg.lower()
+                ):
+                    context.log.error(
+                        f"Structured output format error for {backtest_date}: {error_msg}. "
+                        f"Model may not support required response format features."
+                    )
+                    raise ValueError(
+                        f"Model compatibility error: {error_msg}. "
+                        f"Please use a model that supports structured output format."
+                    ) from e
+                else:
+                    context.log.error(
+                        f"Error during LLM analysis call for {backtest_date}: {error_msg}",
+                        exc_info=True,
+                    )
+                    if hasattr(economic_analysis, "_lm") and hasattr(
+                        economic_analysis._lm, "history"
+                    ):
+                        recent_history = economic_analysis._lm.history[-3:]
+                        context.log.debug(
+                            f"LLM history at error (last 3 entries): {recent_history}"
+                        )
+                    raise
 
             token_usage = _get_token_usage(
                 economic_analysis, initial_history_length, context

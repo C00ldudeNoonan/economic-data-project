@@ -224,13 +224,15 @@ def analyze_asset_class_relationships(
             "No economy state analysis found. Please run analyze_economy_state first."
         )
 
-    context.log.info("Gathering market performance data...")
-    market_data = economic_analysis.get_market_data(md)
+    context.log.info("Gathering market performance data (with token optimization)...")
+    market_data = economic_analysis.get_market_data(
+        md, max_assets=20, time_periods=["6_months"]
+    )
 
-    context.log.info("Gathering correlation data...")
+    context.log.info("Gathering correlation data (with token optimization)...")
     try:
         correlation_data = economic_analysis.get_correlation_data(
-            md, sample_size=100, sampling_strategy="top_correlations"
+            md, sample_size=50, sampling_strategy="top_correlations"
         )
     except Exception as e:
         context.log.warning(
@@ -238,8 +240,10 @@ def analyze_asset_class_relationships(
         )
         correlation_data = ""
 
-    context.log.info("Gathering commodity data...")
-    commodity_data = economic_analysis.get_commodity_data(md)
+    context.log.info("Gathering commodity data (with token optimization)...")
+    commodity_data = economic_analysis.get_commodity_data(
+        md, max_commodities=15, time_periods=["6_months"]
+    )
 
     relationship_analyzer = None
     if economic_analysis.use_optimized_models:
@@ -256,21 +260,70 @@ def analyze_asset_class_relationships(
     from macro_agents.defs.agents.economy_state_analyzer import (
         _get_token_usage,
         _calculate_cost,
+        _estimate_tokens,
+        _check_rate_limit,
     )
 
     initial_history_length = (
         len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
     )
 
+    provider = economic_analysis._get_provider()
+    model_name = economic_analysis._get_model_name()
+
+    combined_input = (
+        economy_state_analysis
+        + "\n"
+        + market_data
+        + "\n"
+        + correlation_data
+        + "\n"
+        + commodity_data
+    )
+    estimated_tokens = _estimate_tokens(combined_input)
+    context.log.info(
+        f"Estimated input tokens: {estimated_tokens}. "
+        f"Checking rate limits for {provider}/{model_name}..."
+    )
+    _check_rate_limit(provider, model_name, estimated_tokens, context)
+
     context.log.info(
         "Running asset class relationship analysis with market and commodity data..."
     )
-    analysis_result = relationship_analyzer(
-        economy_state_analysis=economy_state_analysis,
-        market_data=market_data,
-        correlation_data=correlation_data,
-        commodity_data=commodity_data,
-    )
+    try:
+        analysis_result = relationship_analyzer(
+            economy_state_analysis=economy_state_analysis,
+            market_data=market_data,
+            correlation_data=correlation_data,
+            commodity_data=commodity_data,
+        )
+    except Exception as e:
+        error_msg = str(e)
+        if "temperature=0.0" in error_msg and "gpt-5" in error_msg.lower():
+            context.log.error(
+                f"gpt-5 model compatibility error: {error_msg}. "
+                f"gpt-5 models only support temperature=1.0. "
+                f"Consider using a different model or setting litellm.drop_params = True."
+            )
+            raise ValueError(
+                f"gpt-5 model compatibility error: {error_msg}. "
+                f"Please use a model that supports temperature=0.0 or configure litellm.drop_params = True."
+            ) from e
+        elif (
+            "response_format" in error_msg.lower()
+            or "structured output" in error_msg.lower()
+            or "JSON mode" in error_msg.lower()
+        ):
+            context.log.error(
+                f"Structured output format error: {error_msg}. "
+                f"Model may not support required response format features."
+            )
+            raise ValueError(
+                f"Model compatibility error: {error_msg}. "
+                f"Please use a model that supports structured output format."
+            ) from e
+        else:
+            raise
 
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
