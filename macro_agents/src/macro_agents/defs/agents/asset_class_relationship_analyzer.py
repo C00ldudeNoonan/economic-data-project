@@ -127,6 +127,9 @@ def extract_relationship_summary(analysis_content: str) -> Dict[str, Any]:
     """Extract key insights from asset class relationship analysis for metadata."""
     summary = {}
 
+    if not analysis_content:
+        return summary
+
     correlation_matches = re.findall(
         r"(?:strongest|highest|strong).*?correlation[:\s]+([^.\n]+)",
         analysis_content,

@@ -146,6 +146,11 @@ def extract_recommendations_summary(recommendations_content: str) -> Dict[str, A
     """Extract key insights from investment recommendations for metadata."""
     summary = {}
 
+    if not recommendations_content:
+        summary["total_overweight_count"] = 0
+        summary["total_underweight_count"] = 0
+        return summary
+
     outlook_match = re.search(
         r"(?:market outlook|outlook)[:\s]+(bullish|bearish|neutral|positive|negative)",
         recommendations_content,

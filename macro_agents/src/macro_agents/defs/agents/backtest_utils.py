@@ -33,14 +33,26 @@ def extract_recommendations(recommendations_content: str) -> List[Dict[str, Any]
             confidence_match = re.search(
                 r"confidence[:\s]+([0-9.]+)", context, re.IGNORECASE
             )
-            confidence = float(confidence_match.group(1)) if confidence_match else None
-            if confidence and confidence > 1:
-                confidence = confidence / 100
+            confidence = None
+            if confidence_match:
+                confidence_str = confidence_match.group(1).rstrip(".,;")
+                try:
+                    confidence = float(confidence_str)
+                    if confidence > 1:
+                        confidence = confidence / 100
+                except (ValueError, AttributeError):
+                    confidence = None
 
             return_match = re.search(
-                r"(?:expected|return)[:\s]+([0-9.]+)%?", context, re.IGNORECASE
+                r"(?:expected|return)[:\s]+([-0-9.]+)%?", context, re.IGNORECASE
             )
-            expected_return = float(return_match.group(1)) if return_match else None
+            expected_return = None
+            if return_match:
+                return_str = return_match.group(1).rstrip(".,;%")
+                try:
+                    expected_return = float(return_str)
+                except (ValueError, AttributeError):
+                    expected_return = None
 
             recommendations.append(
                 {
@@ -66,14 +78,26 @@ def extract_recommendations(recommendations_content: str) -> List[Dict[str, Any]
             confidence_match = re.search(
                 r"confidence[:\s]+([0-9.]+)", context, re.IGNORECASE
             )
-            confidence = float(confidence_match.group(1)) if confidence_match else None
-            if confidence and confidence > 1:
-                confidence = confidence / 100
+            confidence = None
+            if confidence_match:
+                confidence_str = confidence_match.group(1).rstrip(".,;")
+                try:
+                    confidence = float(confidence_str)
+                    if confidence > 1:
+                        confidence = confidence / 100
+                except (ValueError, AttributeError):
+                    confidence = None
 
             return_match = re.search(
-                r"(?:expected|return)[:\s]+([0-9.]+)%?", context, re.IGNORECASE
+                r"(?:expected|return)[:\s]+([-0-9.]+)%?", context, re.IGNORECASE
             )
-            expected_return = float(return_match.group(1)) if return_match else None
+            expected_return = None
+            if return_match:
+                return_str = return_match.group(1).rstrip(".,;%")
+                try:
+                    expected_return = float(return_str)
+                except (ValueError, AttributeError):
+                    expected_return = None
 
             recommendations.append(
                 {
