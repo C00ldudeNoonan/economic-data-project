@@ -473,3 +473,174 @@ class TestModuleIntegration:
 
         assert result.relationship_analysis == "Strong correlation between tech and GDP"
         assert module.analyze_relationships.called
+
+
+class TestExtractFunctionsWithEmptyContent:
+    """Test cases for extract functions handling None/empty content."""
+
+    def test_extract_economy_state_summary_with_none(self):
+        """Test extract_economy_state_summary handles None content."""
+        from macro_agents.defs.agents.economy_state_analyzer import (
+            extract_economy_state_summary,
+        )
+
+        result = extract_economy_state_summary(None)
+        assert isinstance(result, dict)
+        assert len(result) == 0
+
+    def test_extract_economy_state_summary_with_empty_string(self):
+        """Test extract_economy_state_summary handles empty string."""
+        from macro_agents.defs.agents.economy_state_analyzer import (
+            extract_economy_state_summary,
+        )
+
+        result = extract_economy_state_summary("")
+        assert isinstance(result, dict)
+        assert len(result) == 0
+
+    def test_extract_economy_state_summary_with_valid_content(self):
+        """Test extract_economy_state_summary with valid content."""
+        from macro_agents.defs.agents.economy_state_analyzer import (
+            extract_economy_state_summary,
+        )
+
+        content = """
+        Current Economic Cycle Position: Expansion
+        Confidence: 0.75
+        Risk Factors: Inflation concerns, geopolitical tensions
+        """
+        result = extract_economy_state_summary(content)
+        assert isinstance(result, dict)
+        assert "economic_cycle_position" in result
+        assert result["economic_cycle_position"] == "Expansion"
+        assert "confidence_level" in result
+        assert result["confidence_level"] == 0.75
+
+    def test_extract_relationship_summary_with_none(self):
+        """Test extract_relationship_summary handles None content."""
+        from macro_agents.defs.agents.asset_class_relationship_analyzer import (
+            extract_relationship_summary,
+        )
+
+        result = extract_relationship_summary(None)
+        assert isinstance(result, dict)
+        assert len(result) == 0
+
+    def test_extract_relationship_summary_with_empty_string(self):
+        """Test extract_relationship_summary handles empty string."""
+        from macro_agents.defs.agents.asset_class_relationship_analyzer import (
+            extract_relationship_summary,
+        )
+
+        result = extract_relationship_summary("")
+        assert isinstance(result, dict)
+        assert len(result) == 0
+
+    def test_extract_recommendations_summary_with_none(self):
+        """Test extract_recommendations_summary handles None content."""
+        from macro_agents.defs.agents.investment_recommendations import (
+            extract_recommendations_summary,
+        )
+
+        result = extract_recommendations_summary(None)
+        assert isinstance(result, dict)
+        assert "total_overweight_count" in result
+        assert "total_underweight_count" in result
+        assert result["total_overweight_count"] == 0
+        assert result["total_underweight_count"] == 0
+
+    def test_extract_recommendations_summary_with_empty_string(self):
+        """Test extract_recommendations_summary handles empty string."""
+        from macro_agents.defs.agents.investment_recommendations import (
+            extract_recommendations_summary,
+        )
+
+        result = extract_recommendations_summary("")
+        assert isinstance(result, dict)
+        assert "total_overweight_count" in result
+        assert "total_underweight_count" in result
+        assert result["total_overweight_count"] == 0
+        assert result["total_underweight_count"] == 0
+
+
+class TestExtractRecommendationsFloatParsing:
+    """Test cases for extract_recommendations handling trailing punctuation in floats."""
+
+    def test_extract_recommendations_with_trailing_period(self):
+        """Test extract_recommendations handles confidence with trailing period."""
+        from macro_agents.defs.agents.backtest_utils import extract_recommendations
+
+        content = "OVERWEIGHT XLK with confidence 0.6. Expected return 5.2%."
+        recommendations = extract_recommendations(content)
+
+        assert len(recommendations) > 0
+        xlk_rec = next((r for r in recommendations if r["symbol"] == "XLK"), None)
+        assert xlk_rec is not None
+        assert xlk_rec["direction"] == "OVERWEIGHT"
+        assert xlk_rec["confidence"] == 0.6
+        assert xlk_rec["expected_return"] == 5.2
+
+    def test_extract_recommendations_with_trailing_comma(self):
+        """Test extract_recommendations handles confidence with trailing comma."""
+        from macro_agents.defs.agents.backtest_utils import extract_recommendations
+
+        content = "OVERWEIGHT SPY with confidence 0.75, expected return 8.3%"
+        recommendations = extract_recommendations(content)
+
+        assert len(recommendations) > 0
+        spy_rec = next((r for r in recommendations if r["symbol"] == "SPY"), None)
+        assert spy_rec is not None
+        assert spy_rec["confidence"] == 0.75
+        assert spy_rec["expected_return"] == 8.3
+
+    def test_extract_recommendations_with_trailing_semicolon(self):
+        """Test extract_recommendations handles confidence with trailing semicolon."""
+        from macro_agents.defs.agents.backtest_utils import extract_recommendations
+
+        content = "UNDERWEIGHT XLE with confidence 0.4; expected return -2.1%"
+        recommendations = extract_recommendations(content)
+
+        assert len(recommendations) > 0
+        xle_rec = next((r for r in recommendations if r["symbol"] == "XLE"), None)
+        assert xle_rec is not None
+        assert xle_rec["direction"] == "UNDERWEIGHT"
+        assert xle_rec["confidence"] == 0.4
+        assert xle_rec["expected_return"] == -2.1
+
+    def test_extract_recommendations_with_percent_sign(self):
+        """Test extract_recommendations handles return values with percent sign."""
+        from macro_agents.defs.agents.backtest_utils import extract_recommendations
+
+        content = "OVERWEIGHT QQQ confidence 0.8 expected return 12.5%"
+        recommendations = extract_recommendations(content)
+
+        assert len(recommendations) > 0
+        qqq_rec = next((r for r in recommendations if r["symbol"] == "QQQ"), None)
+        assert qqq_rec is not None
+        assert qqq_rec["expected_return"] == 12.5
+
+    def test_extract_recommendations_with_invalid_float_gracefully(self):
+        """Test extract_recommendations handles invalid float strings gracefully."""
+        from macro_agents.defs.agents.backtest_utils import extract_recommendations
+
+        content = "OVERWEIGHT XLK with confidence invalid. Expected return also.invalid"
+        recommendations = extract_recommendations(content)
+
+        assert len(recommendations) > 0
+        xlk_rec = next((r for r in recommendations if r["symbol"] == "XLK"), None)
+        assert xlk_rec is not None
+        assert xlk_rec["confidence"] is None
+        assert xlk_rec["expected_return"] is None
+
+    def test_extract_recommendations_with_multiple_trailing_punctuation(self):
+        """Test extract_recommendations handles multiple trailing punctuation."""
+        from macro_agents.defs.agents.backtest_utils import extract_recommendations
+
+        content = "OVERWEIGHT DIA confidence 0.9., expected return 6.7%."
+        recommendations = extract_recommendations(content)
+
+        assert len(recommendations) > 0
+        dia_rec = next((r for r in recommendations if r["symbol"] == "DIA"), None)
+        assert dia_rec is not None
+        assert dia_rec["confidence"] == 0.9
+        assert dia_rec["expected_return"] == 6.7

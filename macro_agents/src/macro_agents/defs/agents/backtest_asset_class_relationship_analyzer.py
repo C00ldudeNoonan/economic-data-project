@@ -122,120 +122,214 @@ def backtest_analyze_asset_class_relationships(
         "completion_tokens": 0,
         "total_tokens": 0,
     }
+    failed_dates = []
+    successful_dates = []
 
     for backtest_date in backtest_dates:
         context.log.info(
             f"Processing backtest date: {backtest_date} ({backtest_dates.index(backtest_date) + 1}/{len(backtest_dates)})"
         )
 
-        initial_history_length = (
-            len(economic_analysis._lm.history)
-            if hasattr(economic_analysis, "_lm")
-            else 0
-        )
-
-        context.log.info("Retrieving backtest economy state analysis...")
-        economy_state_analysis = get_latest_backtest_economy_state_analysis(
-            md, backtest_date, config.model_provider, config.model_name
-        )
-
-        if not economy_state_analysis:
-            raise ValueError(
-                f"No backtest economy state analysis found for {backtest_date} "
-                f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_economy_state first."
-            )
-
-        context.log.info("Gathering market performance data with cutoff date...")
-        market_data = economic_analysis.get_market_data(md, cutoff_date=backtest_date)
-
-        context.log.info("Gathering correlation data with cutoff date...")
         try:
-            correlation_data = economic_analysis.get_correlation_data(
-                md,
-                sample_size=100,
-                sampling_strategy="top_correlations",
-                cutoff_date=backtest_date,
+            initial_history_length = (
+                len(economic_analysis._lm.history)
+                if hasattr(economic_analysis, "_lm")
+                else 0
             )
+
+            context.log.info("Retrieving backtest economy state analysis...")
+            economy_state_analysis = get_latest_backtest_economy_state_analysis(
+                md, backtest_date, config.model_provider, config.model_name
+            )
+
+            if not economy_state_analysis:
+                raise ValueError(
+                    f"No backtest economy state analysis found for {backtest_date} "
+                    f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_economy_state first."
+                )
+
+            context.log.info("Gathering market performance data with cutoff date...")
+            market_data = economic_analysis.get_market_data(
+                md, cutoff_date=backtest_date
+            )
+
+            context.log.info("Gathering correlation data with cutoff date...")
+            try:
+                correlation_data = economic_analysis.get_correlation_data(
+                    md,
+                    sample_size=100,
+                    sampling_strategy="top_correlations",
+                    cutoff_date=backtest_date,
+                )
+            except Exception as e:
+                context.log.warning(
+                    f"Could not retrieve correlation data: {e}. Continuing without it."
+                )
+                correlation_data = ""
+
+            context.log.info("Gathering commodity data with cutoff date...")
+            commodity_data = economic_analysis.get_commodity_data(
+                md, cutoff_date=backtest_date
+            )
+
+            context.log.info(
+                "Running asset class relationship analysis with historical data..."
+            )
+            try:
+                analysis_result = relationship_analyzer(
+                    economy_state_analysis=economy_state_analysis,
+                    market_data=market_data,
+                    correlation_data=correlation_data,
+                    commodity_data=commodity_data,
+                )
+
+                context.log.debug(
+                    f"Analysis result type: {type(analysis_result)}, "
+                    f"has 'relationship_analysis' attr: {hasattr(analysis_result, 'relationship_analysis')}, "
+                    f"dir: {[attr for attr in dir(analysis_result) if not attr.startswith('_')]}"
+                )
+
+                if hasattr(analysis_result, "relationship_analysis"):
+                    analysis_content_value = analysis_result.relationship_analysis
+                    context.log.debug(
+                        f"analysis_result.relationship_analysis type: {type(analysis_content_value)}, "
+                        f"is None: {analysis_content_value is None}, "
+                        f"is empty string: {analysis_content_value == ''}, "
+                        f"length: {len(analysis_content_value) if analysis_content_value else 0}"
+                    )
+                    if (
+                        not analysis_content_value
+                        or analysis_content_value.strip() == ""
+                    ):
+                        context.log.warning(
+                            f"Empty relationship analysis content detected for {backtest_date}. "
+                            f"Full analysis_result object: {analysis_result}"
+                        )
+                        if hasattr(economic_analysis, "_lm") and hasattr(
+                            economic_analysis._lm, "history"
+                        ):
+                            recent_history = economic_analysis._lm.history[-3:]
+                            context.log.warning(
+                                f"Recent LLM history (last 3 entries): {recent_history}"
+                            )
+                            if recent_history:
+                                last_entry = recent_history[-1]
+                                context.log.warning(
+                                    f"Last LLM history entry type: {type(last_entry)}, "
+                                    f"keys/attrs: {last_entry.keys() if isinstance(last_entry, dict) else dir(last_entry)[:10]}"
+                                )
+                                if isinstance(last_entry, dict):
+                                    if "messages" in last_entry:
+                                        context.log.warning(
+                                            f"Last entry messages: {last_entry['messages']}"
+                                        )
+                                    if "response" in last_entry:
+                                        context.log.warning(
+                                            f"Last entry response: {last_entry['response']}"
+                                        )
+                                    if "output" in last_entry:
+                                        context.log.warning(
+                                            f"Last entry output: {last_entry['output']}"
+                                        )
+                else:
+                    context.log.error(
+                        f"analysis_result does not have 'relationship_analysis' attribute. "
+                        f"Available attributes: {[attr for attr in dir(analysis_result) if not attr.startswith('_')]}"
+                    )
+
+            except Exception as e:
+                context.log.error(
+                    f"Error during LLM analysis call for {backtest_date}: {str(e)}",
+                    exc_info=True,
+                )
+                if hasattr(economic_analysis, "_lm") and hasattr(
+                    economic_analysis._lm, "history"
+                ):
+                    recent_history = economic_analysis._lm.history[-3:]
+                    context.log.debug(
+                        f"LLM history at error (last 3 entries): {recent_history}"
+                    )
+                raise
+
+            token_usage = _get_token_usage(
+                economic_analysis, initial_history_length, context
+            )
+
+            if (
+                "total_cost_usd" not in token_usage
+                or token_usage.get("total_cost_usd", 0) == 0
+            ):
+                cost_data = _calculate_cost(
+                    provider=provider,
+                    model_name=model_name,
+                    prompt_tokens=token_usage.get("prompt_tokens", 0),
+                    completion_tokens=token_usage.get("completion_tokens", 0),
+                )
+                token_usage.update(cost_data)
+
+            total_token_usage["prompt_tokens"] += token_usage.get("prompt_tokens", 0)
+            total_token_usage["completion_tokens"] += token_usage.get(
+                "completion_tokens", 0
+            )
+            total_token_usage["total_tokens"] += token_usage.get("total_tokens", 0)
+            if "total_cost_usd" in token_usage:
+                total_token_usage["total_cost_usd"] = total_token_usage.get(
+                    "total_cost_usd", 0
+                ) + token_usage.get("total_cost_usd", 0)
+            if "prompt_cost_usd" in token_usage:
+                total_token_usage["prompt_cost_usd"] = total_token_usage.get(
+                    "prompt_cost_usd", 0
+                ) + token_usage.get("prompt_cost_usd", 0)
+            if "completion_cost_usd" in token_usage:
+                total_token_usage["completion_cost_usd"] = total_token_usage.get(
+                    "completion_cost_usd", 0
+                ) + token_usage.get("completion_cost_usd", 0)
+
+            analysis_timestamp = datetime.now()
+            json_result = {
+                "analysis_type": "asset_class_relationships",
+                "analysis_content": analysis_result.relationship_analysis,
+                "analysis_timestamp": analysis_timestamp.isoformat(),
+                "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
+                "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
+                "backtest_date": backtest_date,
+                "model_provider": config.model_provider,
+                "model_name": config.model_name,
+                "data_sources": {
+                    "economy_state_table": "backtest_economy_state_analysis",
+                    "market_data_table": "us_sector_summary_snapshot",
+                    "correlation_data_table": "leading_econ_return_indicator_snapshot",
+                    "commodity_data_tables": [
+                        "energy_commodities_summary_snapshot",
+                        "input_commodities_summary_snapshot",
+                        "agriculture_commodities_summary_snapshot",
+                    ],
+                },
+                "dagster_run_id": context.run_id,
+                "dagster_asset_key": str(context.asset_key),
+            }
+
+            all_results.append(json_result)
+            successful_dates.append(backtest_date)
+
+            context.log.info(
+                f"Successfully processed {backtest_date}, writing result to database..."
+            )
+            md.write_results_to_table(
+                [json_result],
+                output_table="backtest_asset_class_relationship_analysis",
+                if_exists="append",
+                context=context,
+            )
+            context.log.info(f"Result for {backtest_date} written to database")
+
         except Exception as e:
+            error_msg = f"Error processing backtest date {backtest_date}: {str(e)}"
+            context.log.error(error_msg)
+            failed_dates.append({"date": backtest_date, "error": str(e)})
             context.log.warning(
-                f"Could not retrieve correlation data: {e}. Continuing without it."
+                f"Continuing with remaining dates. {len(successful_dates)} successful, {len(failed_dates)} failed so far."
             )
-            correlation_data = ""
-
-        context.log.info("Gathering commodity data with cutoff date...")
-        commodity_data = economic_analysis.get_commodity_data(
-            md, cutoff_date=backtest_date
-        )
-
-        context.log.info(
-            "Running asset class relationship analysis with historical data..."
-        )
-        analysis_result = relationship_analyzer(
-            economy_state_analysis=economy_state_analysis,
-            market_data=market_data,
-            correlation_data=correlation_data,
-            commodity_data=commodity_data,
-        )
-
-        token_usage = _get_token_usage(
-            economic_analysis, initial_history_length, context
-        )
-
-        if (
-            "total_cost_usd" not in token_usage
-            or token_usage.get("total_cost_usd", 0) == 0
-        ):
-            cost_data = _calculate_cost(
-                provider=provider,
-                model_name=model_name,
-                prompt_tokens=token_usage.get("prompt_tokens", 0),
-                completion_tokens=token_usage.get("completion_tokens", 0),
-            )
-            token_usage.update(cost_data)
-
-        total_token_usage["prompt_tokens"] += token_usage.get("prompt_tokens", 0)
-        total_token_usage["completion_tokens"] += token_usage.get(
-            "completion_tokens", 0
-        )
-        total_token_usage["total_tokens"] += token_usage.get("total_tokens", 0)
-        if "total_cost_usd" in token_usage:
-            total_token_usage["total_cost_usd"] = total_token_usage.get(
-                "total_cost_usd", 0
-            ) + token_usage.get("total_cost_usd", 0)
-        if "prompt_cost_usd" in token_usage:
-            total_token_usage["prompt_cost_usd"] = total_token_usage.get(
-                "prompt_cost_usd", 0
-            ) + token_usage.get("prompt_cost_usd", 0)
-        if "completion_cost_usd" in token_usage:
-            total_token_usage["completion_cost_usd"] = total_token_usage.get(
-                "completion_cost_usd", 0
-            ) + token_usage.get("completion_cost_usd", 0)
-
-        analysis_timestamp = datetime.now()
-        json_result = {
-            "analysis_type": "asset_class_relationships",
-            "analysis_content": analysis_result.relationship_analysis,
-            "analysis_timestamp": analysis_timestamp.isoformat(),
-            "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
-            "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
-            "backtest_date": backtest_date,
-            "model_provider": config.model_provider,
-            "model_name": config.model_name,
-            "data_sources": {
-                "economy_state_table": "backtest_economy_state_analysis",
-                "market_data_table": "us_sector_summary_snapshot",
-                "correlation_data_table": "leading_econ_return_indicator_snapshot",
-                "commodity_data_tables": [
-                    "energy_commodities_summary_snapshot",
-                    "input_commodities_summary_snapshot",
-                    "agriculture_commodities_summary_snapshot",
-                ],
-            },
-            "dagster_run_id": context.run_id,
-            "dagster_asset_key": str(context.asset_key),
-        }
-
-        all_results.append(json_result)
 
     if (
         "total_cost_usd" not in total_token_usage
@@ -249,34 +343,38 @@ def backtest_analyze_asset_class_relationships(
         )
         total_token_usage.update(cost_data)
 
+    if len(all_results) == 0:
+        error_msg = f"No backtest dates were successfully processed. All {len(backtest_dates)} date(s) failed."
+        context.log.error(error_msg)
+        raise ValueError(error_msg)
+
     context.log.info(
-        f"Writing {len(all_results)} backtest asset class relationship analysis records to database..."
-    )
-    md.write_results_to_table(
-        all_results,
-        output_table="backtest_asset_class_relationship_analysis",
-        if_exists="append",
-        context=context,
+        f"Processed {len(successful_dates)} successful date(s), {len(failed_dates)} failed date(s). "
+        f"All successful results have been written to database."
     )
 
-    # Create summary metadata from first result
     first_result = all_results[0]
-    analysis_summary = extract_relationship_summary(first_result["analysis_content"])
+    analysis_content = first_result.get("analysis_content") or ""
+    analysis_summary = (
+        extract_relationship_summary(analysis_content) if analysis_content else {}
+    )
 
     result_metadata = {
-        "analysis_completed": True,
+        "analysis_completed": len(failed_dates) == 0,
         "analysis_timestamp": first_result["analysis_timestamp"],
         "backtest_dates_processed": backtest_dates,
+        "successful_dates": successful_dates,
+        "failed_dates": failed_dates,
         "num_dates_processed": len(backtest_dates),
+        "num_successful": len(successful_dates),
+        "num_failed": len(failed_dates),
         "model_provider": config.model_provider,
         "model_name": config.model_name,
         "output_table": "backtest_asset_class_relationship_analysis",
         "records_written": len(all_results),
         "data_sources": first_result["data_sources"],
         "analysis_summary": analysis_summary,
-        "analysis_preview": first_result["analysis_content"][:500]
-        if first_result["analysis_content"]
-        else "",
+        "analysis_preview": analysis_content[:500] if analysis_content else "",
         "token_usage": total_token_usage,
         "provider": economic_analysis._get_provider(),
     }
@@ -284,4 +382,20 @@ def backtest_analyze_asset_class_relationships(
     context.log.info(
         f"Backtest asset class relationship analysis complete: {result_metadata}"
     )
+
+    if len(failed_dates) > 0:
+        degraded_summary = (
+            f"Backtest completed with {len(failed_dates)} failure(s) out of {len(backtest_dates)} total date(s). "
+            f"Successful results have been saved. Asset status: DEGRADED (partial success)."
+        )
+        context.log.warning(degraded_summary)
+        result_metadata["status"] = "degraded"
+        result_metadata["degraded_reason"] = (
+            f"{len(failed_dates)} of {len(backtest_dates)} dates failed"
+        )
+        result_metadata["degraded_failed_dates"] = [f["date"] for f in failed_dates]
+        result_metadata["partial_success"] = True
+        return dg.MaterializeResult(metadata=result_metadata)
+
+    result_metadata["status"] = "success"
     return dg.MaterializeResult(metadata=result_metadata)

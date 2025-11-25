@@ -1434,6 +1434,9 @@ def extract_economy_state_summary(analysis_content: str) -> Dict[str, Any]:
     """Extract key insights from economy state analysis for metadata."""
     summary = {}
 
+    if not analysis_content:
+        return summary
+
     cycle_match = re.search(
         r"(?:Current Economic Cycle Position|Cycle Position|Economic Cycle):\s*([^.\n]+)",
         analysis_content,

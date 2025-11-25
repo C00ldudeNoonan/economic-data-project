@@ -340,6 +340,15 @@ def optimize_dspy_modules(
         model_name_override=config.model_name,
     )
 
+    from macro_agents.defs.agents.economy_state_analyzer import (
+        _get_token_usage,
+        _calculate_cost,
+    )
+
+    initial_history_length = (
+        len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
+    )
+
     results = {}
 
     personalities_to_test = []
@@ -704,7 +713,26 @@ def optimize_dspy_modules(
                         "error": str(e),
                     }
 
-    return dg.MaterializeResult(metadata={"optimization_results": results})
+    token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
+
+    if "total_cost_usd" not in token_usage or token_usage.get("total_cost_usd", 0) == 0:
+        provider = economic_analysis._get_provider()
+        model_name = economic_analysis._get_model_name()
+        cost_data = _calculate_cost(
+            provider=provider,
+            model_name=model_name,
+            prompt_tokens=token_usage.get("prompt_tokens", 0),
+            completion_tokens=token_usage.get("completion_tokens", 0),
+        )
+        token_usage.update(cost_data)
+
+    return dg.MaterializeResult(
+        metadata={
+            "optimization_results": results,
+            "token_usage": token_usage,
+            "provider": economic_analysis._get_provider(),
+        }
+    )
 
 
 @dg.asset(
