@@ -264,18 +264,44 @@ def backtest_generate_investment_recommendations(
                     )
 
             except Exception as e:
-                context.log.error(
-                    f"Error during LLM recommendations call for {backtest_date}: {str(e)}",
-                    exc_info=True,
-                )
-                if hasattr(economic_analysis, "_lm") and hasattr(
-                    economic_analysis._lm, "history"
-                ):
-                    recent_history = economic_analysis._lm.history[-3:]
-                    context.log.debug(
-                        f"LLM history at error (last 3 entries): {recent_history}"
+                error_msg = str(e)
+
+                if "temperature=0.0" in error_msg and "gpt-5" in error_msg.lower():
+                    context.log.error(
+                        f"gpt-5 model compatibility error for {backtest_date}: {error_msg}. "
+                        f"gpt-5 models only support temperature=1.0. "
+                        f"Consider using a different model or setting litellm.drop_params = True."
                     )
-                raise
+                    raise ValueError(
+                        f"gpt-5 model compatibility error: {error_msg}. "
+                        f"Please use a model that supports temperature=0.0 or configure litellm.drop_params = True."
+                    ) from e
+                elif (
+                    "response_format" in error_msg.lower()
+                    or "structured output" in error_msg.lower()
+                    or "JSON mode" in error_msg.lower()
+                ):
+                    context.log.error(
+                        f"Structured output format error for {backtest_date}: {error_msg}. "
+                        f"Model may not support required response format features."
+                    )
+                    raise ValueError(
+                        f"Model compatibility error: {error_msg}. "
+                        f"Please use a model that supports structured output format."
+                    ) from e
+                else:
+                    context.log.error(
+                        f"Error during LLM recommendations call for {backtest_date}: {error_msg}",
+                        exc_info=True,
+                    )
+                    if hasattr(economic_analysis, "_lm") and hasattr(
+                        economic_analysis._lm, "history"
+                    ):
+                        recent_history = economic_analysis._lm.history[-3:]
+                        context.log.debug(
+                            f"LLM history at error (last 3 entries): {recent_history}"
+                        )
+                    raise
 
             token_usage = _get_token_usage(
                 economic_analysis, initial_history_length, context

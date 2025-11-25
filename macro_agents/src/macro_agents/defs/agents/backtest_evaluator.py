@@ -157,6 +157,7 @@ def evaluate_backtest_recommendations(
         WHERE backtest_date = '{backtest_date}'
             AND model_provider = '{config.model_provider}'
             AND model_name = '{config.model_name}'
+            AND personality = '{config.personality}'
         ORDER BY analysis_timestamp DESC
         LIMIT 1
         """
@@ -165,15 +166,23 @@ def evaluate_backtest_recommendations(
         if df.is_empty():
             context.log.warning(
                 f"No backtest recommendations found for {backtest_date} "
-                f"with provider {config.model_provider} and model {config.model_name}, skipping..."
+                f"with provider {config.model_provider}, model {config.model_name}, "
+                f"and personality {config.personality}, skipping..."
             )
             continue
 
         recommendations_content = df[0, "recommendations_content"]
-        # Use personality from database if available, otherwise fall back to config
-        personality = (
-            df[0, "personality"] if "personality" in df.columns else config.personality
+        stored_personality = (
+            df[0, "personality"] if "personality" in df.columns else None
         )
+
+        if stored_personality and stored_personality != config.personality:
+            context.log.warning(
+                f"Personality mismatch for {backtest_date}: stored={stored_personality}, "
+                f"config={config.personality}. Using config personality."
+            )
+
+        personality = config.personality
 
         recommendations = extract_recommendations(recommendations_content)
         context.log.info(
@@ -415,7 +424,7 @@ def evaluate_backtest_recommendations(
         "num_dates_processed": len(backtest_dates),
         "model_provider": config.model_provider,
         "model_name": config.model_name,
-        "personality": first_result["personality"],
+        "personality": config.personality,
         "total_recommendations": sum(r["total_recommendations"] for r in all_results),
         "hits_1m": total_hits_1m,
         "misses_1m": total_misses_1m,

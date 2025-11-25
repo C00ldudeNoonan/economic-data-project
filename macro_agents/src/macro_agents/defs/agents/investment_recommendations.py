@@ -309,11 +309,39 @@ def generate_investment_recommendations(
     context.log.info(
         f"Generating investment recommendations (personality: {config.personality})..."
     )
-    recommendations_result = recommendations_generator(
-        economy_state_analysis=economy_state_analysis,
-        asset_class_relationship_analysis=relationship_analysis,
-        personality=config.personality,
-    )
+    try:
+        recommendations_result = recommendations_generator(
+            economy_state_analysis=economy_state_analysis,
+            asset_class_relationship_analysis=relationship_analysis,
+            personality=config.personality,
+        )
+    except Exception as e:
+        error_msg = str(e)
+        if "temperature=0.0" in error_msg and "gpt-5" in error_msg.lower():
+            context.log.error(
+                f"gpt-5 model compatibility error: {error_msg}. "
+                f"gpt-5 models only support temperature=1.0. "
+                f"Consider using a different model or setting litellm.drop_params = True."
+            )
+            raise ValueError(
+                f"gpt-5 model compatibility error: {error_msg}. "
+                f"Please use a model that supports temperature=0.0 or configure litellm.drop_params = True."
+            ) from e
+        elif (
+            "response_format" in error_msg.lower()
+            or "structured output" in error_msg.lower()
+            or "JSON mode" in error_msg.lower()
+        ):
+            context.log.error(
+                f"Structured output format error: {error_msg}. "
+                f"Model may not support required response format features."
+            )
+            raise ValueError(
+                f"Model compatibility error: {error_msg}. "
+                f"Please use a model that supports structured output format."
+            ) from e
+        else:
+            raise
 
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 

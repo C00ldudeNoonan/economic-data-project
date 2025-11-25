@@ -110,6 +110,8 @@ def backtest_analyze_asset_class_relationships(
     from macro_agents.defs.agents.economy_state_analyzer import (
         _get_token_usage,
         _calculate_cost,
+        _estimate_tokens,
+        _check_rate_limit,
     )
 
     provider = economic_analysis._get_provider()
@@ -148,29 +150,91 @@ def backtest_analyze_asset_class_relationships(
                     f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_economy_state first."
                 )
 
-            context.log.info("Gathering market performance data with cutoff date...")
-            market_data = economic_analysis.get_market_data(
-                md, cutoff_date=backtest_date
-            )
-
-            context.log.info("Gathering correlation data with cutoff date...")
-            try:
-                correlation_data = economic_analysis.get_correlation_data(
+            if config.token_optimization:
+                context.log.info(
+                    "Gathering market performance data with cutoff date (with token optimization)..."
+                )
+                market_data = economic_analysis.get_market_data(
                     md,
-                    sample_size=100,
-                    sampling_strategy="top_correlations",
                     cutoff_date=backtest_date,
+                    max_assets=20,
+                    time_periods=["6_months"],
                 )
-            except Exception as e:
-                context.log.warning(
-                    f"Could not retrieve correlation data: {e}. Continuing without it."
-                )
-                correlation_data = ""
 
-            context.log.info("Gathering commodity data with cutoff date...")
-            commodity_data = economic_analysis.get_commodity_data(
-                md, cutoff_date=backtest_date
+                context.log.info(
+                    "Gathering correlation data with cutoff date (with token optimization)..."
+                )
+                try:
+                    correlation_data = economic_analysis.get_correlation_data(
+                        md,
+                        sample_size=50,
+                        sampling_strategy="top_correlations",
+                        cutoff_date=backtest_date,
+                    )
+                except Exception as e:
+                    context.log.warning(
+                        f"Could not retrieve correlation data: {e}. Continuing without it."
+                    )
+                    correlation_data = ""
+
+                context.log.info(
+                    "Gathering commodity data with cutoff date (with token optimization)..."
+                )
+                commodity_data = economic_analysis.get_commodity_data(
+                    md,
+                    cutoff_date=backtest_date,
+                    max_commodities=15,
+                    time_periods=["6_months"],
+                )
+            else:
+                context.log.info(
+                    "Gathering market performance data with cutoff date (full data, no token optimization)..."
+                )
+                market_data = economic_analysis.get_market_data(
+                    md, cutoff_date=backtest_date
+                )
+
+                context.log.info(
+                    "Gathering correlation data with cutoff date (full data, no token optimization)..."
+                )
+                try:
+                    correlation_data = economic_analysis.get_correlation_data(
+                        md,
+                        sample_size=100,
+                        sampling_strategy="top_correlations",
+                        cutoff_date=backtest_date,
+                    )
+                except Exception as e:
+                    context.log.warning(
+                        f"Could not retrieve correlation data: {e}. Continuing without it."
+                    )
+                    correlation_data = ""
+
+                context.log.info(
+                    "Gathering commodity data with cutoff date (full data, no token optimization)..."
+                )
+                commodity_data = economic_analysis.get_commodity_data(
+                    md, cutoff_date=backtest_date
+                )
+
+            provider = economic_analysis._get_provider()
+            model_name = economic_analysis._get_model_name()
+
+            combined_input = (
+                economy_state_analysis
+                + "\n"
+                + market_data
+                + "\n"
+                + correlation_data
+                + "\n"
+                + commodity_data
             )
+            estimated_tokens = _estimate_tokens(combined_input)
+            context.log.info(
+                f"Estimated input tokens for {backtest_date}: {estimated_tokens}. "
+                f"Checking rate limits for {provider}/{model_name}..."
+            )
+            _check_rate_limit(provider, model_name, estimated_tokens, context)
 
             context.log.info(
                 "Running asset class relationship analysis with historical data..."
@@ -238,18 +302,44 @@ def backtest_analyze_asset_class_relationships(
                     )
 
             except Exception as e:
-                context.log.error(
-                    f"Error during LLM analysis call for {backtest_date}: {str(e)}",
-                    exc_info=True,
-                )
-                if hasattr(economic_analysis, "_lm") and hasattr(
-                    economic_analysis._lm, "history"
-                ):
-                    recent_history = economic_analysis._lm.history[-3:]
-                    context.log.debug(
-                        f"LLM history at error (last 3 entries): {recent_history}"
+                error_msg = str(e)
+
+                if "temperature=0.0" in error_msg and "gpt-5" in error_msg.lower():
+                    context.log.error(
+                        f"gpt-5 model compatibility error for {backtest_date}: {error_msg}. "
+                        f"gpt-5 models only support temperature=1.0. "
+                        f"Consider using a different model or setting litellm.drop_params = True."
                     )
-                raise
+                    raise ValueError(
+                        f"gpt-5 model compatibility error: {error_msg}. "
+                        f"Please use a model that supports temperature=0.0 or configure litellm.drop_params = True."
+                    ) from e
+                elif (
+                    "response_format" in error_msg.lower()
+                    or "structured output" in error_msg.lower()
+                    or "JSON mode" in error_msg.lower()
+                ):
+                    context.log.error(
+                        f"Structured output format error for {backtest_date}: {error_msg}. "
+                        f"Model may not support required response format features."
+                    )
+                    raise ValueError(
+                        f"Model compatibility error: {error_msg}. "
+                        f"Please use a model that supports structured output format."
+                    ) from e
+                else:
+                    context.log.error(
+                        f"Error during LLM analysis call for {backtest_date}: {error_msg}",
+                        exc_info=True,
+                    )
+                    if hasattr(economic_analysis, "_lm") and hasattr(
+                        economic_analysis._lm, "history"
+                    ):
+                        recent_history = economic_analysis._lm.history[-3:]
+                        context.log.debug(
+                            f"LLM history at error (last 3 entries): {recent_history}"
+                        )
+                    raise
 
             token_usage = _get_token_usage(
                 economic_analysis, initial_history_length, context
