@@ -246,6 +246,12 @@ def generate_investment_recommendations(
         f"Starting investment recommendations generation (personality: {config.personality})..."
     )
 
+    economic_analysis.setup_for_execution(
+        context,
+        provider_override=config.model_provider,
+        model_name_override=config.model_name,
+    )
+
     context.log.info("Retrieving latest economy state analysis...")
     economy_state_analysis = get_latest_economy_state_analysis(md)
 
@@ -286,7 +292,10 @@ def generate_investment_recommendations(
             personality=config.personality
         )
 
-    from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
+    from macro_agents.defs.agents.economy_state_analyzer import (
+        _get_token_usage,
+        _calculate_cost,
+    )
 
     initial_history_length = (
         len(economic_analysis._lm.history) if hasattr(economic_analysis, "_lm") else 0
@@ -303,12 +312,23 @@ def generate_investment_recommendations(
 
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
+    if "total_cost_usd" not in token_usage or token_usage.get("total_cost_usd", 0) == 0:
+        provider = economic_analysis._get_provider()
+        model_name = economic_analysis._get_model_name()
+        cost_data = _calculate_cost(
+            provider=provider,
+            model_name=model_name,
+            prompt_tokens=token_usage.get("prompt_tokens", 0),
+            completion_tokens=token_usage.get("completion_tokens", 0),
+        )
+        token_usage.update(cost_data)
+
     analysis_timestamp = datetime.now()
     result = {
         "analysis_timestamp": analysis_timestamp.isoformat(),
         "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
         "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
-        "model_name": economic_analysis.model_name,
+        "model_name": economic_analysis._get_model_name(),
         "personality": config.personality,
         "recommendations_content": recommendations_result.recommendations,
         "data_sources": {

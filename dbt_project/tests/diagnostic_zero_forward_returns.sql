@@ -23,15 +23,14 @@
         pct_change_q2_forward,
         pct_change_q3_forward,
         pct_change_q4_forward,
-        -- Calculate what the forward price would need to be for 0% return
         quarterly_avg_close as expected_forward_price_for_zero_return
     FROM {{ ref(model) }}
     WHERE pct_change_q1_forward = 0 
         AND quarterly_avg_close > 0
-    ORDER BY model_name, symbol, exchange, month_date
-    
     {% if not loop.last %}
     UNION ALL
     {% endif %}
 {% endfor %}
+
+ORDER BY model_name, symbol, exchange, month_date
 

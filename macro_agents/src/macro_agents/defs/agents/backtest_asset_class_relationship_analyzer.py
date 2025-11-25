@@ -107,7 +107,13 @@ def backtest_analyze_asset_class_relationships(
     if relationship_analyzer is None:
         relationship_analyzer = AssetClassRelationshipModule()
 
-    from macro_agents.defs.agents.economy_state_analyzer import _get_token_usage
+    from macro_agents.defs.agents.economy_state_analyzer import (
+        _get_token_usage,
+        _calculate_cost,
+    )
+
+    provider = economic_analysis._get_provider()
+    model_name = economic_analysis._get_model_name()
 
     # Process each date
     all_results = []
@@ -174,11 +180,36 @@ def backtest_analyze_asset_class_relationships(
         token_usage = _get_token_usage(
             economic_analysis, initial_history_length, context
         )
+
+        if (
+            "total_cost_usd" not in token_usage
+            or token_usage.get("total_cost_usd", 0) == 0
+        ):
+            cost_data = _calculate_cost(
+                provider=provider,
+                model_name=model_name,
+                prompt_tokens=token_usage.get("prompt_tokens", 0),
+                completion_tokens=token_usage.get("completion_tokens", 0),
+            )
+            token_usage.update(cost_data)
+
         total_token_usage["prompt_tokens"] += token_usage.get("prompt_tokens", 0)
         total_token_usage["completion_tokens"] += token_usage.get(
             "completion_tokens", 0
         )
         total_token_usage["total_tokens"] += token_usage.get("total_tokens", 0)
+        if "total_cost_usd" in token_usage:
+            total_token_usage["total_cost_usd"] = total_token_usage.get(
+                "total_cost_usd", 0
+            ) + token_usage.get("total_cost_usd", 0)
+        if "prompt_cost_usd" in token_usage:
+            total_token_usage["prompt_cost_usd"] = total_token_usage.get(
+                "prompt_cost_usd", 0
+            ) + token_usage.get("prompt_cost_usd", 0)
+        if "completion_cost_usd" in token_usage:
+            total_token_usage["completion_cost_usd"] = total_token_usage.get(
+                "completion_cost_usd", 0
+            ) + token_usage.get("completion_cost_usd", 0)
 
         analysis_timestamp = datetime.now()
         json_result = {
@@ -205,6 +236,18 @@ def backtest_analyze_asset_class_relationships(
         }
 
         all_results.append(json_result)
+
+    if (
+        "total_cost_usd" not in total_token_usage
+        or total_token_usage.get("total_cost_usd", 0) == 0
+    ):
+        cost_data = _calculate_cost(
+            provider=provider,
+            model_name=model_name,
+            prompt_tokens=total_token_usage.get("prompt_tokens", 0),
+            completion_tokens=total_token_usage.get("completion_tokens", 0),
+        )
+        total_token_usage.update(cost_data)
 
     context.log.info(
         f"Writing {len(all_results)} backtest asset class relationship analysis records to database..."

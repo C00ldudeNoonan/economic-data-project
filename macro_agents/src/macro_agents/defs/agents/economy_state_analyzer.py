@@ -5,6 +5,7 @@ import dagster as dg
 from pydantic import Field
 import re
 import os
+import io
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.resources.gcs import GCSResource
@@ -16,6 +17,14 @@ class EconomicAnalysisConfig(dg.Config):
     personality: str = Field(
         default="skeptical",
         description="Analytical personality: 'skeptical' (default, bearish), 'neutral' (balanced), or 'bullish' (optimistic)",
+    )
+    model_provider: Optional[str] = Field(
+        default=None,
+        description="LLM provider override: 'openai', 'anthropic', or 'gemini'. If not provided, uses resource default or LLM_PROVIDER env var.",
+    )
+    model_name: Optional[str] = Field(
+        default=None,
+        description="LLM model name override (e.g., 'gpt-4-turbo-preview', 'claude-3-5-haiku-20241022', 'gemini-2.0-flash-exp'). If not provided, uses resource default or MODEL_NAME env var.",
     )
 
 
@@ -235,6 +244,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             )
 
         self._provider = provider
+        self._model_name = model_name_val
 
         lm = dspy.LM(model=model_str, api_key=api_key)
         dspy.settings.configure(lm=lm)
@@ -245,6 +255,12 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
     def _get_provider(self) -> str:
         """Get the current LLM provider (resolved value, not the Field)."""
         return getattr(self, "_provider", getattr(self, "provider", "openai"))
+
+    def _get_model_name(self) -> str:
+        """Get the current model name (resolved value, not the Field)."""
+        return getattr(
+            self, "_model_name", getattr(self, "model_name", "gpt-4-turbo-preview")
+        )
 
     @property
     def economy_state_analyzer(self):
@@ -467,8 +483,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             """
 
         df = md_resource.execute_query(query)
-        csv_buffer = df.write_csv()
-        return csv_buffer
+        csv_buffer = io.BytesIO()
+        df.write_csv(csv_buffer)
+        return csv_buffer.getvalue().decode("utf-8")
 
     def get_market_data(
         self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
@@ -600,8 +617,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             """
 
         df = md_resource.execute_query(query)
-        csv_buffer = df.write_csv()
-        return csv_buffer
+        csv_buffer = io.BytesIO()
+        df.write_csv(csv_buffer)
+        return csv_buffer.getvalue().decode("utf-8")
 
     def get_financial_conditions_index(
         self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
@@ -640,10 +658,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             """
 
         df = md_resource.execute_query(query, read_only=True)
-
-        df = md_resource.execute_query(query, read_only=True)
-        csv_buffer = df.write_csv()
-        return csv_buffer
+        csv_buffer = io.BytesIO()
+        df.write_csv(csv_buffer)
+        return csv_buffer.getvalue().decode("utf-8")
 
     def get_commodity_data(
         self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
@@ -820,8 +837,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
             """
 
         df = md_resource.execute_query(query)
-        csv_buffer = df.write_csv()
-        return csv_buffer
+        csv_buffer = io.BytesIO()
+        df.write_csv(csv_buffer)
+        return csv_buffer.getvalue().decode("utf-8")
 
     def get_correlation_data(
         self,
@@ -889,7 +907,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                         LIMIT {sample_size}
                         """
                     df = md_resource.execute_query(query)
-                    return df.write_csv()
+                    csv_buffer = io.StringIO()
+                    df.write_csv(csv_buffer)
+                    return csv_buffer.getvalue()
                 except Exception:
                     return ""
         else:
@@ -913,7 +933,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                 LIMIT {sample_size}
                 """
                 df = md_resource.execute_query(query)
-                return df.write_csv()
+                csv_buffer = io.StringIO()
+                df.write_csv(csv_buffer)
+                return csv_buffer.getvalue()
 
     def get_housing_data(
         self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
@@ -991,8 +1013,17 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         mortgage_df = md_resource.execute_query(mortgage_query, read_only=True)
 
         # Combine into single CSV
-        inventory_csv = inventory_df.write_csv() if not inventory_df.is_empty() else ""
-        mortgage_csv = mortgage_df.write_csv() if not mortgage_df.is_empty() else ""
+        inventory_csv = ""
+        if not inventory_df.is_empty():
+            csv_buffer = io.BytesIO()
+            inventory_df.write_csv(csv_buffer)
+            inventory_csv = csv_buffer.getvalue().decode("utf-8")
+
+        mortgage_csv = ""
+        if not mortgage_df.is_empty():
+            csv_buffer = io.BytesIO()
+            mortgage_df.write_csv(csv_buffer)
+            mortgage_csv = csv_buffer.getvalue().decode("utf-8")
 
         # Combine with separator
         if inventory_csv and mortgage_csv:
@@ -1078,7 +1109,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         df = md_resource.execute_query(query, read_only=True)
         if df.is_empty():
             return ""
-        return df.write_csv()
+        csv_buffer = io.BytesIO()
+        df.write_csv(csv_buffer)
+        return csv_buffer.getvalue().decode("utf-8")
 
     def get_economic_trends(
         self, md_resource: MotherDuckResource, cutoff_date: Optional[str] = None
@@ -1123,7 +1156,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         df = md_resource.execute_query(query, read_only=True)
         if df.is_empty():
             return ""
-        return df.write_csv()
+        csv_buffer = io.BytesIO()
+        df.write_csv(csv_buffer)
+        return csv_buffer.getvalue().decode("utf-8")
 
 
 def _get_token_usage(
@@ -1132,9 +1167,10 @@ def _get_token_usage(
     context: dg.AssetExecutionContext,
 ) -> Dict[str, Any]:
     """
-    Extract token usage from DSPy LM history.
+    Extract token usage and cost from DSPy LM history.
 
-    Returns dictionary with prompt_tokens, completion_tokens, and total_tokens.
+    Returns dictionary with prompt_tokens, completion_tokens, total_tokens,
+    and cost information (if available from API, otherwise calculated).
     """
     token_usage = {
         "prompt_tokens": 0,
@@ -1143,23 +1179,143 @@ def _get_token_usage(
     }
 
     if not hasattr(economic_analysis, "_lm"):
+        context.log.warning("LM object not found, cannot track token usage")
         return token_usage
 
     try:
         lm = economic_analysis._lm
-        history = lm.history
 
-        new_entries = history[initial_history_length:]
+        if hasattr(lm, "usage") and lm.usage:
+            usage = lm.usage
+            if isinstance(usage, dict):
+                token_usage["prompt_tokens"] = usage.get("prompt_tokens", 0)
+                token_usage["completion_tokens"] = usage.get("completion_tokens", 0)
+                token_usage["total_tokens"] = usage.get("total_tokens", 0)
+                if "cost" in usage or "total_cost" in usage or "cost_usd" in usage:
+                    token_usage["total_cost_usd"] = usage.get(
+                        "cost", usage.get("total_cost", usage.get("cost_usd", 0))
+                    )
+                if "prompt_cost" in usage or "prompt_cost_usd" in usage:
+                    token_usage["prompt_cost_usd"] = usage.get(
+                        "prompt_cost", usage.get("prompt_cost_usd", 0)
+                    )
+                if "completion_cost" in usage or "completion_cost_usd" in usage:
+                    token_usage["completion_cost_usd"] = usage.get(
+                        "completion_cost", usage.get("completion_cost_usd", 0)
+                    )
+            elif hasattr(usage, "prompt_tokens"):
+                token_usage["prompt_tokens"] = getattr(usage, "prompt_tokens", 0)
+                token_usage["completion_tokens"] = getattr(
+                    usage, "completion_tokens", 0
+                )
+                token_usage["total_tokens"] = getattr(usage, "total_tokens", 0)
+                if (
+                    hasattr(usage, "cost")
+                    or hasattr(usage, "total_cost")
+                    or hasattr(usage, "cost_usd")
+                ):
+                    token_usage["total_cost_usd"] = getattr(
+                        usage,
+                        "cost",
+                        getattr(usage, "total_cost", getattr(usage, "cost_usd", 0)),
+                    )
+                if hasattr(usage, "prompt_cost") or hasattr(usage, "prompt_cost_usd"):
+                    token_usage["prompt_cost_usd"] = getattr(
+                        usage, "prompt_cost", getattr(usage, "prompt_cost_usd", 0)
+                    )
+                if hasattr(usage, "completion_cost") or hasattr(
+                    usage, "completion_cost_usd"
+                ):
+                    token_usage["completion_cost_usd"] = getattr(
+                        usage,
+                        "completion_cost",
+                        getattr(usage, "completion_cost_usd", 0),
+                    )
 
-        for entry in new_entries:
-            if hasattr(entry, "prompt_tokens"):
-                token_usage["prompt_tokens"] += entry.prompt_tokens
-            if hasattr(entry, "completion_tokens"):
-                token_usage["completion_tokens"] += entry.completion_tokens
-            elif hasattr(entry, "response"):
-                if hasattr(lm, "tokenizer"):
+            if token_usage["total_tokens"] > 0:
+                context.log.info(f"Token usage from lm.usage: {token_usage}")
+                return token_usage
+
+        if hasattr(lm, "get_token_count"):
+            try:
+                actual_counts = lm.get_token_count()
+                if actual_counts:
+                    if isinstance(actual_counts, dict):
+                        token_usage.update(actual_counts)
+                    else:
+                        token_usage["total_tokens"] = actual_counts
+                    if token_usage["total_tokens"] > 0:
+                        context.log.info(
+                            f"Token usage from get_token_count: {token_usage}"
+                        )
+                        return token_usage
+            except Exception as e:
+                context.log.debug(f"get_token_count failed: {e}")
+
+        if hasattr(lm, "history"):
+            history = lm.history
+            new_entries = (
+                history[initial_history_length:]
+                if len(history) > initial_history_length
+                else []
+            )
+
+            for entry in new_entries:
+                if isinstance(entry, dict):
+                    if "usage" in entry:
+                        usage = entry["usage"]
+                        if isinstance(usage, dict):
+                            token_usage["prompt_tokens"] += usage.get(
+                                "prompt_tokens", 0
+                            )
+                            token_usage["completion_tokens"] += usage.get(
+                                "completion_tokens", 0
+                            )
+                            token_usage["total_tokens"] += usage.get("total_tokens", 0)
+                            if (
+                                "cost" in usage
+                                or "total_cost" in usage
+                                or "cost_usd" in usage
+                            ):
+                                token_usage["total_cost_usd"] = token_usage.get(
+                                    "total_cost_usd", 0
+                                ) + usage.get(
+                                    "cost",
+                                    usage.get("total_cost", usage.get("cost_usd", 0)),
+                                )
+                            if "prompt_cost" in usage or "prompt_cost_usd" in usage:
+                                token_usage["prompt_cost_usd"] = token_usage.get(
+                                    "prompt_cost_usd", 0
+                                ) + usage.get(
+                                    "prompt_cost", usage.get("prompt_cost_usd", 0)
+                                )
+                            if (
+                                "completion_cost" in usage
+                                or "completion_cost_usd" in usage
+                            ):
+                                token_usage["completion_cost_usd"] = token_usage.get(
+                                    "completion_cost_usd", 0
+                                ) + usage.get(
+                                    "completion_cost",
+                                    usage.get("completion_cost_usd", 0),
+                                )
+                    elif "prompt_tokens" in entry:
+                        token_usage["prompt_tokens"] += entry.get("prompt_tokens", 0)
+                    elif "completion_tokens" in entry:
+                        token_usage["completion_tokens"] += entry.get(
+                            "completion_tokens", 0
+                        )
+                elif hasattr(entry, "prompt_tokens"):
+                    token_usage["prompt_tokens"] += getattr(entry, "prompt_tokens", 0)
+                if hasattr(entry, "completion_tokens"):
+                    token_usage["completion_tokens"] += getattr(
+                        entry, "completion_tokens", 0
+                    )
+                elif isinstance(entry, dict) and "response" in entry:
                     try:
-                        prompt_text = str(entry.get("messages", ""))
+                        prompt_text = str(
+                            entry.get("messages", entry.get("prompt", ""))
+                        )
                         response_text = str(entry.get("response", ""))
                         token_usage["prompt_tokens"] += len(prompt_text) // 4
                         token_usage["completion_tokens"] += len(response_text) // 4
@@ -1170,31 +1326,108 @@ def _get_token_usage(
                 token_usage["prompt_tokens"] + token_usage["completion_tokens"]
             )
 
-        if hasattr(lm, "get_token_count"):
-            try:
-                actual_counts = lm.get_token_count()
-                if actual_counts:
-                    token_usage.update(actual_counts)
-            except Exception:
-                pass
+            if token_usage["total_tokens"] > 0:
+                context.log.info(f"Token usage from history: {token_usage}")
+                return token_usage
 
-        if hasattr(lm, "usage"):
-            usage = lm.usage
-            if usage:
-                token_usage["prompt_tokens"] = usage.get(
-                    "prompt_tokens", token_usage["prompt_tokens"]
-                )
-                token_usage["completion_tokens"] = usage.get(
-                    "completion_tokens", token_usage["completion_tokens"]
-                )
-                token_usage["total_tokens"] = usage.get(
-                    "total_tokens", token_usage["total_tokens"]
-                )
+        if hasattr(lm, "client") and hasattr(lm.client, "usage"):
+            try:
+                client_usage = lm.client.usage
+                if client_usage:
+                    if isinstance(client_usage, dict):
+                        token_usage.update(client_usage)
+                    elif hasattr(client_usage, "prompt_tokens"):
+                        token_usage["prompt_tokens"] = getattr(
+                            client_usage, "prompt_tokens", 0
+                        )
+                        token_usage["completion_tokens"] = getattr(
+                            client_usage, "completion_tokens", 0
+                        )
+                        token_usage["total_tokens"] = getattr(
+                            client_usage, "total_tokens", 0
+                        )
+                    if token_usage["total_tokens"] > 0:
+                        context.log.info(
+                            f"Token usage from client.usage: {token_usage}"
+                        )
+                        return token_usage
+            except Exception as e:
+                context.log.debug(f"client.usage access failed: {e}")
+
+        if token_usage["total_tokens"] == 0:
+            context.log.warning(
+                f"Could not extract token usage. History length: {len(history) if hasattr(lm, 'history') else 'N/A'}, "
+                f"Initial length: {initial_history_length}, LM type: {type(lm)}"
+            )
 
     except Exception as e:
-        context.log.warning(f"Could not extract token usage: {e}")
+        context.log.warning(f"Could not extract token usage: {e}", exc_info=True)
 
     return token_usage
+
+
+def _calculate_cost(
+    provider: str,
+    model_name: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+) -> Dict[str, float]:
+    """
+    Calculate cost based on provider, model, and token usage.
+
+    Pricing per 1M tokens (as of 2024-2025):
+    - OpenAI: https://openai.com/api/pricing/
+    - Anthropic: https://www.anthropic.com/pricing
+    - Gemini: https://ai.google.dev/pricing
+
+    Returns dictionary with prompt_cost, completion_cost, and total_cost in USD.
+    """
+    pricing = {
+        "openai": {
+            "gpt-4-turbo-preview": {"prompt": 10.0, "completion": 30.0},
+            "gpt-4-turbo": {"prompt": 10.0, "completion": 30.0},
+            "gpt-4": {"prompt": 30.0, "completion": 60.0},
+            "gpt-4o": {"prompt": 5.0, "completion": 15.0},
+            "gpt-4o-mini": {"prompt": 0.15, "completion": 0.6},
+            "gpt-3.5-turbo": {"prompt": 0.5, "completion": 1.5},
+            "default": {"prompt": 10.0, "completion": 30.0},
+        },
+        "anthropic": {
+            "claude-3-5-opus-20241022": {"prompt": 15.0, "completion": 75.0},
+            "claude-3-5-sonnet-20241022": {"prompt": 3.0, "completion": 15.0},
+            "claude-3-5-haiku-20241022": {"prompt": 1.0, "completion": 5.0},
+            "claude-3-opus-20240229": {"prompt": 15.0, "completion": 75.0},
+            "claude-3-sonnet-20240229": {"prompt": 3.0, "completion": 15.0},
+            "claude-3-haiku-20240307": {"prompt": 0.25, "completion": 1.25},
+            "default": {"prompt": 3.0, "completion": 15.0},
+        },
+        "gemini": {
+            "gemini-2.0-flash-exp": {"prompt": 0.075, "completion": 0.3},
+            "gemini-1.5-pro": {"prompt": 1.25, "completion": 5.0},
+            "gemini-1.5-flash": {"prompt": 0.075, "completion": 0.3},
+            "gemini-3-pro-preview": {"prompt": 1.25, "completion": 5.0},
+            "default": {"prompt": 0.075, "completion": 0.3},
+        },
+    }
+
+    provider_pricing = pricing.get(provider.lower(), {})
+    model_pricing = provider_pricing.get(
+        model_name.lower(),
+        provider_pricing.get("default", {"prompt": 1.0, "completion": 2.0}),
+    )
+
+    prompt_cost_per_million = model_pricing["prompt"]
+    completion_cost_per_million = model_pricing["completion"]
+
+    prompt_cost = (prompt_tokens / 1_000_000) * prompt_cost_per_million
+    completion_cost = (completion_tokens / 1_000_000) * completion_cost_per_million
+    total_cost = prompt_cost + completion_cost
+
+    return {
+        "prompt_cost_usd": round(prompt_cost, 6),
+        "completion_cost_usd": round(completion_cost, 6),
+        "total_cost_usd": round(total_cost, 6),
+    }
 
 
 def extract_economy_state_summary(analysis_content: str) -> Dict[str, Any]:
@@ -1286,6 +1519,12 @@ def analyze_economy_state(
         f"Starting economy state analysis (personality: {config.personality})..."
     )
 
+    economic_analysis.setup_for_execution(
+        context,
+        provider_override=config.model_provider,
+        model_name_override=config.model_name,
+    )
+
     context.log.info("Gathering economic data...")
     economic_data = economic_analysis.get_economic_data(md)
 
@@ -1339,12 +1578,23 @@ def analyze_economy_state(
 
     token_usage = _get_token_usage(economic_analysis, initial_history_length, context)
 
+    if "total_cost_usd" not in token_usage or token_usage.get("total_cost_usd", 0) == 0:
+        provider = economic_analysis._get_provider()
+        model_name = economic_analysis._get_model_name()
+        cost_data = _calculate_cost(
+            provider=provider,
+            model_name=model_name,
+            prompt_tokens=token_usage.get("prompt_tokens", 0),
+            completion_tokens=token_usage.get("completion_tokens", 0),
+        )
+        token_usage.update(cost_data)
+
     analysis_timestamp = datetime.now()
     result = {
         "analysis_timestamp": analysis_timestamp.isoformat(),
         "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
         "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
-        "model_name": economic_analysis.model_name,
+        "model_name": economic_analysis._get_model_name(),
         "personality": config.personality,
         "analysis_content": analysis_result.analysis,
         "data_sources": {

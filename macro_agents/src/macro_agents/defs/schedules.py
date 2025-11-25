@@ -159,7 +159,31 @@ def create_scheduled_jobs():
             "analyze_asset_class_relationships",
             "generate_investment_recommendations",
         ],
-        description="Monthly economic analysis pipeline (skeptical/bearish personality): economy state -> asset relationships -> recommendations. Provide config with personality='skeptical' at runtime.",
+        description="""Monthly economic analysis pipeline (skeptical/bearish personality): economy state -> asset relationships -> recommendations.
+
+        Configuration (provide at runtime via launchpad):
+        - personality: 'skeptical' (required)
+        - model_provider: Optional LLM provider override ('openai', 'anthropic', 'gemini'). Defaults to resource/env var.
+        - model_name: Optional LLM model name override (e.g., 'gpt-4-turbo-preview', 'claude-3-5-haiku-20241022'). Defaults to resource/env var.
+
+        Example config:
+        ```yaml
+        ops:
+          analyze_economy_state:
+            config:
+              personality: "skeptical"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+          analyze_asset_class_relationships:
+            config:
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+          generate_investment_recommendations:
+            config:
+              personality: "skeptical"
+              model_provider: "anthropic"
+              model_name: "claude-3-5-haiku-20241022"
+        ```""",
     )
 
     monthly_economic_analysis_job_neutral = dg.define_asset_job(
@@ -169,7 +193,31 @@ def create_scheduled_jobs():
             "analyze_asset_class_relationships",
             "generate_investment_recommendations",
         ],
-        description="Monthly economic analysis pipeline (neutral personality): economy state -> asset relationships -> recommendations. Provide config with personality='neutral' at runtime.",
+        description="""Monthly economic analysis pipeline (neutral personality): economy state -> asset relationships -> recommendations.
+
+        Configuration (provide at runtime via launchpad):
+        - personality: 'neutral' (required)
+        - model_provider: Optional LLM provider override ('openai', 'anthropic', 'gemini'). Defaults to resource/env var.
+        - model_name: Optional LLM model name override (e.g., 'gpt-4-turbo-preview', 'claude-3-5-haiku-20241022'). Defaults to resource/env var.
+
+        Example config:
+        ```yaml
+        ops:
+          analyze_economy_state:
+            config:
+              personality: "neutral"
+              model_provider: "openai"
+              model_name: "gpt-4-turbo-preview"
+          analyze_asset_class_relationships:
+            config:
+              model_provider: "openai"
+              model_name: "gpt-4-turbo-preview"
+          generate_investment_recommendations:
+            config:
+              personality: "neutral"
+              model_provider: "openai"
+              model_name: "gpt-4-turbo-preview"
+        ```""",
     )
 
     monthly_economic_analysis_job_bullish = dg.define_asset_job(
@@ -179,13 +227,95 @@ def create_scheduled_jobs():
             "analyze_asset_class_relationships",
             "generate_investment_recommendations",
         ],
-        description="Monthly economic analysis pipeline (bullish/optimistic personality): economy state -> asset relationships -> recommendations. Provide config with personality='bullish' at runtime.",
+        description="""Monthly economic analysis pipeline (bullish/optimistic personality): economy state -> asset relationships -> recommendations.
+
+        Configuration (provide at runtime via launchpad):
+        - personality: 'bullish' (required)
+        - model_provider: Optional LLM provider override ('openai', 'anthropic', 'gemini'). Defaults to resource/env var.
+        - model_name: Optional LLM model name override (e.g., 'gpt-4-turbo-preview', 'claude-3-5-haiku-20241022'). Defaults to resource/env var.
+
+        Example config:
+        ```yaml
+        ops:
+          analyze_economy_state:
+            config:
+              personality: "bullish"
+              model_provider: "openai"
+              model_name: "gpt-4o"
+          analyze_asset_class_relationships:
+            config:
+              model_provider: "openai"
+              model_name: "gpt-4o"
+          generate_investment_recommendations:
+            config:
+              personality: "bullish"
+              model_provider: "openai"
+              model_name: "gpt-4o"
+        ```""",
+    )
+
+    dbt_models_job = dg.define_asset_job(
+        name="dbt_models_job",
+        selection=dg.AssetSelection.groups(
+            "staging", "government", "markets", "commodities", "analysis"
+        )
+        - dg.AssetSelection.groups("backtesting"),
+        description="Run all dbt models excluding backtesting models. This job should run before DSPy analysis jobs.",
+    )
+
+    dbt_backtesting_models_job = dg.define_asset_job(
+        name="dbt_backtesting_models_job",
+        selection=dg.AssetSelection.groups("backtesting")
+        - dg.AssetSelection.assets(
+            "backtest_analyze_economy_state",
+            "backtest_analyze_asset_class_relationships",
+            "backtest_generate_investment_recommendations",
+            "evaluate_backtest_recommendations",
+        ),
+        description="Run only dbt backtesting snapshot models (excludes DSPy backtesting assets).",
+    )
+
+    dspy_analysis_job = dg.define_asset_job(
+        name="dspy_analysis_job",
+        selection=dg.AssetSelection.groups("economic_analysis"),
+        description="""Run DSPy analysis assets (economy state, asset relationships, investment recommendations). Depends on dbt models.
+
+        Configuration (provide at runtime via launchpad):
+        - personality: 'skeptical', 'neutral', or 'bullish' (required for analyze_economy_state and generate_investment_recommendations)
+        - model_provider: Optional LLM provider override ('openai', 'anthropic', 'gemini'). Defaults to resource/env var.
+        - model_name: Optional LLM model name override (e.g., 'gpt-4-turbo-preview', 'claude-3-5-haiku-20241022'). Defaults to resource/env var.
+
+        Example config:
+        ```yaml
+        ops:
+          analyze_economy_state:
+            config:
+              personality: "neutral"
+              model_provider: "openai"
+              model_name: "gpt-4-turbo-preview"
+          analyze_asset_class_relationships:
+            config:
+              model_provider: "openai"
+              model_name: "gpt-4-turbo-preview"
+          generate_investment_recommendations:
+            config:
+              personality: "neutral"
+              model_provider: "openai"
+              model_name: "gpt-4-turbo-preview"
+        ```""",
     )
 
     backtesting_job = dg.define_asset_job(
         name="backtesting_job",
-        selection=dg.AssetSelection.groups("backtesting"),
+        selection=dg.AssetSelection.assets(
+            "backtest_analyze_economy_state",
+            "backtest_analyze_asset_class_relationships",
+            "backtest_generate_investment_recommendations",
+            "evaluate_backtest_recommendations",
+        ),
         description="""Backtesting pipeline: economy state -> asset relationships -> recommendations -> evaluation.
+        
+        Note: This job only includes DSPy backtesting assets, not dbt backtesting models.
 
         Configuration:
         - Single date: Use 'backtest_date' (YYYY-MM-DD, first day of month)
@@ -255,7 +385,12 @@ def create_scheduled_jobs():
 
     backtesting_job_skeptical = dg.define_asset_job(
         name="backtesting_job_skeptical",
-        selection=dg.AssetSelection.groups("backtesting"),
+        selection=dg.AssetSelection.assets(
+            "backtest_analyze_economy_state",
+            "backtest_analyze_asset_class_relationships",
+            "backtest_generate_investment_recommendations",
+            "evaluate_backtest_recommendations",
+        ),
         description="""Backtesting pipeline with skeptical/bearish personality: economy state -> asset relationships -> recommendations -> evaluation.
 
         Use this job to run backtests with skeptical personality. Set personality='skeptical' in config.
@@ -300,7 +435,12 @@ def create_scheduled_jobs():
 
     backtesting_job_neutral = dg.define_asset_job(
         name="backtesting_job_neutral",
-        selection=dg.AssetSelection.groups("backtesting"),
+        selection=dg.AssetSelection.assets(
+            "backtest_analyze_economy_state",
+            "backtest_analyze_asset_class_relationships",
+            "backtest_generate_investment_recommendations",
+            "evaluate_backtest_recommendations",
+        ),
         description="""Backtesting pipeline with neutral personality: economy state -> asset relationships -> recommendations -> evaluation.
 
         Use this job to run backtests with neutral personality. Set personality='neutral' in config.
@@ -345,7 +485,12 @@ def create_scheduled_jobs():
 
     backtesting_job_bullish = dg.define_asset_job(
         name="backtesting_job_bullish",
-        selection=dg.AssetSelection.groups("backtesting"),
+        selection=dg.AssetSelection.assets(
+            "backtest_analyze_economy_state",
+            "backtest_analyze_asset_class_relationships",
+            "backtest_generate_investment_recommendations",
+            "evaluate_backtest_recommendations",
+        ),
         description="""Backtesting pipeline with bullish/optimistic personality: economy state -> asset relationships -> recommendations -> evaluation.
 
         Use this job to run backtests with bullish personality. Set personality='bullish' in config.
@@ -399,6 +544,9 @@ def create_scheduled_jobs():
         "agriculture_commodities_ingestion_job": agriculture_commodities_ingestion_job,
         "treasury_yields_ingestion_job": treasury_yields_ingestion_job,
         "weekly_replication_job": weekly_replication_job,
+        "dbt_models_job": dbt_models_job,
+        "dbt_backtesting_models_job": dbt_backtesting_models_job,
+        "dspy_analysis_job": dspy_analysis_job,
         "monthly_economic_analysis_job_skeptical": monthly_economic_analysis_job_skeptical,
         "monthly_economic_analysis_job_neutral": monthly_economic_analysis_job_neutral,
         "monthly_economic_analysis_job_bullish": monthly_economic_analysis_job_bullish,
