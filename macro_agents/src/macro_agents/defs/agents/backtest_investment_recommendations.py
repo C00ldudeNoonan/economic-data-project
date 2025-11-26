@@ -58,6 +58,8 @@ def get_latest_backtest_relationship_analysis(
         AND backtest_date = '{backtest_date}'
         AND model_provider = '{model_provider}'
         AND model_name = '{model_name}'
+        AND analysis_content IS NOT NULL
+        AND analysis_content != ''
     ORDER BY analysis_timestamp DESC
     LIMIT 1
     """
@@ -66,7 +68,14 @@ def get_latest_backtest_relationship_analysis(
     if df.is_empty():
         return None
 
-    return df[0, "analysis_content"]
+    analysis_content = df[0, "analysis_content"]
+
+    if not analysis_content or (
+        isinstance(analysis_content, str) and analysis_content.strip() == ""
+    ):
+        return None
+
+    return analysis_content
 
 
 @dg.asset(
@@ -191,10 +200,15 @@ def backtest_generate_investment_recommendations(
                 md, backtest_date, config.model_provider, config.model_name
             )
 
-            if not relationship_analysis:
+            if not relationship_analysis or (
+                isinstance(relationship_analysis, str)
+                and relationship_analysis.strip() == ""
+            ):
                 raise ValueError(
-                    f"No backtest asset class relationship analysis found for {backtest_date} "
-                    f"with provider {config.model_provider} and model {config.model_name}. Please run backtest_analyze_asset_class_relationships first."
+                    f"No valid backtest asset class relationship analysis found for {backtest_date} "
+                    f"with provider {config.model_provider} and model {config.model_name}. "
+                    f"Please run backtest_analyze_asset_class_relationships first. "
+                    f"If the analysis was truncated, check max_tokens configuration."
                 )
 
             context.log.info(

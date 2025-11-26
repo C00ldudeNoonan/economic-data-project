@@ -38,7 +38,7 @@ class OptimizationConfig(dg.Config):
     """Configuration for DSPy module optimization."""
 
     min_examples: int = Field(
-        default=200, description="Minimum number of examples required for optimization"
+        default=100, description="Minimum number of examples required for optimization"
     )
     max_trials: int = Field(
         default=50, description="Maximum number of optimization trials"
