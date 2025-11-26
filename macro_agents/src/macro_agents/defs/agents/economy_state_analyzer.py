@@ -340,10 +340,30 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         self._provider = provider
         self._model_name = model_name_val
 
+        is_gpt5_model = "gpt-5" in model_name_val.lower()
+        if is_gpt5_model:
+            context.log.info(
+                f"Detected gpt-5 model ({model_name_val}). "
+                f"Setting litellm.drop_params = True to handle unsupported temperature parameter."
+            )
+            import litellm
+
+            litellm.drop_params = True
+
         try:
-            lm = dspy.LM(model=model_str, api_key=api_key)
+            if is_gpt5_model:
+                lm = dspy.LM(model=model_str, api_key=api_key, max_tokens=8000)
+                context.log.info(
+                    "Configured LM for gpt-5 model with max_tokens=8000 to prevent truncation"
+                )
+            else:
+                lm = dspy.LM(model=model_str, api_key=api_key)
             dspy.settings.configure(lm=lm)
             self._lm = lm
+            if is_gpt5_model:
+                context.log.info(
+                    "Successfully configured LM for gpt-5 model with drop_params=True and max_tokens=8000"
+                )
         except Exception as e:
             error_msg = str(e)
             if "temperature=0.0" in error_msg and "gpt-5" in error_msg.lower():
@@ -355,7 +375,13 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                     import litellm
 
                     litellm.drop_params = True
-                    lm = dspy.LM(model=model_str, api_key=api_key)
+                    if is_gpt5_model:
+                        lm = dspy.LM(model=model_str, api_key=api_key, max_tokens=8000)
+                        context.log.info(
+                            "Configured LM for gpt-5 model with max_tokens=8000 in fallback"
+                        )
+                    else:
+                        lm = dspy.LM(model=model_str, api_key=api_key)
                     dspy.settings.configure(lm=lm)
                     self._lm = lm
                     context.log.info("Successfully configured LM with drop_params=True")

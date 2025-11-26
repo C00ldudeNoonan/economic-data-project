@@ -375,10 +375,27 @@ def backtest_analyze_asset_class_relationships(
                     "completion_cost_usd", 0
                 ) + token_usage.get("completion_cost_usd", 0)
 
+            analysis_content = (
+                analysis_result.relationship_analysis
+                if hasattr(analysis_result, "relationship_analysis")
+                else None
+            )
+
+            if not analysis_content or (
+                isinstance(analysis_content, str) and analysis_content.strip() == ""
+            ):
+                error_msg = (
+                    f"Empty or None relationship analysis content for {backtest_date}. "
+                    f"This may indicate the LLM response was truncated. "
+                    f"Please check max_tokens configuration or use a model with higher token limits."
+                )
+                context.log.error(error_msg)
+                raise ValueError(error_msg)
+
             analysis_timestamp = datetime.now()
             json_result = {
                 "analysis_type": "asset_class_relationships",
-                "analysis_content": analysis_result.relationship_analysis,
+                "analysis_content": analysis_content,
                 "analysis_timestamp": analysis_timestamp.isoformat(),
                 "analysis_date": analysis_timestamp.strftime("%Y-%m-%d"),
                 "analysis_time": analysis_timestamp.strftime("%H:%M:%S"),
