@@ -40,8 +40,8 @@ jobs:
       continue-on-error: true
       run: |
         cd macro_agents
-        uv run ruff check .
-        uv run ruff format --check .
+        uv run ruff check . --exclude .claude
+        uv run ruff format --check . --exclude .claude
     
     - name: Test Dagster definitions
       run: |
