@@ -1,6 +1,6 @@
 ruff:
-	-ruff check --fix .
-	ruff format .
+	-ruff check --fix . --exclude .claude
+	ruff format . --exclude .claude
 
 lint:
 	sqlfluff lint ./dbt_project/models --disable-progress-bar --processes 4

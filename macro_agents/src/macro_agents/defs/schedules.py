@@ -1,6 +1,6 @@
 import dagster as dg
 from dagster import ScheduleDefinition, DefaultSensorStatus
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from macro_agents.defs.constants.market_stack_constants import (
     US_SECTOR_ETFS,
@@ -560,36 +560,75 @@ def create_scheduled_jobs():
 def create_market_stack_ingestion_schedule(
     asset_name, job, tickers_or_commodities, dimension_name
 ):
-    """Create a sensor that runs MarketStack assets for current month on Sundays."""
+    """Create a sensor that runs MarketStack assets for current and previous month on Fridays."""
 
     @dg.sensor(
         name=f"{asset_name}_ingestion_schedule",
         job=job,
-        description=f"Weekly schedule for {asset_name} - runs current month partition for all {dimension_name}s every Sunday at 2 AM EST",
+        description=f"Weekly schedule for {asset_name} - runs current and previous month partitions for all {dimension_name}s every Friday at 2 AM EST",
         default_status=DefaultSensorStatus.RUNNING,
         minimum_interval_seconds=3600,
     )
     def market_stack_schedule(context):
         now = datetime.now(pytz.timezone("America/New_York"))
-        if now.weekday() != 6:
+        if now.weekday() != 4:
             return
 
         current_month = now.strftime("%Y-%m")
 
-        for ticker_or_commodity in tickers_or_commodities:
-            partition_key = dg.MultiPartitionKey(
-                {"date": current_month, dimension_name: ticker_or_commodity}
-            )
-            yield dg.RunRequest(
-                run_key=f"{asset_name}_{ticker_or_commodity}_{current_month}_{now.strftime('%Y%m%d')}",
-                partition_key=partition_key,
-                tags={
-                    "trigger": "weekly_schedule",
-                    "asset": asset_name,
-                    "month": current_month,
-                    dimension_name: ticker_or_commodity,
-                },
-            )
+        first_day_current_month = now.replace(day=1)
+        last_day_previous_month = first_day_current_month - timedelta(days=1)
+        previous_month = last_day_previous_month.strftime("%Y-%m")
+
+        months_to_run = [current_month, previous_month]
+
+        two_weeks_ago = now - timedelta(days=14)
+        asset_key = dg.AssetKey(asset_name)
+
+        for month in months_to_run:
+            for ticker_or_commodity in tickers_or_commodities:
+                partition_key = dg.MultiPartitionKey(
+                    {"date": month, dimension_name: ticker_or_commodity}
+                )
+
+                should_run = True
+                try:
+                    latest_materialization = (
+                        context.instance.get_latest_materialization_event(
+                            asset_key, partition_key=partition_key
+                        )
+                    )
+                    if latest_materialization:
+                        materialization_timestamp = latest_materialization.timestamp
+                        materialization_time = datetime.fromtimestamp(
+                            materialization_timestamp,
+                            tz=pytz.timezone("America/New_York"),
+                        )
+                        if materialization_time > two_weeks_ago:
+                            should_run = False
+                            context.log.info(
+                                f"Skipping {asset_name} partition {partition_key} - "
+                                f"last materialized {materialization_time.strftime('%Y-%m-%d %H:%M:%S')} "
+                                f"(less than 2 weeks ago)"
+                            )
+                except Exception as e:
+                    context.log.warning(
+                        f"Error checking materialization status for {asset_name} partition {partition_key}: {e}. "
+                        f"Will run partition to be safe."
+                    )
+                    should_run = True
+
+                if should_run:
+                    yield dg.RunRequest(
+                        run_key=f"{asset_name}_{ticker_or_commodity}_{month}_{now.strftime('%Y%m%d')}",
+                        partition_key=partition_key,
+                        tags={
+                            "trigger": "weekly_schedule",
+                            "asset": asset_name,
+                            "month": month,
+                            dimension_name: ticker_or_commodity,
+                        },
+                    )
 
     return market_stack_schedule
 
