@@ -557,6 +557,96 @@ def create_scheduled_jobs():
     }
 
 
+def evaluate_market_stack_ingestion_sensor(
+    context, asset_name, tickers_or_commodities, dimension_name
+):
+    """Core logic for MarketStack ingestion sensor evaluation.
+
+    Runs partitions if:
+    - It's Friday (scheduled weekly run), OR
+    - There's a freshness violation (partition not materialized in 2+ weeks)
+    """
+    now = datetime.now(pytz.timezone("America/New_York"))
+    is_friday = now.weekday() == 4
+
+    first_day_current_month = now.replace(day=1)
+    current_month = first_day_current_month.strftime("%Y-%m-%d")
+
+    last_day_previous_month = first_day_current_month - timedelta(days=1)
+    first_day_previous_month = last_day_previous_month.replace(day=1)
+    previous_month = first_day_previous_month.strftime("%Y-%m-%d")
+
+    months_to_run = [current_month, previous_month]
+
+    two_weeks_ago = now - timedelta(days=14)
+    asset_key = dg.AssetKey(asset_name)
+
+    for month in months_to_run:
+        for ticker_or_commodity in tickers_or_commodities:
+            partition_key = dg.MultiPartitionKey(
+                {"date": month, dimension_name: ticker_or_commodity}
+            )
+
+            should_run = False
+            freshness_violation = False
+            try:
+                latest_materialization = (
+                    context.instance.get_latest_materialization_event(
+                        asset_key, partition_key=partition_key
+                    )
+                )
+                if latest_materialization:
+                    materialization_timestamp = latest_materialization.timestamp
+                    materialization_time = datetime.fromtimestamp(
+                        materialization_timestamp,
+                        tz=pytz.timezone("America/New_York"),
+                    )
+                    if materialization_time <= two_weeks_ago:
+                        freshness_violation = True
+                        should_run = True
+                        context.log.info(
+                            f"Running {asset_name} partition {partition_key} due to freshness violation - "
+                            f"last materialized {materialization_time.strftime('%Y-%m-%d %H:%M:%S')} "
+                            f"(more than 2 weeks ago)"
+                        )
+                    elif is_friday:
+                        should_run = True
+                    else:
+                        context.log.info(
+                            f"Skipping {asset_name} partition {partition_key} - "
+                            f"last materialized {materialization_time.strftime('%Y-%m-%d %H:%M:%S')} "
+                            f"(less than 2 weeks ago) and not Friday"
+                        )
+                else:
+                    freshness_violation = True
+                    should_run = True
+                    context.log.info(
+                        f"Running {asset_name} partition {partition_key} due to freshness violation - "
+                        f"never materialized"
+                    )
+            except Exception as e:
+                context.log.warning(
+                    f"Error checking materialization status for {asset_name} partition {partition_key}: {e}. "
+                    f"Will run partition to be safe."
+                )
+                should_run = True
+
+            if should_run:
+                trigger_reason = (
+                    "freshness_violation" if freshness_violation else "weekly_schedule"
+                )
+                yield dg.RunRequest(
+                    run_key=f"{asset_name}_{ticker_or_commodity}_{month}_{now.strftime('%Y%m%d')}",
+                    partition_key=partition_key,
+                    tags={
+                        "trigger": trigger_reason,
+                        "asset": asset_name,
+                        "month": month,
+                        dimension_name: ticker_or_commodity,
+                    },
+                )
+
+
 def create_market_stack_ingestion_schedule(
     asset_name, job, tickers_or_commodities, dimension_name
 ):
@@ -565,70 +655,14 @@ def create_market_stack_ingestion_schedule(
     @dg.sensor(
         name=f"{asset_name}_ingestion_schedule",
         job=job,
-        description=f"Weekly schedule for {asset_name} - runs current and previous month partitions for all {dimension_name}s every Friday at 2 AM EST",
+        description=f"Weekly schedule for {asset_name} - runs current and previous month partitions for all {dimension_name}s every Friday at 2 AM EST, or immediately if there's a freshness violation (partition not materialized in 2+ weeks)",
         default_status=DefaultSensorStatus.RUNNING,
         minimum_interval_seconds=3600,
     )
     def market_stack_schedule(context):
-        now = datetime.now(pytz.timezone("America/New_York"))
-        if now.weekday() != 4:
-            return
-
-        current_month = now.strftime("%Y-%m")
-
-        first_day_current_month = now.replace(day=1)
-        last_day_previous_month = first_day_current_month - timedelta(days=1)
-        previous_month = last_day_previous_month.strftime("%Y-%m")
-
-        months_to_run = [current_month, previous_month]
-
-        two_weeks_ago = now - timedelta(days=14)
-        asset_key = dg.AssetKey(asset_name)
-
-        for month in months_to_run:
-            for ticker_or_commodity in tickers_or_commodities:
-                partition_key = dg.MultiPartitionKey(
-                    {"date": month, dimension_name: ticker_or_commodity}
-                )
-
-                should_run = True
-                try:
-                    latest_materialization = (
-                        context.instance.get_latest_materialization_event(
-                            asset_key, partition_key=partition_key
-                        )
-                    )
-                    if latest_materialization:
-                        materialization_timestamp = latest_materialization.timestamp
-                        materialization_time = datetime.fromtimestamp(
-                            materialization_timestamp,
-                            tz=pytz.timezone("America/New_York"),
-                        )
-                        if materialization_time > two_weeks_ago:
-                            should_run = False
-                            context.log.info(
-                                f"Skipping {asset_name} partition {partition_key} - "
-                                f"last materialized {materialization_time.strftime('%Y-%m-%d %H:%M:%S')} "
-                                f"(less than 2 weeks ago)"
-                            )
-                except Exception as e:
-                    context.log.warning(
-                        f"Error checking materialization status for {asset_name} partition {partition_key}: {e}. "
-                        f"Will run partition to be safe."
-                    )
-                    should_run = True
-
-                if should_run:
-                    yield dg.RunRequest(
-                        run_key=f"{asset_name}_{ticker_or_commodity}_{month}_{now.strftime('%Y%m%d')}",
-                        partition_key=partition_key,
-                        tags={
-                            "trigger": "weekly_schedule",
-                            "asset": asset_name,
-                            "month": month,
-                            dimension_name: ticker_or_commodity,
-                        },
-                    )
+        yield from evaluate_market_stack_ingestion_sensor(
+            context, asset_name, tickers_or_commodities, dimension_name
+        )
 
     return market_stack_schedule
 

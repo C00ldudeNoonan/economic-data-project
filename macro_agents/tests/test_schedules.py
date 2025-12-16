@@ -20,6 +20,7 @@ from macro_agents.defs.schedules import (
     agriculture_commodities_schedule,
     treasury_yields_schedule,
 )
+from macro_agents.defs.constants.market_stack_constants import ENERGY_COMMODITIES
 from macro_agents.definitions import defs
 
 
@@ -356,3 +357,527 @@ class TestScheduleDependencies:
                     "generate_investment_recommendations"
                 ]
                 assert recommendations_asset is not None
+
+
+class TestEnergyCommoditiesIngestionSensor:
+    """Test cases for energy_commodities_raw_ingestion_schedule sensor behavior."""
+
+    def test_sensor_does_not_run_on_non_friday_when_fresh(self):
+        """Test that sensor does not yield run requests on non-Friday days when partitions are fresh."""
+        from unittest.mock import patch, MagicMock
+        from datetime import datetime, timedelta
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        three_days_ago = datetime.now(pytz.timezone("America/New_York")) - timedelta(
+            days=3
+        )
+        mock_materialization = MagicMock()
+        mock_materialization.timestamp = three_days_ago.timestamp()
+
+        with (
+            patch.object(
+                instance,
+                "get_latest_materialization_event",
+                return_value=mock_materialization,
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            for weekday in [0, 1, 2, 3, 5, 6]:
+                mock_now = datetime(
+                    2024,
+                    12,
+                    2 + weekday,
+                    2,
+                    0,
+                    tzinfo=pytz.timezone("America/New_York"),
+                )
+                mock_datetime.now.return_value = mock_now
+                mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+                mock_datetime.fromtimestamp = datetime.fromtimestamp
+
+                sensor_result = energy_commodities_schedule.evaluate_tick(context)
+                run_requests = sensor_result.run_requests if sensor_result else []
+                assert len(run_requests) == 0, (
+                    f"Should not run on weekday {weekday} when partitions are fresh"
+                )
+
+    def test_sensor_runs_on_friday(self):
+        """Test that sensor yields run requests on Friday."""
+        from unittest.mock import patch, MagicMock
+        from datetime import datetime, timedelta
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        friday_date = datetime(
+            2024, 12, 6, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+        assert friday_date.weekday() == 4
+        three_days_ago = friday_date - timedelta(days=3)
+
+        mock_materialization = MagicMock()
+        mock_materialization.timestamp = three_days_ago.timestamp()
+
+        with (
+            patch.object(
+                instance,
+                "get_latest_materialization_event",
+                return_value=mock_materialization,
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = friday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            mock_datetime.fromtimestamp = datetime.fromtimestamp
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            assert len(run_requests) > 0, "Should yield run requests on Friday"
+
+            first_day_current_month = friday_date.replace(day=1)
+            current_month = first_day_current_month.strftime("%Y-%m-%d")
+            last_day_previous_month = first_day_current_month - timedelta(days=1)
+            first_day_previous_month = last_day_previous_month.replace(day=1)
+            previous_month = first_day_previous_month.strftime("%Y-%m-%d")
+
+            expected_months = {current_month, previous_month}
+            actual_months = set()
+            actual_commodities = set()
+
+            for run_request in run_requests:
+                assert isinstance(run_request, dg.RunRequest)
+                assert run_request.partition_key is not None
+                partition_key = run_request.partition_key
+                assert "date" in partition_key.keys_by_dimension
+                assert "commodity" in partition_key.keys_by_dimension
+                actual_months.add(partition_key.keys_by_dimension["date"])
+                actual_commodities.add(partition_key.keys_by_dimension["commodity"])
+                assert run_request.tags.get("trigger") == "weekly_schedule", (
+                    "Fresh partitions on Friday should have weekly_schedule trigger"
+                )
+
+            assert actual_months == expected_months, (
+                f"Expected months {expected_months}, got {actual_months}"
+            )
+            assert actual_commodities == set(ENERGY_COMMODITIES), (
+                f"Expected all commodities, got {actual_commodities}"
+            )
+
+    def test_sensor_skips_recently_materialized_partitions_on_friday(self):
+        """Test that sensor skips partitions materialized within last 2 weeks on Friday."""
+        from unittest.mock import patch, MagicMock
+        from datetime import datetime, timedelta
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        friday_date = datetime(
+            2024, 12, 6, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+        three_days_ago = friday_date - timedelta(days=3)
+
+        mock_materialization = MagicMock()
+        mock_materialization.timestamp = three_days_ago.timestamp()
+
+        with (
+            patch.object(
+                instance,
+                "get_latest_materialization_event",
+                return_value=mock_materialization,
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = friday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            mock_datetime.fromtimestamp = datetime.fromtimestamp
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            assert len(run_requests) > 0, (
+                "Should run fresh partitions on Friday (weekly schedule)"
+            )
+
+    def test_sensor_runs_stale_partitions_on_friday(self):
+        """Test that sensor runs partitions not materialized in 2+ weeks on Friday."""
+        from unittest.mock import patch, MagicMock
+        from datetime import datetime, timedelta
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        friday_date = datetime(
+            2024, 12, 6, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+        three_weeks_ago = friday_date - timedelta(days=21)
+
+        mock_materialization = MagicMock()
+        mock_materialization.timestamp = three_weeks_ago.timestamp()
+
+        with (
+            patch.object(
+                instance,
+                "get_latest_materialization_event",
+                return_value=mock_materialization,
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = friday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            mock_datetime.fromtimestamp = datetime.fromtimestamp
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            assert len(run_requests) > 0, (
+                "Should run partitions materialized 2+ weeks ago"
+            )
+
+            for run_request in run_requests:
+                assert isinstance(run_request, dg.RunRequest)
+                assert run_request.tags.get("trigger") == "freshness_violation"
+
+    def test_sensor_runs_stale_partitions_on_non_friday(self):
+        """Test that sensor runs partitions not materialized in 2+ weeks on any day (freshness violation)."""
+        from unittest.mock import patch, MagicMock
+        from datetime import datetime, timedelta
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        monday_date = datetime(
+            2024, 12, 2, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+        assert monday_date.weekday() == 0
+        three_weeks_ago = monday_date - timedelta(days=21)
+
+        mock_materialization = MagicMock()
+        mock_materialization.timestamp = three_weeks_ago.timestamp()
+
+        with (
+            patch.object(
+                instance,
+                "get_latest_materialization_event",
+                return_value=mock_materialization,
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = monday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            mock_datetime.fromtimestamp = datetime.fromtimestamp
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            assert len(run_requests) > 0, (
+                "Should run stale partitions on non-Friday (freshness violation)"
+            )
+
+            for run_request in run_requests:
+                assert isinstance(run_request, dg.RunRequest)
+                assert run_request.tags.get("trigger") == "freshness_violation"
+
+    def test_sensor_runs_never_materialized_partitions_on_friday(self):
+        """Test that sensor runs partitions that have never been materialized on Friday."""
+        from unittest.mock import patch
+        from datetime import datetime, timedelta
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        friday_date = datetime(
+            2024, 12, 6, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+
+        with (
+            patch.object(
+                instance, "get_latest_materialization_event", return_value=None
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = friday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            assert len(run_requests) > 0, (
+                "Should run partitions that have never been materialized"
+            )
+
+            first_day_current_month = friday_date.replace(day=1)
+            current_month = first_day_current_month.strftime("%Y-%m-%d")
+            last_day_previous_month = first_day_current_month - timedelta(days=1)
+            first_day_previous_month = last_day_previous_month.replace(day=1)
+            previous_month = first_day_previous_month.strftime("%Y-%m-%d")
+
+            expected_months = {current_month, previous_month}
+            actual_months = set()
+
+            for run_request in run_requests:
+                assert isinstance(run_request, dg.RunRequest)
+                partition_key = run_request.partition_key
+                actual_months.add(partition_key.keys_by_dimension["date"])
+                assert run_request.tags.get("trigger") == "freshness_violation"
+
+            assert actual_months == expected_months
+
+    def test_sensor_runs_never_materialized_partitions_on_non_friday(self):
+        """Test that sensor runs partitions that have never been materialized on any day (freshness violation)."""
+        from unittest.mock import patch
+        from datetime import datetime
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        monday_date = datetime(
+            2024, 12, 2, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+        assert monday_date.weekday() == 0
+
+        with (
+            patch.object(
+                instance, "get_latest_materialization_event", return_value=None
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = monday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            assert len(run_requests) > 0, (
+                "Should run never-materialized partitions on non-Friday (freshness violation)"
+            )
+
+            for run_request in run_requests:
+                assert isinstance(run_request, dg.RunRequest)
+                assert run_request.tags.get("trigger") == "freshness_violation"
+
+    def test_sensor_handles_materialization_check_errors(self):
+        """Test that sensor runs partitions when materialization check fails."""
+        from unittest.mock import patch
+        from datetime import datetime
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        friday_date = datetime(
+            2024, 12, 6, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+
+        with (
+            patch.object(
+                instance,
+                "get_latest_materialization_event",
+                side_effect=Exception("Database error"),
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = friday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            assert len(run_requests) > 0, (
+                "Should run partitions when check fails (safe default)"
+            )
+
+    def test_sensor_includes_all_commodities(self):
+        """Test that sensor includes all energy commodities in run requests."""
+        from unittest.mock import patch
+        from datetime import datetime
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        friday_date = datetime(
+            2024, 12, 6, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+
+        with (
+            patch.object(
+                instance, "get_latest_materialization_event", return_value=None
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = friday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            commodities_in_requests = set()
+            for run_request in run_requests:
+                partition_key = run_request.partition_key
+                commodities_in_requests.add(
+                    partition_key.keys_by_dimension["commodity"]
+                )
+
+            assert commodities_in_requests == set(ENERGY_COMMODITIES), (
+                f"Expected all {len(ENERGY_COMMODITIES)} commodities, "
+                f"got {len(commodities_in_requests)}: {commodities_in_requests}"
+            )
+
+    def test_sensor_includes_current_and_previous_month(self):
+        """Test that sensor includes both current and previous month partitions."""
+        from unittest.mock import patch
+        from datetime import datetime, timedelta
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        friday_date = datetime(
+            2024, 12, 6, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+        first_day_current_month = friday_date.replace(day=1)
+        current_month = first_day_current_month.strftime("%Y-%m-%d")
+        last_day_previous_month = first_day_current_month - timedelta(days=1)
+        first_day_previous_month = last_day_previous_month.replace(day=1)
+        previous_month = first_day_previous_month.strftime("%Y-%m-%d")
+
+        with (
+            patch.object(
+                instance, "get_latest_materialization_event", return_value=None
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = friday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            months_in_requests = set()
+            for run_request in run_requests:
+                partition_key = run_request.partition_key
+                months_in_requests.add(partition_key.keys_by_dimension["date"])
+
+            assert current_month in months_in_requests, (
+                f"Current month {current_month} should be included"
+            )
+            assert previous_month in months_in_requests, (
+                f"Previous month {previous_month} should be included"
+            )
+            assert len(months_in_requests) == 2, (
+                f"Should only have 2 months, got {months_in_requests}"
+            )
+
+    def test_sensor_mixed_freshness_conditions(self):
+        """Test that sensor handles mix of fresh and stale partitions correctly."""
+        from unittest.mock import patch, MagicMock
+        from datetime import datetime, timedelta
+        import pytz
+        import dagster as dg
+
+        instance = dg.DagsterInstance.ephemeral()
+        repository_def = defs.get_repository_def()
+        context = dg.build_sensor_context(
+            instance=instance, repository_def=repository_def
+        )
+
+        friday_date = datetime(
+            2024, 12, 6, 2, 0, tzinfo=pytz.timezone("America/New_York")
+        )
+        three_days_ago = friday_date - timedelta(days=3)
+        three_weeks_ago = friday_date - timedelta(days=21)
+
+        def mock_get_materialization(asset_key, partition_key):
+            commodity = partition_key.keys_by_dimension["commodity"]
+            if commodity == ENERGY_COMMODITIES[0]:
+                mock_event = MagicMock()
+                mock_event.timestamp = three_days_ago.timestamp()
+                return mock_event
+            elif commodity == ENERGY_COMMODITIES[1]:
+                mock_event = MagicMock()
+                mock_event.timestamp = three_weeks_ago.timestamp()
+                return mock_event
+            else:
+                return None
+
+        with (
+            patch.object(
+                instance,
+                "get_latest_materialization_event",
+                side_effect=mock_get_materialization,
+            ),
+            patch("macro_agents.defs.schedules.datetime") as mock_datetime,
+        ):
+            mock_datetime.now.return_value = friday_date
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            mock_datetime.fromtimestamp = datetime.fromtimestamp
+
+            sensor_result = energy_commodities_schedule.evaluate_tick(context)
+            run_requests = sensor_result.run_requests if sensor_result else []
+
+            commodities_in_requests = set()
+            for run_request in run_requests:
+                partition_key = run_request.partition_key
+                commodities_in_requests.add(
+                    partition_key.keys_by_dimension["commodity"]
+                )
+
+            assert ENERGY_COMMODITIES[0] in commodities_in_requests, (
+                "Fresh partition should run on Friday (weekly schedule)"
+            )
+            assert ENERGY_COMMODITIES[1] in commodities_in_requests, (
+                "Stale partition should run (freshness violation)"
+            )
+            assert len(commodities_in_requests) == len(ENERGY_COMMODITIES), (
+                f"Should run all commodities on Friday, got {len(commodities_in_requests)}"
+            )
