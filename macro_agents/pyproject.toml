@@ -67,6 +67,8 @@ markers = [
 filterwarnings = [
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:",
     "ignore::DeprecationWarning:pydantic._internal._config",
+    "ignore::DeprecationWarning:dagster._core.definitions.run_request:",
+    "ignore::DeprecationWarning:dagster._core.definitions.sensor_definition:",
 ]
 
 
