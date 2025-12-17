@@ -136,31 +136,54 @@ def get_google_credentials_file_path() -> str:
         raise FileNotFoundError(f"Google credentials not found at path: {creds_value}")
 
 
-motherduck_connection = SlingConnectionResource(
-    name="MOTHERDUCK",
-    type="motherduck",
-    database=dg.EnvVar("MOTHERDUCK_DATABASE"),
-    motherduck_token=dg.EnvVar("MOTHERDUCK_TOKEN"),
-    schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA"),
-)
+class SlingResourceWithCredentials(dg.ConfigurableResource):
+    """Custom SlingResource that handles JSON string credentials for BigQuery lazily."""
 
-bigquery_connection = SlingConnectionResource(
-    name="BIGQUERY",
-    type="bigquery",
-    project=dg.EnvVar("BIGQUERY_PROJECT_ID"),
-    location=dg.EnvVar("BIGQUERY_LOCATION"),
-    credentials=get_google_credentials_file_path(),
-    dataset=dg.EnvVar("BIGQUERY_DATASET"),
-)
+    def setup_for_execution(self, context) -> None:
+        """Convert credentials to file path if needed and create SlingResource."""
+        if hasattr(self, "_sling_resource"):
+            return
+
+        credentials_path = get_google_credentials_file_path()
+
+        bigquery_connection = SlingConnectionResource(
+            name="BIGQUERY",
+            type="bigquery",
+            project=dg.EnvVar("BIGQUERY_PROJECT_ID"),
+            location=dg.EnvVar("BIGQUERY_LOCATION"),
+            credentials=credentials_path,
+            dataset=dg.EnvVar("BIGQUERY_DATASET"),
+        )
+
+        motherduck_connection = SlingConnectionResource(
+            name="MOTHERDUCK",
+            type="motherduck",
+            database=dg.EnvVar("MOTHERDUCK_DATABASE"),
+            motherduck_token=dg.EnvVar("MOTHERDUCK_TOKEN"),
+            schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA"),
+        )
+
+        self._sling_resource = SlingResource(
+            connections=[
+                motherduck_connection,
+                bigquery_connection,
+            ]
+        )
+
+    def replicate(self, context):
+        """Delegate to underlying SlingResource."""
+        if not hasattr(self, "_sling_resource"):
+            self.setup_for_execution(context)
+        return self._sling_resource.replicate(context=context)
+
+    def stream_raw_logs(self):
+        """Delegate to underlying SlingResource."""
+        if not hasattr(self, "_sling_resource"):
+            raise RuntimeError("SlingResource not initialized. Call setup_for_execution first.")
+        return self._sling_resource.stream_raw_logs()
 
 
-# Create SlingResource with both connections
-sling_resource = SlingResource(
-    connections=[
-        motherduck_connection,
-        bigquery_connection,
-    ]
-)
+sling_resource = SlingResourceWithCredentials()
 
 
 @sling_assets(
