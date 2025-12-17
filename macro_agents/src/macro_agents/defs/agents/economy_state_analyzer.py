@@ -241,12 +241,12 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
     """Unified resource for economic analysis that consolidates useful parts from existing analyzers."""
 
     provider: str = Field(
-        default="openai",
+        default="gemini",
         description="LLM provider: 'openai', 'gemini', or 'anthropic'. Can be set via LLM_PROVIDER env var.",
     )
     model_name: str = Field(
-        default="gpt-4-turbo-preview",
-        description="LLM model name (e.g., 'gpt-4-turbo-preview', 'gemini-2.0-flash-exp', 'claude-3-opus-20240229')",
+        default="gemini-3-pro-preview",
+        description="LLM model name (e.g., 'gpt-4-turbo-preview', 'gemini-2.0-flash-exp', 'gemini-3-pro-preview', 'claude-3-opus-20240229')",
     )
     openai_api_key: Optional[str] = Field(
         default=None,
@@ -284,9 +284,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         else:
             provider = object.__getattribute__(self, "provider")
             if isinstance(provider, dg.EnvVar):
-                provider = provider.value or "openai"
+                provider = provider.value or "gemini"
             elif not provider:
-                provider = os.getenv("LLM_PROVIDER", "openai")
+                provider = os.getenv("LLM_PROVIDER", "gemini")
 
         # Resolve model_name: use override if provided, otherwise resolve from resource field
         if model_name_override:
@@ -294,7 +294,9 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
         else:
             model_name_val = self.model_name
             if isinstance(model_name_val, dg.EnvVar):
-                model_name_val = model_name_val.value
+                model_name_val = model_name_val.value or "gemini-3-pro-preview"
+            elif not model_name_val:
+                model_name_val = os.getenv("MODEL_NAME", "gemini-3-pro-preview")
 
         openai_key = self.openai_api_key
         if isinstance(openai_key, dg.EnvVar):
