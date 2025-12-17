@@ -1,5 +1,8 @@
 from pathlib import Path
 from typing import Mapping, Any
+import json
+import os
+import tempfile
 import dagster as dg
 from dagster_sling import SlingConnectionResource, SlingResource, sling_assets
 from dagster_sling.asset_decorator import DagsterSlingTranslator
@@ -97,31 +100,90 @@ class CustomDagsterSlingTranslator(DagsterSlingTranslator):
         return updated_spec
 
 
-motherduck_connection = SlingConnectionResource(
-    name="MOTHERDUCK",
-    type="motherduck",
-    database=dg.EnvVar("MOTHERDUCK_DATABASE"),
-    motherduck_token=dg.EnvVar("MOTHERDUCK_TOKEN"),
-    schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA"),
-)
+def get_google_credentials_file_path() -> str:
+    """Get Google Cloud credentials file path, handling both JSON string and file path formats.
 
-bigquery_connection = SlingConnectionResource(
-    name="BIGQUERY",
-    type="bigquery",
-    project=dg.EnvVar("BIGQUERY_PROJECT_ID"),
-    location=dg.EnvVar("BIGQUERY_LOCATION"),
-    credentials=dg.EnvVar("GOOGLE_APPLICATION_CREDENTIALS"),
-    dataset=dg.EnvVar("BIGQUERY_DATASET"),
-)
+    If SLING_GOOGLE_APPLICATION_CREDENTIALS is a JSON string, writes it to a temporary file.
+    If it's a file path, returns it directly.
+
+    Returns:
+        Path to credentials file (either original path or temporary file)
+    """
+    creds_value = os.getenv("SLING_GOOGLE_APPLICATION_CREDENTIALS")
+    if not creds_value:
+        raise ValueError(
+            "SLING_GOOGLE_APPLICATION_CREDENTIALS environment variable must be set"
+        )
+
+    creds_value = creds_value.strip()
+
+    if creds_value.startswith("{"):
+        try:
+            json.loads(creds_value)
+            temp_file = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            )
+            temp_file.write(creds_value)
+            temp_file.close()
+            return temp_file.name
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"SLING_GOOGLE_APPLICATION_CREDENTIALS appears to be JSON but is not valid JSON: {e}"
+            )
+    elif os.path.exists(creds_value):
+        return creds_value
+    else:
+        raise FileNotFoundError(f"Google credentials not found at path: {creds_value}")
 
 
-# Create SlingResource with both connections
-sling_resource = SlingResource(
-    connections=[
-        motherduck_connection,
-        bigquery_connection,
-    ]
-)
+class SlingResourceWithCredentials(dg.ConfigurableResource):
+    """Custom SlingResource that handles JSON string credentials for BigQuery lazily."""
+
+    def setup_for_execution(self, context) -> None:
+        """Convert credentials to file path if needed and create SlingResource."""
+        if hasattr(self, "_sling_resource"):
+            return
+
+        credentials_path = get_google_credentials_file_path()
+
+        bigquery_connection = SlingConnectionResource(
+            name="BIGQUERY",
+            type="bigquery",
+            project=dg.EnvVar("BIGQUERY_PROJECT_ID"),
+            location=dg.EnvVar("BIGQUERY_LOCATION"),
+            credentials=credentials_path,
+            dataset=dg.EnvVar("BIGQUERY_DATASET"),
+        )
+
+        motherduck_connection = SlingConnectionResource(
+            name="MOTHERDUCK",
+            type="motherduck",
+            database=dg.EnvVar("MOTHERDUCK_DATABASE"),
+            motherduck_token=dg.EnvVar("MOTHERDUCK_TOKEN"),
+            schema=dg.EnvVar("MOTHERDUCK_PROD_SCHEMA"),
+        )
+
+        self._sling_resource = SlingResource(
+            connections=[
+                motherduck_connection,
+                bigquery_connection,
+            ]
+        )
+
+    def replicate(self, context):
+        """Delegate to underlying SlingResource."""
+        if not hasattr(self, "_sling_resource"):
+            self.setup_for_execution(context)
+        return self._sling_resource.replicate(context=context)
+
+    def stream_raw_logs(self):
+        """Delegate to underlying SlingResource."""
+        if not hasattr(self, "_sling_resource"):
+            raise RuntimeError("SlingResource not initialized. Call setup_for_execution first.")
+        return self._sling_resource.stream_raw_logs()
+
+
+sling_resource = SlingResourceWithCredentials()
 
 
 @sling_assets(

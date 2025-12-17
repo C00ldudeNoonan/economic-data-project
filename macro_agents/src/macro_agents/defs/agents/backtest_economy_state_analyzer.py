@@ -34,7 +34,7 @@ class BacktestConfig(dg.Config):
     )
     model_name: str = Field(
         default="gpt-4-turbo-preview",
-        description="LLM model to use for analysis (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo', 'gemini-2.0-flash-exp', 'claude-3-opus-20240229')",
+        description="LLM model to use for analysis (e.g., 'gpt-4-turbo-preview', 'gpt-4o', 'gpt-3.5-turbo', 'gemini-2.0-flash-exp', 'gemini-3-pro-preview', 'claude-3-opus-20240229')",
     )
     personality: str = Field(
         default="skeptical",
