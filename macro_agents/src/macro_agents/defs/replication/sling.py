@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Mapping, Any
 import json
 import os
-import tempfile
 import dagster as dg
 from dagster_sling import SlingConnectionResource, SlingResource, sling_assets
 from dagster_sling.asset_decorator import DagsterSlingTranslator
@@ -100,14 +99,14 @@ class CustomDagsterSlingTranslator(DagsterSlingTranslator):
         return updated_spec
 
 
-def get_google_credentials_file_path() -> str:
-    """Get Google Cloud credentials file path, handling both JSON string and file path formats.
+def get_google_credentials_json() -> str:
+    """Get Google Cloud credentials JSON string from environment variable.
 
-    If SLING_GOOGLE_APPLICATION_CREDENTIALS is a JSON string, writes it to a temporary file.
-    If it's a file path, returns it directly.
+    Reads SLING_GOOGLE_APPLICATION_CREDENTIALS and validates it's valid JSON.
+    If it's a file path, reads the file and returns its contents.
 
     Returns:
-        Path to credentials file (either original path or temporary file)
+        JSON string of service account credentials
     """
     creds_value = os.getenv("SLING_GOOGLE_APPLICATION_CREDENTIALS")
     if not creds_value:
@@ -120,18 +119,19 @@ def get_google_credentials_file_path() -> str:
     if creds_value.startswith("{"):
         try:
             json.loads(creds_value)
-            temp_file = tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            )
-            temp_file.write(creds_value)
-            temp_file.close()
-            return temp_file.name
+            return creds_value
         except json.JSONDecodeError as e:
             raise ValueError(
                 f"SLING_GOOGLE_APPLICATION_CREDENTIALS appears to be JSON but is not valid JSON: {e}"
             )
     elif os.path.exists(creds_value):
-        return creds_value
+        with open(creds_value, "r", encoding="utf-8") as f:
+            file_content = f.read()
+            try:
+                json.loads(file_content)
+                return file_content
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Credentials file is not valid JSON: {e}")
     else:
         raise FileNotFoundError(f"Google credentials not found at path: {creds_value}")
 
@@ -140,20 +140,26 @@ class SlingResourceWithCredentials(dg.ConfigurableResource):
     """Custom SlingResource that handles JSON string credentials for BigQuery lazily."""
 
     def setup_for_execution(self, context) -> None:
-        """Convert credentials to file path if needed and create SlingResource."""
+        """Load credentials JSON and create SlingResource with key_body parameter."""
         if hasattr(self, "_sling_resource"):
             return
 
-        credentials_path = get_google_credentials_file_path()
+        credentials_json = get_google_credentials_json()
+        context.log.info("BigQuery credentials loaded and validated as JSON")
+
+        credentials_dict = json.loads(credentials_json)
+        project_id = credentials_dict.get("project_id", "unknown")
+        context.log.info(f"Using service account for project: {project_id}")
 
         bigquery_connection = SlingConnectionResource(
             name="BIGQUERY",
             type="bigquery",
             project=dg.EnvVar("BIGQUERY_PROJECT_ID"),
             location=dg.EnvVar("BIGQUERY_LOCATION"),
-            credentials=credentials_path,
+            key_body=credentials_json,
             dataset=dg.EnvVar("BIGQUERY_DATASET"),
         )
+        context.log.info("BigQuery connection created successfully with key_body")
 
         motherduck_connection = SlingConnectionResource(
             name="MOTHERDUCK",
@@ -174,12 +180,15 @@ class SlingResourceWithCredentials(dg.ConfigurableResource):
         """Delegate to underlying SlingResource."""
         if not hasattr(self, "_sling_resource"):
             self.setup_for_execution(context)
+
         return self._sling_resource.replicate(context=context)
 
     def stream_raw_logs(self):
         """Delegate to underlying SlingResource."""
         if not hasattr(self, "_sling_resource"):
-            raise RuntimeError("SlingResource not initialized. Call setup_for_execution first.")
+            raise RuntimeError(
+                "SlingResource not initialized. Call setup_for_execution first."
+            )
         return self._sling_resource.stream_raw_logs()
 
 

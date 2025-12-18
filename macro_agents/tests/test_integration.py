@@ -5,8 +5,11 @@ Integration tests for the macro_agents project.
 import polars as pl
 import tempfile
 import os
+import pytest
 from macro_agents.definitions import defs
 from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.replication.sling import SlingResourceWithCredentials
+from dagster import build_op_context
 
 
 class TestDagsterDefinitions:
@@ -143,3 +146,122 @@ class TestDataValidation:
 
             # Clean up
             os.unlink(tmp_file.name)
+
+
+class TestSlingConnectionIntegration:
+    """Integration tests for Sling database connections.
+    
+    These tests require real credentials and will be skipped if:
+    - SLING_GOOGLE_APPLICATION_CREDENTIALS is not set
+    - MOTHERDUCK_TOKEN is not set
+    - Other required environment variables are missing
+    
+    To run these tests, ensure all required environment variables are set.
+    """
+
+    @pytest.mark.skipif(
+        not os.getenv("SLING_GOOGLE_APPLICATION_CREDENTIALS"),
+        reason="SLING_GOOGLE_APPLICATION_CREDENTIALS not set",
+    )
+    def test_bigquery_credentials_load(self):
+        """Test that BigQuery credentials can be loaded from environment."""
+        from macro_agents.defs.replication.sling import get_google_credentials_json
+
+        credentials_json = get_google_credentials_json()
+        assert credentials_json is not None
+        assert len(credentials_json) > 0
+        assert credentials_json.startswith("{")
+
+        import json
+
+        creds_dict = json.loads(credentials_json)
+        assert "type" in creds_dict
+        assert "project_id" in creds_dict
+
+    @pytest.mark.skipif(
+        not os.getenv("MOTHERDUCK_TOKEN"),
+        reason="MOTHERDUCK_TOKEN not set",
+    )
+    @pytest.mark.skipif(
+        not os.getenv("SLING_GOOGLE_APPLICATION_CREDENTIALS"),
+        reason="SLING_GOOGLE_APPLICATION_CREDENTIALS not set",
+    )
+    @pytest.mark.skipif(
+        not all(
+            os.getenv(var)
+            for var in [
+                "MOTHERDUCK_DATABASE",
+                "MOTHERDUCK_PROD_SCHEMA",
+                "BIGQUERY_PROJECT_ID",
+                "BIGQUERY_LOCATION",
+                "BIGQUERY_DATASET",
+            ]
+        ),
+        reason="Required environment variables not set",
+    )
+    def test_sling_resource_setup_creates_connections(self):
+        """Test that SlingResourceWithCredentials can set up both connections."""
+        context = build_op_context()
+
+        resource = SlingResourceWithCredentials()
+        resource.setup_for_execution(context)
+
+        assert hasattr(resource, "_sling_resource")
+        assert resource._sling_resource is not None
+
+    @pytest.mark.skipif(
+        not os.getenv("MOTHERDUCK_TOKEN"),
+        reason="MOTHERDUCK_TOKEN not set",
+    )
+    def test_motherduck_connection_parameters(self):
+        """Test that MotherDuck connection parameters are correctly configured."""
+        required_vars = [
+            "MOTHERDUCK_TOKEN",
+            "MOTHERDUCK_DATABASE",
+            "MOTHERDUCK_PROD_SCHEMA",
+        ]
+
+        for var in required_vars:
+            assert os.getenv(var) is not None, f"{var} environment variable must be set"
+
+        token = os.getenv("MOTHERDUCK_TOKEN")
+        database = os.getenv("MOTHERDUCK_DATABASE")
+        schema = os.getenv("MOTHERDUCK_PROD_SCHEMA")
+
+        assert len(token) > 0, "MOTHERDUCK_TOKEN must not be empty"
+        assert len(database) > 0, "MOTHERDUCK_DATABASE must not be empty"
+        assert len(schema) > 0, "MOTHERDUCK_PROD_SCHEMA must not be empty"
+
+    @pytest.mark.skipif(
+        not os.getenv("SLING_GOOGLE_APPLICATION_CREDENTIALS"),
+        reason="SLING_GOOGLE_APPLICATION_CREDENTIALS not set",
+    )
+    def test_bigquery_connection_parameters(self):
+        """Test that BigQuery connection parameters are correctly configured."""
+        required_vars = [
+            "BIGQUERY_PROJECT_ID",
+            "BIGQUERY_LOCATION",
+            "BIGQUERY_DATASET",
+        ]
+
+        for var in required_vars:
+            assert os.getenv(var) is not None, f"{var} environment variable must be set"
+
+        project_id = os.getenv("BIGQUERY_PROJECT_ID")
+        location = os.getenv("BIGQUERY_LOCATION")
+        dataset = os.getenv("BIGQUERY_DATASET")
+
+        assert len(project_id) > 0, "BIGQUERY_PROJECT_ID must not be empty"
+        assert len(location) > 0, "BIGQUERY_LOCATION must not be empty"
+        assert len(dataset) > 0, "BIGQUERY_DATASET must not be empty"
+
+        from macro_agents.defs.replication.sling import get_google_credentials_json
+        import json
+
+        credentials_json = get_google_credentials_json()
+        creds_dict = json.loads(credentials_json)
+
+        assert (
+            creds_dict.get("project_id") == project_id
+            or creds_dict.get("project_id") is not None
+        ), "Credentials project_id should match or be valid"
