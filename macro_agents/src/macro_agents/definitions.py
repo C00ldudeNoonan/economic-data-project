@@ -132,8 +132,8 @@ defs = dg.Definitions(
         "dbt": dbt_cli_resource,
         "sling": sling_resource,
         "economic_analysis": EconomicAnalysisResource(
-            provider=dg.EnvVar("LLM_PROVIDER"),
-            model_name=dg.EnvVar("MODEL_NAME"),
+            provider="gemini",
+            model_name="gemini-3-pro-preview",
             openai_api_key=dg.EnvVar("OPENAI_API_KEY"),
             gemini_api_key=dg.EnvVar("GEMINI_API_KEY"),
             anthropic_api_key=dg.EnvVar("ANTHROPIC_API_KEY"),
