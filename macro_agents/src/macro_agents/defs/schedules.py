@@ -33,11 +33,15 @@ monthly_economic_analysis_schedule_skeptical = ScheduleDefinition(
             "analyze_economy_state": {
                 "config": {
                     "personality": "skeptical",
+                    "model_provider": "gemini",
+                    "model_name": "gemini-3-pro-preview",
                 }
             },
             "generate_investment_recommendations": {
                 "config": {
                     "personality": "skeptical",
+                    "model_provider": "gemini",
+                    "model_name": "gemini-3-pro-preview",
                 }
             },
         }
@@ -55,11 +59,15 @@ monthly_economic_analysis_schedule_neutral = ScheduleDefinition(
             "analyze_economy_state": {
                 "config": {
                     "personality": "neutral",
+                    "model_provider": "gemini",
+                    "model_name": "gemini-3-pro-preview",
                 }
             },
             "generate_investment_recommendations": {
                 "config": {
                     "personality": "neutral",
+                    "model_provider": "gemini",
+                    "model_name": "gemini-3-pro-preview",
                 }
             },
         }
@@ -77,11 +85,15 @@ monthly_economic_analysis_schedule_bullish = ScheduleDefinition(
             "analyze_economy_state": {
                 "config": {
                     "personality": "bullish",
+                    "model_provider": "gemini",
+                    "model_name": "gemini-3-pro-preview",
                 }
             },
             "generate_investment_recommendations": {
                 "config": {
                     "personality": "bullish",
+                    "model_provider": "gemini",
+                    "model_name": "gemini-3-pro-preview",
                 }
             },
         }
@@ -172,17 +184,17 @@ def create_scheduled_jobs():
           analyze_economy_state:
             config:
               personality: "skeptical"
-              model_provider: "anthropic"
-              model_name: "claude-3-5-haiku-20241022"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
           analyze_asset_class_relationships:
             config:
-              model_provider: "anthropic"
-              model_name: "claude-3-5-haiku-20241022"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
           generate_investment_recommendations:
             config:
               personality: "skeptical"
-              model_provider: "anthropic"
-              model_name: "claude-3-5-haiku-20241022"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
         ```""",
     )
 
@@ -240,17 +252,17 @@ def create_scheduled_jobs():
           analyze_economy_state:
             config:
               personality: "bullish"
-              model_provider: "openai"
-              model_name: "gpt-4o"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
           analyze_asset_class_relationships:
             config:
-              model_provider: "openai"
-              model_name: "gpt-4o"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
           generate_investment_recommendations:
             config:
               personality: "bullish"
-              model_provider: "openai"
-              model_name: "gpt-4o"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
         ```""",
     )
 
@@ -291,17 +303,17 @@ def create_scheduled_jobs():
           analyze_economy_state:
             config:
               personality: "neutral"
-              model_provider: "openai"
-              model_name: "gpt-4-turbo-preview"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
           analyze_asset_class_relationships:
             config:
-              model_provider: "openai"
-              model_name: "gpt-4-turbo-preview"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
           generate_investment_recommendations:
             config:
               personality: "neutral"
-              model_provider: "openai"
-              model_name: "gpt-4-turbo-preview"
+              model_provider: "gemini"
+              model_name: "gemini-3-pro-preview"
         ```""",
     )
 

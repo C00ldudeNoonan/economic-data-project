@@ -210,10 +210,13 @@ def analyze_asset_class_relationships(
     """
     context.log.info("Starting asset class relationship analysis...")
 
+    model_provider = config.model_provider if config.model_provider else "gemini"
+    model_name = config.model_name if config.model_name else "gemini-2.5-flash"
+
     economic_analysis.setup_for_execution(
         context,
-        provider_override=config.model_provider,
-        model_name_override=config.model_name,
+        provider_override=model_provider,
+        model_name_override=model_name,
     )
 
     context.log.info("Retrieving latest economy state analysis...")

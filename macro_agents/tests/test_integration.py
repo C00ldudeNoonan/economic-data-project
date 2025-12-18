@@ -150,12 +150,12 @@ class TestDataValidation:
 
 class TestSlingConnectionIntegration:
     """Integration tests for Sling database connections.
-    
+
     These tests require real credentials and will be skipped if:
     - SLING_GOOGLE_APPLICATION_CREDENTIALS is not set
     - MOTHERDUCK_TOKEN is not set
     - Other required environment variables are missing
-    
+
     To run these tests, ensure all required environment variables are set.
     """
 

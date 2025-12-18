@@ -7,7 +7,7 @@ import tempfile
 import os
 import json
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 from macro_agents.defs.resources.fred import FredResource
 from macro_agents.defs.resources.market_stack import MarketStackResource
@@ -91,7 +91,9 @@ class TestSlingResourceWithCredentials:
         }
         creds_json = json.dumps(test_creds)
 
-        with patch.dict(os.environ, {"SLING_GOOGLE_APPLICATION_CREDENTIALS": creds_json}):
+        with patch.dict(
+            os.environ, {"SLING_GOOGLE_APPLICATION_CREDENTIALS": creds_json}
+        ):
             result = get_google_credentials_json()
             assert result == creds_json
             parsed = json.loads(result)
@@ -119,7 +121,9 @@ class TestSlingResourceWithCredentials:
     def test_get_google_credentials_json_missing_env_var(self):
         """Test error when environment variable is not set."""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="SLING_GOOGLE_APPLICATION_CREDENTIALS"):
+            with pytest.raises(
+                ValueError, match="SLING_GOOGLE_APPLICATION_CREDENTIALS"
+            ):
                 get_google_credentials_json()
 
     def test_get_google_credentials_json_invalid_json(self):
@@ -145,12 +149,17 @@ class TestSlingResourceWithCredentials:
         mock_context.log = Mock()
         mock_context.log.info = Mock()
 
-        with patch.dict(os.environ, {"SLING_GOOGLE_APPLICATION_CREDENTIALS": creds_json}):
-            with patch(
-                "macro_agents.defs.replication.sling.SlingConnectionResource"
-            ) as mock_conn, patch(
-                "macro_agents.defs.replication.sling.SlingResource"
-            ) as mock_sling:
+        with patch.dict(
+            os.environ, {"SLING_GOOGLE_APPLICATION_CREDENTIALS": creds_json}
+        ):
+            with (
+                patch(
+                    "macro_agents.defs.replication.sling.SlingConnectionResource"
+                ) as mock_conn,
+                patch(
+                    "macro_agents.defs.replication.sling.SlingResource"
+                ) as mock_sling,
+            ):
                 mock_bigquery_conn = Mock()
                 mock_motherduck_conn = Mock()
                 mock_conn.side_effect = [mock_bigquery_conn, mock_motherduck_conn]
@@ -193,12 +202,17 @@ class TestSlingResourceWithCredentials:
         mock_context.log = Mock()
         mock_context.log.info = Mock()
 
-        with patch.dict(os.environ, {"SLING_GOOGLE_APPLICATION_CREDENTIALS": creds_json}):
-            with patch(
-                "macro_agents.defs.replication.sling.SlingConnectionResource"
-            ) as mock_conn, patch(
-                "macro_agents.defs.replication.sling.SlingResource"
-            ) as mock_sling:
+        with patch.dict(
+            os.environ, {"SLING_GOOGLE_APPLICATION_CREDENTIALS": creds_json}
+        ):
+            with (
+                patch(
+                    "macro_agents.defs.replication.sling.SlingConnectionResource"
+                ) as mock_conn,
+                patch(
+                    "macro_agents.defs.replication.sling.SlingResource"
+                ) as mock_sling,
+            ):
                 mock_bigquery_conn = Mock()
                 mock_motherduck_conn = Mock()
                 mock_conn.side_effect = [mock_bigquery_conn, mock_motherduck_conn]
@@ -210,7 +224,9 @@ class TestSlingResourceWithCredentials:
                 resource.replicate(mock_context)
 
                 assert hasattr(resource, "_sling_resource")
-                mock_sling_instance.replicate.assert_called_once_with(context=mock_context)
+                mock_sling_instance.replicate.assert_called_once_with(
+                    context=mock_context
+                )
 
     def test_sling_resource_setup_with_motherduck_credentials(self):
         """Test SlingResourceWithCredentials setup with MotherDuck credentials."""
@@ -238,11 +254,14 @@ class TestSlingResourceWithCredentials:
         }
 
         with patch.dict(os.environ, env_vars):
-            with patch(
-                "macro_agents.defs.replication.sling.SlingConnectionResource"
-            ) as mock_conn, patch(
-                "macro_agents.defs.replication.sling.SlingResource"
-            ) as mock_sling:
+            with (
+                patch(
+                    "macro_agents.defs.replication.sling.SlingConnectionResource"
+                ) as mock_conn,
+                patch(
+                    "macro_agents.defs.replication.sling.SlingResource"
+                ) as mock_sling,
+            ):
                 mock_bigquery_conn = Mock()
                 mock_motherduck_conn = Mock()
                 mock_conn.side_effect = [mock_bigquery_conn, mock_motherduck_conn]
@@ -290,11 +309,14 @@ class TestSlingResourceWithCredentials:
         }
 
         with patch.dict(os.environ, env_vars):
-            with patch(
-                "macro_agents.defs.replication.sling.SlingConnectionResource"
-            ) as mock_conn, patch(
-                "macro_agents.defs.replication.sling.SlingResource"
-            ) as mock_sling:
+            with (
+                patch(
+                    "macro_agents.defs.replication.sling.SlingConnectionResource"
+                ) as mock_conn,
+                patch(
+                    "macro_agents.defs.replication.sling.SlingResource"
+                ) as mock_sling,
+            ):
                 mock_bigquery_conn = Mock()
                 mock_motherduck_conn = Mock()
                 mock_conn.side_effect = [mock_bigquery_conn, mock_motherduck_conn]
@@ -338,11 +360,14 @@ class TestSlingResourceWithCredentials:
         }
 
         with patch.dict(os.environ, env_vars):
-            with patch(
-                "macro_agents.defs.replication.sling.SlingConnectionResource"
-            ) as mock_conn, patch(
-                "macro_agents.defs.replication.sling.SlingResource"
-            ) as mock_sling:
+            with (
+                patch(
+                    "macro_agents.defs.replication.sling.SlingConnectionResource"
+                ) as mock_conn,
+                patch(
+                    "macro_agents.defs.replication.sling.SlingResource"
+                ) as mock_sling,
+            ):
                 mock_bigquery_conn = Mock()
                 mock_motherduck_conn = Mock()
                 mock_conn.side_effect = [mock_bigquery_conn, mock_motherduck_conn]
