@@ -1,0 +1,43 @@
+# Local development overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+#
+# Key differences from production:
+# - DefaultRunLauncher (runs inside user code container, no Docker-in-Docker)
+# - No Docker socket mount (works on Windows/Mac/Linux)
+# - Lower memory limits (laptop-friendly)
+# - dbt project mounted for live changes
+# - DB cleanup disabled (not needed locally)
+
+services:
+  dagster_webserver:
+    mem_limit: 512m
+    memswap_limit: 512m
+
+  dagster_daemon:
+    mem_limit: 512m
+    memswap_limit: 512m
+
+  dagster_user_code:
+    stop_grace_period: 90s
+    environment:
+      # Override to dev environment
+      ENVIRONMENT: ${ENVIRONMENT:-dev}
+      DBT_TARGET: ${DBT_TARGET:-dev}
+    volumes:
+      - ./macro_agents/src:/opt/dagster/app/src:ro
+      - ./dbt_project:/opt/dagster/dbt_project
+    tmpfs:
+      # dbt needs writable logs/target dirs even when project is mounted
+      - /opt/dagster/dbt_project/logs
+      - /opt/dagster/dbt_project/target
+    mem_limit: 2g
+    memswap_limit: 2g
+
+  dagster_postgresql:
+    mem_limit: 512m
+    memswap_limit: 512m
+
+  # Disable DB cleanup for local dev
+  dagster_db_cleanup:
+    profiles:
+      - disabled

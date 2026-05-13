@@ -1,0 +1,22 @@
+# GCP Configuration
+project_id       = "your-gcp-project-id"
+region           = "us-central1"
+zone             = "us-central1-a"
+authorized_email = "your-email@gmail.com"
+
+# VM Configuration
+machine_type = "e2-standard-4"  # 4 vCPU, 16GB RAM (~$100/mo)
+disk_size_gb = 50
+
+# Dagster Configuration
+dagster_pg_password = "your-secure-password-here"
+
+# MotherDuck Configuration
+motherduck_token       = "your-motherduck-token"
+motherduck_database    = "economic_data"
+motherduck_prod_schema = "main"
+
+# API Keys (optional - add as needed)
+fred_api_key    = ""
+openai_api_key  = ""
+anthropic_api_key = ""

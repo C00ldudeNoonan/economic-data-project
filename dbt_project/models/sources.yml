@@ -1,0 +1,151 @@
+version: 2
+
+sources:
+  - name: staging
+    schema: main
+    tables:
+      # FRED Data
+      - name: fred_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 7, period: day}
+          error_after: {count: 14, period: day}
+
+      # Financial Conditions Index
+      - name: financial_conditions_index
+
+      # Housing Data
+      - name: housing_inventory_raw
+
+      - name: housing_pulse_raw
+
+      # Realtor.com Housing Data
+      - name: realtor_country_raw
+        description: Monthly country-level housing data from Realtor.com (via Google Drive)
+
+      - name: realtor_state_raw
+        description: Monthly state-level housing data from Realtor.com (via Google Drive)
+
+      - name: realtor_metro_raw
+        description: Monthly metro-level housing data from Realtor.com (via Google Drive)
+
+      - name: realtor_county_raw
+        description: Monthly county-level housing data from Realtor.com (via Google Drive)
+
+      - name: realtor_zip_raw
+        description: Monthly ZIP-level housing data from Realtor.com (via Google Drive)
+      
+      # Treasury Yields Data
+      - name: treasury_yields_raw
+      
+      # MarketStack Data
+      - name: us_sector_etfs_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: currency_etfs_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: major_indices_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: fixed_income_etfs_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: global_markets_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: sp500_companies_prices_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: nasdaq_companies_prices_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: energy_commodities_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: input_commodities_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+      - name: agriculture_commodities_raw
+        loaded_at_field: date
+        freshness:
+          warn_after: {count: 5, period: day}
+          error_after: {count: 10, period: day}
+
+      # News Feed Data
+      - name: reddit_posts_raw
+        description: Raw Reddit posts from financial/economic subreddits scraped from old.reddit.com
+      - name: reddit_post_content_raw
+        description: Full post content (selftext, links) fetched per Reddit post
+      - name: reddit_comments_raw
+        description: Comments scraped per Reddit post from old.reddit.com
+      - name: reddit_content_embeddings
+        description: nomic-embed-text embeddings for Reddit post text and comment text
+      - name: reddit_sentiment_scored
+        description: VADER sentiment scores for Reddit posts and comments
+      - name: reddit_ticker_mentions
+        description: Stock ticker mentions ($AAPL etc.) extracted from Reddit posts and comments
+
+      - name: fomc_minutes_metadata
+        description: Metadata for FOMC meeting minutes stored in GCS (full documents in gs://bucket/fomc/)
+
+      # FOMC Transcript Data
+      - name: fomc_transcripts
+        description: Raw FOMC meeting transcripts with full text
+
+      - name: transcript_sections
+        description: Parsed transcript sections with speaker attribution
+
+      - name: fomc_meeting_summaries
+        description: AI-generated summaries of FOMC meetings
+
+      - name: transcript_topics
+        description: Topics and sentiment extracted from transcripts
+
+      - name: transcript_search_index
+        description: Full-text search index for transcripts
+
+      - name: member_voting_history
+        description: FOMC member voting records and positions
+
+      - name: fomc_meetings_enhanced
+        description: Enhanced FOMC meeting calendar with transcript availability
+
+      - name: fomc_sentiment_scores
+        description: Hawkish/dovish sentiment scores for FOMC transcript sections
+
+      # Events Calendar Data
+      - name: economic_calendar
+        description: Economic calendar events from Fair Economy CDN
+
+      - name: earnings_calendar
+        description: Earnings announcements from Financial Modeling Prep API
+
+      # Stock Splits
+      - name: sp500_splits_raw
+        description: Stock split history from MarketStack /splits API for S&P 500 companies
+
+      # Company Metadata
+      - name: sp500_companies_raw
+        description: >
+          S&P 500 company metadata from Wikipedia with SCD Type 2 history.
+          Active constituents have date_ended IS NULL. Use stg_sp500_companies_active
+          for current members only.

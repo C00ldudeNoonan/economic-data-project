@@ -1,0 +1,586 @@
+version: 2
+
+models:
+  - name: stg_fred_series
+    description: >
+      raw data from FRED (Federal Reserve Economic Data).
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: series_code
+        tests:
+          - not_null
+      - name: value
+        tests:
+          - not_null
+
+  - name: stg_housing_inventory
+    description: >
+      raw data tracking the number of available housing units over time and other metrics from the BLS (Bureau of labor statistics)
+    columns:
+      - name: time
+        tests:
+          - not_null
+
+  - name: stg_housing_pulse
+    description: >
+      raw data from biweekly housing pulse survey from the BLS (Bureau of labor statistics)
+    columns:
+      - name: TIME
+        tests:
+          - not_null
+
+  - name: stg_treasury_yields
+    description: >
+      raw Treasury yield curve data scraped from Treasury.gov XML feed
+    columns:
+      - name: date
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+  - name: stg_us_sectors
+    description: >
+      raw data from MarketStack API for US Sector ETFs
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: stg_currency
+    description: >
+      raw data from MarketStack API for Currency ETFs
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: stg_major_indices
+    description: >
+      raw data from MarketStack API for Major Indices
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: stg_fixed_income
+    description: >
+      raw data from MarketStack API for Fixed Income ETFs
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: stg_global_markets
+    description: >
+      raw data from MarketStack API for Global Markets
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: stg_sp500_companies_prices
+    description: >
+      raw daily data from MarketStack API for S&P 500 companies
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: stg_nasdaq_companies_prices
+    description: >
+      raw daily data from MarketStack API for NASDAQ companies
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: stg_agriculture_commodities
+    description: >
+      raw data from agriculture commodities
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
+      - name: price
+        tests:
+          - positive_price:
+              config:
+                severity: warn
+
+  - name: stg_energy_commodities
+    description: >
+      raw data from energy commodities
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
+      - name: price
+        tests:
+          - positive_price:
+              config:
+                severity: warn
+
+  - name: stg_input_commodities
+    description: >
+      raw data from input/industrial commodities
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
+      - name: price
+        tests:
+          - positive_price:
+              config:
+                severity: warn
+
+  - name: stg_sp500_companies_active
+    description: >
+      Active S&P 500 constituents filtered from sp500_companies_raw where date_ended IS NULL.
+      Use this view instead of the raw table when you only need current index members.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_realtor_country_history
+    description: >
+      monthly country level housing data from the realtor.com
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: stg_realtor_county_history
+    description: >
+      monthly county level housing data from the realtor.com
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: stg_realtor_metro_history
+    description: >
+      monthly metro level housing data from the realtor.com
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: stg_realtor_state_history
+    description: >
+      monthly state level housing data from the realtor.com
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: stg_realtor_zip_history
+    description: >
+      monthly state level housing data from the realtor.com
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: stg_reddit_posts
+    description: >
+      Cleaned and enriched Reddit posts from financial/economic subreddits.
+      Filters out promoted/ad posts (u_* subreddits) and normalizes subreddit casing.
+    columns:
+      - name: post_id
+        tests:
+          - not_null
+          - unique
+      - name: title
+        tests:
+          - not_null
+      - name: score
+        tests:
+          - not_null
+      - name: subreddit
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['investing', 'stocks', 'wallstreetbets', 'economics', 'economy']
+      - name: partition_date
+        tests:
+          - not_null
+
+  - name: stg_reddit_comments
+    description: >
+      Cleaned Reddit comments with derived engagement metrics.
+      Filters out deleted/empty comments.
+    columns:
+      - name: comment_id
+        tests:
+          - not_null
+          - unique
+      - name: post_id
+        tests:
+          - not_null
+      - name: body
+        tests:
+          - not_null
+      - name: subreddit
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['investing', 'stocks', 'wallstreetbets', 'economics', 'economy']
+      - name: partition_date
+        tests:
+          - not_null
+
+  - name: stg_reddit_post_content
+    description: >
+      Full post content (selftext, links) joined with post metadata.
+      Filters out promoted/ad posts.
+    columns:
+      - name: post_id
+        tests:
+          - not_null
+          - unique
+      - name: subreddit
+        tests:
+          - not_null
+      - name: partition_date
+        tests:
+          - not_null
+
+  - name: stg_reddit_ticker_mentions
+    description: >
+      Stock ticker mentions extracted from Reddit posts and comments,
+      enriched with S&P 500 company metadata when available.
+    columns:
+      - name: ticker
+        tests:
+          - not_null
+      - name: content_id
+        tests:
+          - not_null
+      - name: content_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['post_title', 'post_body', 'comment']
+      - name: subreddit
+        tests:
+          - not_null
+      - name: partition_date
+        tests:
+          - not_null
+
+  - name: stg_reddit_sentiment
+    description: >
+      VADER sentiment scores for Reddit posts and comments.
+      Includes compound, positive, negative, neutral scores with derived strength labels.
+    columns:
+      - name: content_id
+        tests:
+          - not_null
+      - name: content_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['post_title', 'post_body', 'comment']
+      - name: subreddit
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['investing', 'stocks', 'wallstreetbets', 'economics', 'economy']
+      - name: partition_date
+        tests:
+          - not_null
+      - name: sentiment_label
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['positive', 'negative', 'neutral']
+
+  - name: stg_fomc_minutes
+    description: >
+      Metadata for FOMC meeting minutes stored in GCS. Full documents available at gcs_uri.
+      Use this table to find meetings by date, then fetch full content from GCS for analysis.
+    columns:
+      - name: meeting_date
+        tests:
+          - not_null
+          - unique
+      - name: year
+        tests:
+          - not_null
+      - name: gcs_path
+        description: Path within GCS bucket (e.g., fomc/2024/2024-01-31.json)
+        tests:
+          - not_null
+      - name: gcs_uri
+        description: Full GCS URI (e.g., gs://bucket/fomc/2024/2024-01-31.json)
+        tests:
+          - not_null
+      - name: quarter
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4]
+      - name: num_sections
+        description: Number of sections in the meeting minutes
+      - name: content_length
+        description: Total character length of the meeting minutes content
+
+  - name: stg_economic_calendar
+    description: >
+      Economic calendar events from Fair Economy CDN.
+      Includes growth, inflation, employment, central bank, bonds, housing,
+      consumer surveys, business surveys, speeches, and miscellaneous events.
+    columns:
+      - name: event_id
+        description: Unique event identifier (date + title + country)
+        tests:
+          - not_null
+          - unique
+      - name: title
+        description: Event name/title
+        tests:
+          - not_null
+      - name: country
+        description: Currency code (USD, EUR, GBP, etc.)
+        tests:
+          - not_null
+      - name: event_datetime
+        description: Event datetime with timezone
+        tests:
+          - not_null
+      - name: event_date
+        description: Event date only
+        tests:
+          - not_null
+      - name: impact
+        description: Impact level (High, Medium, Low, Holiday)
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['High', 'Medium', 'Low', 'Holiday']
+      - name: event_type
+        description: Classified event type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['growth', 'inflation', 'employment', 'central_bank', 'bonds', 'housing', 'consumer_survey', 'business_survey', 'speech', 'miscellaneous']
+      - name: impact_level
+        description: Numeric impact level for sorting (3=High, 2=Medium, 1=Low, 0=Holiday)
+      - name: is_upcoming
+        description: Boolean flag for upcoming events
+      - name: days_until_event
+        description: Days until the event (negative for past events)
+
+  - name: stg_earnings_calendar
+    description: >
+      Earnings announcements from Financial Modeling Prep API.
+      Includes upcoming and recent earnings with EPS/revenue estimates and actuals.
+    columns:
+      - name: event_id
+        description: Unique event identifier (earnings_date_symbol)
+        tests:
+          - not_null
+          - unique
+      - name: symbol
+        description: Stock ticker symbol
+        tests:
+          - not_null
+      - name: company_name
+        description: Company name
+      - name: report_date
+        description: Earnings report date
+        tests:
+          - not_null
+      - name: timing
+        description: Report timing (bmo=Before Market Open, amc=After Market Close)
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['bmo', 'amc', 'during_market', 'unknown']
+      - name: eps_estimated
+        description: Estimated earnings per share
+      - name: eps_actual
+        description: Actual earnings per share (if reported)
+      - name: eps_surprise_pct
+        description: EPS surprise as percentage ((actual-estimated)/estimated * 100)
+      - name: eps_result
+        description: Beat, miss, or met expectations
+      - name: is_upcoming
+        description: Boolean flag for upcoming earnings
+      - name: days_until_report
+        description: Days until the report (negative for past reports)
+      - name: has_reported
+        description: Boolean flag indicating if company has reported
+
+  - name: corporate_actions
+    description: >
+      Detects stock splits and dividends from raw OHLC data using two methods:
+      API-reported splits (where split_factor != 1), heuristic detection via overnight
+      price ratio matching clean integer reciprocals (1/2, 1/3, 1/4, 1/5, 1/10, etc.
+      within 5% tolerance), and API-reported dividends (where dividend > 0).
+      Covers sp500 and nasdaq individual stock tables.
+    columns:
+      - name: source_table
+        description: Raw source table name (e.g., sp500_companies_prices_raw)
+        tests:
+          - not_null
+      - name: symbol
+        description: Stock ticker symbol
+        tests:
+          - not_null
+      - name: date
+        description: Date of the corporate action
+        tests:
+          - not_null
+      - name: action_type
+        description: Type of corporate action (split or dividend)
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['split', 'dividend']
+      - name: split_factor
+        description: >
+          Split ratio (e.g., 10 for a 10-for-1 split, 2 for 2-for-1).
+          Set to 1.0 for dividend rows.
+      - name: dividend_amount
+        description: Dividend amount per share. Set to 0.0 for split rows.
+      - name: detection_method
+        description: How the action was detected (splits_api, api_reported, or heuristic)
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['splits_api', 'api_reported', 'heuristic']
+
+  - name: split_adjusted_prices
+    description: >
+      Split-adjusted OHLCV prices for individual stocks (S&P 500 and NASDAQ).
+      Computes a cumulative split adjustment factor for each symbol as the product
+      of all split factors occurring after each date. Historical prices are divided
+      by this factor so they are comparable to post-split prices. Volume is multiplied
+      by the factor. Uses corporate_actions as the source of split events.
+    columns:
+      - name: source_table
+        description: Raw source table name
+        tests:
+          - not_null
+      - name: symbol
+        description: Stock ticker symbol
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: split_adj_close
+        description: Split-adjusted closing price
+      - name: split_adj_open
+        description: Split-adjusted opening price
+      - name: split_adj_high
+        description: Split-adjusted high price
+      - name: split_adj_low
+        description: Split-adjusted low price
+      - name: split_adj_volume
+        description: Split-adjusted trading volume (volume * cumulative_split_factor)
+      - name: cumulative_split_factor
+        description: >
+          Product of all split factors occurring after this date for this symbol.
+          A value of 1.0 means no future splits; 10.0 means a 10:1 split happened later.

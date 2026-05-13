@@ -1,0 +1,52 @@
+.env
+.env.*
+!.env.dagster.example
+!.env.example
+.env.local
+/.venv
+/.ruff_cache
+/.vscode
+
+creds.json
+gcp-service-account.json
+*-service-account.json
+.ruff_cache
+
+# Database files
+*.duckdb
+*.duckdb.wal
+*.db
+*.sqlite
+*.sqlite3
+/econ_data_platform/local.duckdb
+# Dagster temporary directories
+tmp_*
+tmpr_*
+tmpd_*
+.tmp_dagster_*
+*.csv
+!dbt_project/seeds/*.csv
+*.log
+*.json
+!.mcp.json
+!.claude/settings.json
+!dbt_project/.user.yml
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Docker and Dagster OSS
+docker-compose.override.yml
+dagster_storage/
+postgres_data/
+
+# Local Dagster development storage
+macro_agents/storage/*
+dagster_localscripts/analysis_report.md
+
+# Reference materials (large binaries stored in GCS)
+docs/reference_materials/*
+!docs/reference_materials/catalog.md

@@ -1,0 +1,313 @@
+version: 2
+
+models:
+  - name: market_economic_analysis
+    description: >
+      Combines market return analysis tables (currency, fixed income, global markets, major indices, US sectors) with government economic indicators to provide a comprehensive view of the relationship between economic changes and forward market returns. This model enables analysis of how macroeconomic factors such as GDP, inflation, interest rates, employment, producer prices, industrial production, and housing impact future market performance. It includes lagged economic changes, regime classification, and composite economic stress indicators for advanced economic and market research.
+    columns:
+      - name: year_month
+        tests:
+          - not_null
+      - name: month_date
+        tests:
+          - not_null
+
+  - name: base_historical_analysis
+    description: >
+      Comprehensive historical analysis combining market return data across all asset categories (currency, fixed income, global markets, major indices, and US sectors) with economic indicators from FRED. This model provides a unified view of market performance metrics including price, volume, and percentage changes over various time horizons, joined with FRED economic data. Enables cross-asset analysis and correlation studies between market returns and economic indicators.
+    columns:
+      - name: symbol
+        description: "Trading symbol for the financial instrument"
+        tests:
+          - not_null
+      - name: exchange
+        description: "Exchange where the instrument is traded"
+      - name: date
+        description: "Date of the data point"
+        tests:
+          - not_null
+      - name: current_price
+        description: "Current price of the instrument"
+      - name: current_volume
+        description: "Current trading volume"
+      - name: pct_change_1mo
+        description: "Percentage change over 1 month"
+      - name: pct_change_3mo
+        description: "Percentage change over 3 months"
+      - name: pct_change_6mo
+        description: "Percentage change over 6 months"
+      - name: pct_change_9mo
+        description: "Percentage change over 9 months"
+      - name: pct_change_1yr
+        description: "Percentage change over 1 year"
+      - name: high_1yr
+        description: "52-week high price"
+      - name: low_1yr
+        description: "52-week low price"
+      - name: std_diff_1yr
+        description: "Standard deviation difference over 1 year"
+      - name: category
+        description: "Asset category: currency, fixed_income, global_markets, major_indicies, or sector"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['currency', 'fixed_income', 'global_markets', 'major_indicies', 'sector']
+      - name: series_name
+        description: "Name of the FRED economic series"
+      - name: value
+        description: "Value of the economic indicator"
+      - name: period_diff
+        description: "Period-over-period difference in the economic indicator value"
+
+  - name: leading_econ_return_indicator
+    description: >
+      Analysis of economic data rate of change vs future stock returns, providing correlation analysis and quintile performance insights
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: series_name
+        tests:
+          - not_null
+      - name: analysis_type
+        tests:
+          - not_null
+      - name: economic_category
+        tests:
+          - not_null
+
+  - name: reddit_sentiment_trends
+    description: >
+      Daily sentiment trends and engagement metrics by subreddit, including rolling averages and momentum indicators
+    columns:
+      - name: partition_date
+        description: "Date of the metrics"
+        tests:
+          - not_null
+      - name: subreddit
+        description: "Subreddit being analyzed"
+        tests:
+          - not_null
+      - name: num_posts
+        description: "Number of posts on this date"
+        tests:
+          - not_null
+      - name: avg_score
+        description: "Average post score (upvotes - downvotes)"
+      - name: avg_comments
+        description: "Average number of comments per post"
+      - name: score_momentum_pct
+        description: "Percentage change from 7-day average score"
+      - name: sentiment_trend
+        description: "Overall sentiment direction based on score and comment trends"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['increasing', 'decreasing', 'stable']
+
+  - name: sector_indicator_sensitivity
+    description: >
+      Rolling correlations between FRED economic indicators and sector ETF returns with lag analysis.
+      Calculates sensitivity scores combining contemporaneous and lagged correlations to identify
+      which indicators have predictive power for each sector.
+    columns:
+      - name: symbol
+        description: "Sector ETF symbol"
+        tests:
+          - not_null
+      - name: series_code
+        description: "FRED series code"
+        tests:
+          - not_null
+      - name: sensitivity_score
+        description: "Composite score (0-100) combining correlation strength and predictive power"
+
+  - name: sector_sensitivity_summary
+    description: >
+      Aggregated sector sensitivity analysis with rankings, percentiles, and derived metrics
+      for each sector-indicator pair.
+    columns:
+      - name: symbol
+        description: "Sector ETF symbol"
+        tests:
+          - not_null
+      - name: series_code
+        description: "FRED series code"
+        tests:
+          - not_null
+
+  - name: economic_regime_classification
+    description: >
+      Classifies economic environment into four regimes (Expansion, Slowdown, Contraction, Recovery)
+      using key economic indicators including growth, employment, inflation, and financial conditions.
+    columns:
+      - name: month_date
+        description: "Month of the classification"
+        tests:
+          - not_null
+      - name: regime
+        description: "Economic regime classification"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Expansion', 'Slowdown', 'Contraction', 'Recovery', 'Unknown']
+
+  - name: factor_tilts
+    description: >
+      Maps economic regimes to recommended factor tilts (value, momentum, quality, low vol, size)
+      on a monthly basis using the economic_regime_classification model.
+    columns:
+      - name: month_date
+        description: "Month of the regime observation"
+        tests:
+          - not_null
+      - name: regime
+        description: "Economic regime classification"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Expansion', 'Slowdown', 'Contraction', 'Recovery']
+      - name: value_tilt
+        description: "Recommended value factor tilt"
+      - name: momentum_tilt
+        description: "Recommended momentum factor tilt"
+      - name: quality_tilt
+        description: "Recommended quality factor tilt"
+      - name: low_vol_tilt
+        description: "Recommended low volatility factor tilt"
+      - name: size_tilt
+        description: "Recommended size factor tilt"
+      - name: notes
+        description: "Contextual explanation for the regime's factor tilts"
+
+  - name: sector_regime_performance
+    description: >
+      Historical sector performance statistics by economic regime, including average returns,
+      volatility, win rates, and cyclical/defensive classification.
+    columns:
+      - name: symbol
+        description: "Sector ETF symbol"
+        tests:
+          - not_null
+      - name: regime
+        description: "Economic regime"
+        tests:
+          - not_null
+
+  - name: correlation_analysis_enhanced
+    description: >
+      Enhanced correlation analysis with statistical significance testing (t-statistics, p-values),
+      rolling stability metrics, and regime-specific correlation breakdown.
+    columns:
+      - name: symbol
+        description: "Sector ETF symbol"
+        tests:
+          - not_null
+      - name: series_code
+        description: "FRED series code"
+        tests:
+          - not_null
+      - name: quality_rating
+        description: "Quality rating combining significance and stability"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['High', 'Medium', 'Low']
+
+  - name: indicator_market_response
+    description: >
+      Event study analysis measuring how sectors respond to economic indicator releases and surprises.
+      Calculates average returns by surprise category (beat/miss) and identifies which indicators
+      sectors are most responsive to.
+    columns:
+      - name: symbol
+        description: "Sector ETF symbol"
+        tests:
+          - not_null
+      - name: series_code
+        description: "FRED series code"
+        tests:
+          - not_null
+      - name: response_type
+        description: "Whether the sector response is pro-cyclical, counter-cyclical, or neutral"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Pro-cyclical', 'Counter-cyclical', 'Neutral']
+
+  - name: ticker_sector_sensitivity
+    description: >
+      Maps individual stock tickers to their GICS sectors and associated sector ETFs, providing
+      macro sensitivity data at the individual stock level. Enables watchlist impact analysis by
+      linking stocks to their sector's economic indicator sensitivity scores.
+    columns:
+      - name: symbol
+        description: "Stock ticker symbol"
+        tests:
+          - not_null
+          - unique
+      - name: company_name
+        description: "Company name"
+      - name: gics_sector
+        description: "GICS sector classification"
+        tests:
+          - not_null
+      - name: sub_industry
+        description: "GICS sub-industry classification"
+      - name: sector_etf
+        description: "Corresponding sector ETF symbol (XLK, XLF, etc.)"
+        tests:
+          - not_null
+      - name: sector_display_name
+        description: "Human-readable sector name"
+      - name: index_membership
+        description: "Index the stock belongs to (e.g., SP500)"
+      - name: avg_sensitivity_score
+        description: "Average sensitivity score of the sector to economic indicators"
+      - name: macro_exposure_level
+        description: "Categorized macro exposure level"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['High', 'Medium', 'Low']
+      - name: top_sensitive_indicators
+        description: "Top 5 economic indicators the sector is most sensitive to"
+      - name: sector_type
+        description: "Whether the sector is Cyclical or Defensive based on regime performance"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Cyclical', 'Defensive']
+
+  - name: portfolio_macro_factors
+    description: >
+      Aggregates sector sensitivities into macro factor categories (Inflation, Employment, Growth,
+      Housing, Consumer, Rates, Financial, Business) for portfolio-level exposure scoring.
+      Each row represents a sector-factor combination with exposure metrics.
+    columns:
+      - name: symbol
+        description: "Sector ETF symbol"
+        tests:
+          - not_null
+      - name: sector_name
+        description: "Human-readable sector name"
+      - name: macro_factor
+        description: "Macro factor category"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Inflation', 'Employment', 'Growth', 'Housing', 'Consumer', 'Rates', 'Financial', 'Business']
+      - name: indicator_count
+        description: "Number of indicators in this factor"
+      - name: avg_sensitivity
+        description: "Average sensitivity score for indicators in this factor"
+      - name: factor_exposure_score
+        description: "Composite exposure score (0-100) for this sector-factor pair"
+      - name: overall_macro_exposure
+        description: "Sector's average exposure across all macro factors"
+      - name: factor_rank
+        description: "Rank of this sector within the factor (1 = highest exposure)"

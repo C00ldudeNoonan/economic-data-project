@@ -1,0 +1,329 @@
+services:
+  # PostgreSQL - Dagster storage backend
+  dagster_postgresql:
+    image: postgres:15
+    container_name: dagster_postgresql
+    environment:
+      POSTGRES_USER: dagster_user
+      POSTGRES_PASSWORD: ${DAGSTER_PG_PASSWORD}
+      POSTGRES_DB: dagster
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dagster_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dagster_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    # Resource limits to prevent memory exhaustion
+    mem_limit: 2g
+    memswap_limit: 2g
+    # Logging limits to prevent disk exhaustion
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # User Code - Your Dagster definitions
+  dagster_user_code:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.user-code
+    container_name: dagster_user_code
+    image: dagster-macro-agents:latest
+    restart: unless-stopped
+    # Give in-flight runs time to checkpoint before Docker sends SIGKILL (default 10s)
+    stop_grace_period: 90s
+    environment:
+      # Environment setting - use "prod" for MotherDuck, "dev" for local DuckDB
+      ENVIRONMENT: prod
+
+      # Dagster PostgreSQL connection
+      DAGSTER_POSTGRES_USER: dagster_user
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_PG_PASSWORD}
+      DAGSTER_POSTGRES_DB: dagster
+      DAGSTER_POSTGRES_HOSTNAME: dagster_postgresql
+      DAGSTER_POSTGRES_PORT: "5432"
+
+      # MotherDuck (primary data warehouse)
+      MOTHERDUCK_TOKEN: ${MOTHERDUCK_TOKEN}
+      MOTHERDUCK_DATABASE: ${MOTHERDUCK_DATABASE}
+      MOTHERDUCK_PROD_SCHEMA: ${MOTHERDUCK_PROD_SCHEMA}
+      DBT_TARGET: ${DBT_TARGET:-prod}
+      DBT_PROJECT_DIR: /opt/dagster/dbt_project
+      # GCP Configuration
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME}
+      BIGQUERY_PROJECT_ID: ${BIGQUERY_PROJECT_ID}
+      BIGQUERY_DATASET: ${BIGQUERY_DATASET:-economic_data}
+      BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
+      # Pass JSON credentials to entrypoint, which writes to file
+      GOOGLE_APPLICATION_CREDENTIALS_JSON: ${GOOGLE_APPLICATION_CREDENTIALS}
+      SEC_EDGAR_CONTACT_EMAIL: ${SEC_EDGAR_CONTACT_EMAIL}
+      GOOGLE_DRIVE_FOLDER_ID: ${GOOGLE_DRIVE_FOLDER_ID}
+      REALTOR_GDRIVE_FOLDER_ID: ${REALTOR_GDRIVE_FOLDER_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+
+      # Data API Keys
+      FRED_API_KEY: ${FRED_API_KEY}
+      MARKETSTACK_API_KEY: ${MARKETSTACK_API_KEY}
+
+      # LLM API Keys
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      MODEL_NAME: ${MODEL_NAME}
+      LLM_PROVIDER: ${LLM_PROVIDER}
+
+      # Ollama (local LLM for SEC filing analysis)
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+
+      # Social/Other APIs
+      REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID}
+      REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-C00ldudeNoonan}
+      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-economic-data-project-full}
+
+
+    volumes:
+      # Mount source code for hot-reload during development
+      # Changes to code only require: docker compose restart dagster_user_code
+      - ./macro_agents/src:/opt/dagster/app/src:ro
+      # Shared storage for compute logs and artifacts (needed with DefaultRunLauncher
+      # since runs execute inside this container)
+      - dagster_storage:/opt/dagster/dagster_home/storage
+    networks:
+      - dagster_network
+    depends_on:
+      dagster_postgresql:
+        condition: service_healthy
+    expose:
+      - "4000"
+    # Health check for gRPC server
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; channel = grpc.insecure_channel('localhost:4000'); channel.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Resource limits — runs execute inside this container (DefaultRunLauncher),
+    # so it needs enough headroom for the gRPC server + concurrent run subprocesses
+    mem_limit: 4g
+    memswap_limit: 4g
+    # Logging limits
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # Dagster Webserver - UI and GraphQL API
+  dagster_webserver:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.webserver
+    image: dagster-webserver:local
+    container_name: dagster_webserver
+    restart: unless-stopped
+    ports:
+      - "${DAGSTER_UI_PORT:-3000}:3000"
+    environment:
+      DAGSTER_POSTGRES_USER: dagster_user
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_PG_PASSWORD}
+      DAGSTER_POSTGRES_DB: dagster
+      DAGSTER_POSTGRES_HOSTNAME: dagster_postgresql
+      DAGSTER_POSTGRES_PORT: "5432"
+    volumes:
+      - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml:ro
+      - ./workspace.yaml:/opt/dagster/dagster_home/workspace.yaml:ro
+      - dagster_storage:/opt/dagster/dagster_home/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - dagster_network
+    depends_on:
+      dagster_postgresql:
+        condition: service_healthy
+      dagster_user_code:
+        condition: service_healthy
+    # Health check for webserver
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/server_info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Resource limits
+    mem_limit: 1g
+    memswap_limit: 1g
+    # Logging limits
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # Dagster Daemon - Schedules, sensors, run queue
+  # NOTE: The daemon is the most memory-sensitive container. It manages the run
+  # queue, evaluates schedules/sensors/automation conditions, and monitors run
+  # health. Under-provisioning causes runs to time out waiting to start.
+  dagster_daemon:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.daemon
+    image: dagster-daemon:local
+    container_name: dagster_daemon
+    restart: unless-stopped
+    environment:
+      DAGSTER_POSTGRES_USER: dagster_user
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_PG_PASSWORD}
+      DAGSTER_POSTGRES_DB: dagster
+      DAGSTER_POSTGRES_HOSTNAME: dagster_postgresql
+      DAGSTER_POSTGRES_PORT: "5432"
+      ENVIRONMENT: prod
+      MOTHERDUCK_TOKEN: ${MOTHERDUCK_TOKEN}
+      MOTHERDUCK_DATABASE: ${MOTHERDUCK_DATABASE}
+      MOTHERDUCK_PROD_SCHEMA: ${MOTHERDUCK_PROD_SCHEMA}
+      DBT_TARGET: ${DBT_TARGET:-prod}
+      DBT_PROJECT_DIR: /opt/dagster/dbt_project
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME}
+      BIGQUERY_PROJECT_ID: ${BIGQUERY_PROJECT_ID}
+      BIGQUERY_DATASET: ${BIGQUERY_DATASET:-economic_data}
+      BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
+      GOOGLE_APPLICATION_CREDENTIALS_JSON: ${GOOGLE_APPLICATION_CREDENTIALS}
+      SEC_EDGAR_CONTACT_EMAIL: ${SEC_EDGAR_CONTACT_EMAIL}
+      GOOGLE_DRIVE_FOLDER_ID: ${GOOGLE_DRIVE_FOLDER_ID}
+      REALTOR_GDRIVE_FOLDER_ID: ${REALTOR_GDRIVE_FOLDER_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+      FRED_API_KEY: ${FRED_API_KEY}
+      MARKETSTACK_API_KEY: ${MARKETSTACK_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      MODEL_NAME: ${MODEL_NAME}
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID}
+      REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-C00ldudeNoonan}
+      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-economic-data-project-full}
+    volumes:
+      - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml:ro
+      - ./workspace.yaml:/opt/dagster/dagster_home/workspace.yaml:ro
+      - dagster_storage:/opt/dagster/dagster_home/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - dagster_network
+    depends_on:
+      dagster_postgresql:
+        condition: service_healthy
+      dagster_user_code:
+        condition: service_healthy
+    # Resource limits
+    mem_limit: 3g
+    memswap_limit: 3g
+    # Logging limits
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # Ollama - Local LLM inference for SEC filing analysis
+  # Start with: docker compose --profile llm up
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    profiles: ["llm"]
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - dagster_network
+    mem_limit: 4g
+    memswap_limit: 4g
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list > /dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # Ollama model pull - one-shot init to download required models
+  ollama_init:
+    image: ollama/ollama:latest
+    container_name: ollama_init
+    profiles: ["llm"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - dagster_network
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Pulling llama3.2:3b..." && \
+        ollama pull llama3.2:3b && \
+        echo "Pulling nomic-embed-text..." && \
+        ollama pull nomic-embed-text && \
+        echo "Models ready."
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    restart: "no"
+
+  # Dagster DB cleanup - prune non-error events older than retention
+  dagster_db_cleanup:
+    image: postgres:15
+    container_name: dagster_db_cleanup
+    restart: unless-stopped
+    environment:
+      DAGSTER_DB_HOST: dagster_postgresql
+      DAGSTER_DB_PORT: "5432"
+      DAGSTER_DB_NAME: dagster
+      DAGSTER_DB_USER: dagster_user
+      DAGSTER_DB_PASSWORD: ${DAGSTER_PG_PASSWORD}
+      DAGSTER_EVENT_RETENTION_HOURS: ${DAGSTER_EVENT_RETENTION_HOURS:-24}
+      DAGSTER_EVENT_CLEANUP_INTERVAL_SECONDS: ${DAGSTER_EVENT_CLEANUP_INTERVAL_SECONDS:-3600}
+    volumes:
+      - ./docker/cleanup_event_logs.sh:/opt/dagster/cleanup_event_logs.sh:ro
+    entrypoint: ["/bin/sh", "/opt/dagster/cleanup_event_logs.sh"]
+    networks:
+      - dagster_network
+    depends_on:
+      dagster_postgresql:
+        condition: service_healthy
+    # Resource limits (lightweight container)
+    mem_limit: 256m
+    memswap_limit: 256m
+    # Logging limits
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+volumes:
+  postgres_data:
+    driver: local
+  dagster_storage:
+    driver: local
+  ollama_data:
+    driver: local
+
+networks:
+  dagster_network:
+    driver: bridge

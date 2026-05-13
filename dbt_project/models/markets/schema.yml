@@ -1,0 +1,547 @@
+version: 2
+
+models:
+  - name: currency_summary
+    description: >
+      Comprehensive performance analysis of currency pairs across multiple time periods.
+      This model calculates key financial metrics including total returns, volatility,
+      win rates, and trading activity statistics for major currency pairs over 12 weeks,
+      6 months, 1 year, and 5 year periods. Provides insights into currency market
+      trends and risk characteristics.
+    tests:
+      - unique_combination:
+          combination_of_columns: ['symbol', 'time_period']
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: volatility_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: global_markets_summary
+    description: >
+      Performance analysis of global market indices and securities across multiple time periods.
+      This model aggregates trading data to calculate comprehensive performance metrics
+      including returns, volatility, win rates, and daily trading statistics for global
+      markets over 12 weeks, 6 months, 1 year, and 5 year periods. Enables comparison
+      of global market performance and risk profiles.
+    tests:
+      - unique_combination:
+          combination_of_columns: ['symbol', 'time_period']
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: volatility_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: major_indicies_summary
+    description: >
+      Performance analysis of major stock market indices across multiple time periods.
+      This model calculates key performance indicators including total returns, daily
+      average returns, volatility, win rates, and trading activity metrics for major
+      indices like S&P 500, NASDAQ, and Dow Jones over 12 weeks, 6 months, 1 year,
+      and 5 year periods. Provides comprehensive market performance insights.
+    tests:
+      - unique_combination:
+          combination_of_columns: ['symbol', 'time_period']
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: volatility_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: us_sector_summary
+    description: >
+      Performance analysis of US sector-based indices and ETFs across multiple time periods.
+      This model aggregates sector performance data to calculate comprehensive metrics
+      including returns, volatility, win rates, and trading statistics for US sectors
+      over 12 weeks, 6 months, 1 year, and 5 year periods. Enables sector rotation
+      analysis and relative performance comparison across different market sectors.
+    tests:
+      - unique_combination:
+          combination_of_columns: ['symbol', 'time_period']
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: volatility_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: sp500_companies_summary
+    description: >
+      Performance analysis of S&P 500 companies across multiple time periods.
+      This model aggregates daily trading data to calculate returns, volatility,
+      win rates, and trading statistics over 12 weeks, 6 months, 1 year, and 5 year
+      periods for S&P 500 constituents.
+    tests:
+      - unique_combination:
+          combination_of_columns: ['symbol', 'time_period']
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: volatility_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: nasdaq_companies_summary
+    description: >
+      Performance analysis of NASDAQ companies across multiple time periods.
+      This model aggregates daily trading data to calculate returns, volatility,
+      win rates, and trading statistics over 12 weeks, 6 months, 1 year, and 5 year
+      periods for NASDAQ-listed companies.
+    tests:
+      - unique_combination:
+          combination_of_columns: ['symbol', 'time_period']
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: volatility_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: currency_analysis_return
+    description: >
+      Daily rolling analysis of currency pairs with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: symbol
+        description: Currency pair symbol
+        tests:
+          - not_null
+      - name: exchange
+        description: Exchange where the currency pair is traded
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: current_price
+        description: Current adjusted close price
+      - name: current_high
+        description: Current day's high price
+      - name: current_low
+        description: Current day's low price
+      - name: current_volume
+        description: Current day's trading volume
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
+
+  - name: global_markets_analysis_return    
+    description: >
+      Daily rolling analysis of global markets with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: symbol
+        description: Global market symbol
+        tests:
+          - not_null
+      - name: exchange
+        description: Exchange where the security is traded
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: current_price
+        description: Current adjusted close price
+      - name: current_high
+        description: Current day's high price
+      - name: current_low
+        description: Current day's low price
+      - name: current_volume
+        description: Current day's trading volume
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
+
+  - name: major_indicies_analysis_return
+    description: >
+      Daily rolling analysis of major indices with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: symbol
+        description: Major index symbol
+        tests:
+          - not_null
+      - name: exchange
+        description: Exchange where the index is traded
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+
+  - name: sp500_companies_analysis_return
+    description: >
+      Daily rolling analysis of S&P 500 companies with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: symbol
+        description: Company symbol
+        tests:
+          - not_null
+      - name: exchange
+        description: Exchange where the security is traded
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+
+  - name: nasdaq_companies_analysis_return
+    description: >
+      Daily rolling analysis of NASDAQ companies with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: symbol
+        description: Company symbol
+        tests:
+          - not_null
+      - name: exchange
+        description: Exchange where the security is traded
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: current_price
+        description: Current adjusted close price
+      - name: current_high
+        description: Current day's high price
+      - name: current_low
+        description: Current day's low price
+      - name: current_volume
+        description: Current day's trading volume
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
+
+  - name: us_sector_analysis_return
+    description: >
+      Daily rolling analysis of US sector ETFs with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: symbol
+        description: US sector ETF symbol
+        tests:
+          - not_null
+      - name: exchange
+        description: Exchange where the ETF is traded
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: current_price
+        description: Current adjusted close price
+      - name: current_high
+        description: Current day's high price
+      - name: current_low
+        description: Current day's low price
+      - name: current_volume
+        description: Current day's trading volume
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
+
+  - name: fixed_income_analysis_return
+    description: >
+      Daily rolling analysis of fixed income ETFs with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: symbol
+        description: Fixed income ETF symbol
+        tests:
+          - not_null
+      - name: exchange
+        description: Exchange where the ETF is traded
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: current_price
+        description: Current adjusted close price
+      - name: current_high
+        description: Current day's high price
+      - name: current_low
+        description: Current day's low price
+      - name: current_volume
+        description: Current day's trading volume
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
+

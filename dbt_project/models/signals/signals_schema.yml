@@ -1,0 +1,631 @@
+version: 2
+
+models:
+  - name: inflation_signals
+    description: >
+      Inflation signals derived from FRED data: CPI momentum (3mo annualized vs 12mo YoY),
+      Core PCE deviation from Fed's 2% target, and breakeven inflation spread (5Y vs 10Y).
+    columns:
+      - name: date
+        description: Observation date
+        tests:
+          - not_null
+      - name: cpi_3m_annualized
+        description: CPI 3-month annualized rate of change
+      - name: cpi_12m_yoy
+        description: CPI 12-month year-over-year rate
+      - name: cpi_momentum_spread
+        description: Difference between 3mo annualized and 12mo YoY (positive = re-accelerating)
+      - name: core_pce_yoy
+        description: Core PCE 12-month year-over-year rate
+      - name: pce_deviation_from_target
+        description: Core PCE YoY minus Fed's 2% target
+      - name: breakeven_5y_10y_spread
+        description: 5Y breakeven minus 10Y breakeven (positive = near-term inflation stress)
+      - name: cpi_momentum_status
+        description: "Signal severity: high (re-accelerating), medium, low (decelerating), normal"
+        tests:
+          - not_null
+      - name: core_pce_status
+        description: "Signal severity based on distance from 2% target"
+      - name: breakeven_status
+        description: "Signal severity based on breakeven spread"
+
+  - name: labor_signals
+    description: >
+      Labor market signals: job openings to unemployed ratio, initial claims trends,
+      quits rate direction, and Sahm Rule indicator (SAHMCURRENT).
+    columns:
+      - name: date
+        description: Monthly observation date
+        tests:
+          - not_null
+      - name: jo_unemployed_ratio
+        description: "JTSJOL / UNEMPLOY - Fed's key labor tightness metric"
+      - name: sahm_approx
+        description: Sahm Rule recession indicator (SAHMCURRENT)
+      - name: jo_ratio_status
+        description: "Signal severity: high (<0.5 recessionary), medium (<1.0 slack), normal"
+        tests:
+          - not_null
+      - name: claims_trend_status
+        description: "Signal severity based on 3-month claims trend"
+      - name: sahm_approx_status
+        description: "Signal severity: high (>=0.50 recession), medium (>=0.30 warning)"
+      - name: quits_trend_status
+        description: "Signal severity based on quits rate decline"
+
+  - name: housing_signals
+    description: >
+      Housing market signals: housing starts YoY momentum, permits-to-starts pipeline ratio,
+      mortgage rate stress level, and months of supply.
+    columns:
+      - name: date
+        description: Monthly observation date
+        tests:
+          - not_null
+      - name: starts_yoy_pct
+        description: Housing starts year-over-year percentage change
+      - name: permits_starts_ratio
+        description: Building permits / housing starts (pipeline indicator)
+      - name: avg_mortgage_rate
+        description: Average 30-year fixed mortgage rate for the month
+      - name: months_of_supply
+        description: Months of new housing supply (MSACSR)
+      - name: starts_momentum_status
+        description: "Signal severity based on YoY starts change"
+      - name: permits_pipeline_status
+        description: "Signal severity based on permits/starts ratio"
+      - name: mortgage_stress_status
+        description: "Signal severity based on mortgage rate level"
+      - name: supply_status
+        description: "Signal severity based on months of supply"
+
+  - name: financial_conditions_signals
+    description: >
+      Financial conditions signals: NFCI level and trend, bank lending standards from
+      Senior Loan Officer Survey, NFCI sub-indices (credit, leverage), and
+      ANFCI/STLFSI4/credit card delinquency.
+    columns:
+      - name: date
+        description: Observation date (weekly for stress indices, monthly for lending/delinquency)
+        tests:
+          - not_null
+      - name: nfci_value
+        description: Chicago Fed National Financial Conditions Index (0 = average, positive = tighter)
+      - name: nfci_credit
+        description: NFCI credit sub-index
+      - name: nfci_leverage
+        description: NFCI nonfinancial leverage sub-index
+      - name: anfci_value
+        description: Chicago Fed Adjusted National Financial Conditions Index (ANFCI)
+      - name: stl_fsi_value
+        description: St. Louis Fed Financial Stress Index (STLFSI4)
+      - name: lending_standards_avg
+        description: Average of large and small firm lending standards (net % tightening)
+      - name: cc_delinquency_rate
+        description: Delinquency rate on credit card loans (DRCCLACBS)
+      - name: nfci_status
+        description: "Signal severity based on NFCI level"
+      - name: nfci_trend_status
+        description: "Signal severity based on 13-week NFCI change"
+      - name: lending_status
+        description: "Signal severity based on bank lending standards"
+
+  - name: liquidity_signals
+    description: >
+      Liquidity signals: M2 money supply growth rate (YoY and 3mo annualized),
+      M1 growth, business loans growth, consumer credit growth.
+    columns:
+      - name: date
+        description: Monthly observation date
+        tests:
+          - not_null
+      - name: m2_yoy_growth
+        description: M2 money supply year-over-year growth rate (%)
+      - name: m2_3m_annualized
+        description: M2 3-month annualized growth rate (%)
+      - name: busloans_yoy_growth
+        description: Commercial and industrial loans YoY growth rate (%)
+      - name: m2_growth_status
+        description: "Signal severity: high (<0% contraction), medium (<4% tight), normal"
+      - name: busloans_growth_status
+        description: "Signal severity based on business loans growth"
+      - name: consumer_credit_status
+        description: "Signal severity based on consumer credit growth"
+
+  - name: sentiment_signals
+    description: >
+      Sentiment signals: consumer confidence vs sentiment z-score divergence,
+      manufacturing production level and trend (IPMAN), new orders vs prices YoY (stagflation proxy),
+      orders vs inventories YoY (demand-supply balance). Uses FRED-available proxies
+      since ISM data was removed from FRED in 2016.
+    columns:
+      - name: date
+        description: Monthly observation date
+        tests:
+          - not_null
+      - name: umcsent
+        description: University of Michigan Consumer Sentiment Index
+      - name: confidence
+        description: OECD Consumer Confidence Indicator
+      - name: ipman
+        description: Industrial Production Manufacturing (NAICS) index
+      - name: mfg_inventories
+        description: Manufacturers' Inventories
+      - name: confidence_sentiment_divergence
+        description: Z-score divergence between confidence and sentiment (large = notable divergence)
+      - name: ipman_yoy_pct
+        description: Manufacturing production year-over-year percent change
+      - name: new_orders_yoy_pct
+        description: Manufacturers' new orders year-over-year percent change
+      - name: divergence_status
+        description: "Signal severity based on confidence/sentiment divergence"
+      - name: mfg_production_status
+        description: "Signal severity based on manufacturing production YoY change"
+      - name: stagflation_status
+        description: "Signal severity: falling orders + rising prices YoY"
+      - name: new_orders_status
+        description: "Signal severity based on new orders YoY trend"
+      - name: orders_inventories_status
+        description: "Signal severity: orders declining while inventories rising YoY"
+
+  - name: fiscal_signals
+    description: >
+      Fiscal/government signals: debt-to-GDP level and trajectory, interest payment burden,
+      deficit-to-GDP level. Uses quarterly FRED data (GFDEGDQ188S, A091RC1Q027SBEA, FYFSGDA188S).
+    columns:
+      - name: date
+        description: Quarterly observation date
+        tests:
+          - not_null
+      - name: debt_gdp_pct
+        description: Federal debt as percentage of GDP
+      - name: debt_gdp_1y_change
+        description: Change in debt-to-GDP over 1 year (percentage points)
+      - name: debt_gdp_2y_change
+        description: Change in debt-to-GDP over 2 years (percentage points)
+      - name: interest_payment
+        description: Federal government interest payments (billions)
+      - name: interest_yoy_growth
+        description: Year-over-year growth in interest payments (%)
+      - name: deficit_gdp_pct
+        description: Federal surplus/deficit as percentage of GDP (negative = deficit)
+      - name: deficit_yoy_change
+        description: Year-over-year change in deficit-to-GDP
+      - name: debt_level_status
+        description: "Signal severity: high (>=130%), medium (>=100%), normal (>=60%), low"
+      - name: debt_trajectory_status
+        description: "Signal severity based on 1-year debt-to-GDP change"
+      - name: interest_burden_status
+        description: "Signal severity based on YoY interest payment growth"
+      - name: deficit_status
+        description: "Signal severity: high (< -6% GDP), medium (< -3%), low (< 0%)"
+
+  - name: trade_signals
+    description: >
+      International trade and dollar signals: dollar momentum (broad and EM indices),
+      trade balance trends, EM-broad divergence. Uses DTWEXBGS, BOPGSTB, DTWEXEMEGS.
+    columns:
+      - name: date
+        description: Monthly observation date
+        tests:
+          - not_null
+      - name: dollar_broad_avg
+        description: Broad trade-weighted dollar index (monthly average)
+      - name: em_dollar_avg
+        description: Emerging market dollar index (monthly average)
+      - name: trade_balance
+        description: Trade balance in goods and services (billions)
+      - name: dollar_3m_pct_change
+        description: Dollar index 3-month percentage change
+      - name: dollar_12m_pct_change
+        description: Dollar index 12-month percentage change
+      - name: em_broad_divergence
+        description: EM dollar change minus broad dollar change (positive = EM stress)
+      - name: dollar_momentum_status
+        description: "Signal severity based on 3-month dollar move magnitude"
+      - name: trade_deficit_status
+        description: "Signal severity based on trade deficit YoY worsening"
+      - name: em_stress_status
+        description: "Signal severity based on EM-broad dollar divergence"
+
+  - name: momentum_signals
+    description: >
+      Momentum and trend-following signals from market return data: time-series momentum (TSMOM),
+      dual momentum (SPY vs ACWI relative + absolute), Faber TAA (assets above 200d SMA),
+      sector rotation dispersion, and multi-timeframe trend score.
+    columns:
+      - name: date
+        description: Observation date (from latest analysis return data)
+        tests:
+          - not_null
+      - name: tsmom_return
+        description: Time-series momentum return (12mo return minus 1mo return)
+      - name: tsmom_signal
+        description: Sign of TSMOM return (+1 or -1)
+      - name: dual_momentum_position
+        description: "Dual momentum allocation: equities, international, bonds, or cash"
+      - name: faber_invested_count
+        description: "Count of assets (SPY, ACWI, GOVT, XLRE) above their 200-day SMA (0-4)"
+      - name: sector_dispersion
+        description: Spread between top and bottom sector momentum (percentage points)
+      - name: top_sector
+        description: Best-performing sector ETF by average 1mo+3mo return
+      - name: bottom_sector
+        description: Worst-performing sector ETF by average 1mo+3mo return
+      - name: trend_score
+        description: "Sum of SIGN(1mo, 3mo, 6mo, 12mo) returns for SPY (-4 to +4)"
+      - name: tsmom_status
+        description: "Signal severity: high (negative TSMOM), low (strong positive >20%), normal"
+      - name: dual_momentum_status
+        description: "Signal severity: high (cash), medium (bonds), normal (equities/intl)"
+      - name: faber_taa_status
+        description: "Signal severity: high (<=1 above SMA), medium (2), normal (3-4)"
+      - name: sector_rotation_status
+        description: "Signal severity: high (>30% dispersion), medium (>20%), normal"
+      - name: trend_score_status
+        description: "Signal severity: high (<=-3), medium (-2), low (+4 all positive), normal"
+
+  - name: market_breadth_signals
+    description: >
+      Market breadth and internals signals derived from S&P 500 constituents and sector ETFs,
+      including McClellan Oscillator/Summation, Zweig Breadth Thrust, sector participation,
+      and correlation/dispersion metrics.
+    columns:
+      - name: date
+        description: Trading day date
+        tests:
+          - not_null
+      - name: total_stocks
+        description: Count of S&P 500 stocks with valid data
+      - name: pct_above_200_ma
+        description: Percent of stocks above 200-day SMA
+      - name: pct_above_50_ma
+        description: Percent of stocks above 50-day SMA
+      - name: ad_ratio
+        description: Advance/decline ratio (advancers / decliners)
+      - name: ad_line_cumulative
+        description: Cumulative advance/decline line
+      - name: breadth_5d_change
+        description: 5-day change in % above 200-day SMA
+      - name: breadth_20d_change
+        description: 20-day change in % above 200-day SMA
+      - name: ratio_adjusted_net_advances
+        description: Ratio-adjusted net advances (RANA)
+      - name: ratio_adjusted_net_advances
+        description: Ratio-adjusted net advances (RANA)
+      - name: mcclellan_oscillator
+        description: McClellan Oscillator (EMA19 - EMA39 of RANA)
+      - name: mcclellan_summation_index
+        description: Cumulative McClellan Oscillator (Summation Index)
+      - name: zweig_ema_10d
+        description: 10-day EMA of advance ratio for Zweig Breadth Thrust
+      - name: zweig_thrust_signal
+        description: Flag for Zweig Breadth Thrust signal
+      - name: spy_new_high
+        description: SPY at 52-week high flag
+      - name: breadth_divergence_signal
+        description: Divergence flag (SPY new high with deteriorating breadth)
+      - name: sector_participation_count
+        description: Number of sector ETFs above 200-day SMA
+      - name: sector_participation_pct
+        description: Percent of sector ETFs above 200-day SMA
+      - name: avg_pair_correlation_63d
+        description: 63-day average pairwise correlation (sector ETFs + SPY/QQQ)
+      - name: return_dispersion
+        description: Cross-sectional return dispersion across internals
+      - name: return_dispersion_20d_avg
+        description: 20-day average of return dispersion
+
+  - name: market_volatility_signals
+    description: >
+      Volatility analytics for SPY and QQQ, including realized volatility, variance risk premium,
+      and Parkinson/Garman-Klass estimators, alongside VIX statistics.
+    columns:
+      - name: date
+        description: Trading day date
+        tests:
+          - not_null
+      - name: vix_close
+        description: CBOE VIX index close
+      - name: vix_avg_20d
+        description: 20-day average VIX
+      - name: vix_min_20d
+        description: 20-day minimum VIX
+      - name: vix_max_20d
+        description: 20-day maximum VIX
+      - name: vix_daily_change
+        description: Daily change in VIX
+      - name: vix_daily_change_pct
+        description: Daily percent change in VIX
+      - name: spy_realized_vol_20d
+        description: SPY 20-day realized volatility (annualized, %)
+      - name: spy_realized_vol_30d
+        description: SPY 30-day realized volatility (annualized, %)
+      - name: qqq_realized_vol_20d
+        description: QQQ 20-day realized volatility (annualized, %)
+      - name: qqq_realized_vol_30d
+        description: QQQ 30-day realized volatility (annualized, %)
+      - name: spy_parkinson_vol_20d
+        description: SPY Parkinson volatility estimator (20d, annualized, %)
+      - name: spy_parkinson_vol_60d
+        description: SPY Parkinson volatility estimator (60d, annualized, %)
+      - name: spy_gk_vol_20d
+        description: SPY Garman-Klass volatility estimator (20d, annualized, %)
+      - name: spy_gk_vol_60d
+        description: SPY Garman-Klass volatility estimator (60d, annualized, %)
+      - name: qqq_parkinson_vol_20d
+        description: QQQ Parkinson volatility estimator (20d, annualized, %)
+      - name: qqq_parkinson_vol_60d
+        description: QQQ Parkinson volatility estimator (60d, annualized, %)
+      - name: qqq_gk_vol_20d
+        description: QQQ Garman-Klass volatility estimator (20d, annualized, %)
+      - name: qqq_gk_vol_60d
+        description: QQQ Garman-Klass volatility estimator (60d, annualized, %)
+      - name: spy_vrp_20d
+        description: Variance Risk Premium (VIX - SPY realized vol 20d)
+      - name: spy_vrp_30d
+        description: Variance Risk Premium (VIX - SPY realized vol 30d)
+      - name: qqq_vrp_20d
+        description: Variance Risk Premium (VIX - QQQ realized vol 20d)
+      - name: qqq_vrp_30d
+        description: Variance Risk Premium (VIX - QQQ realized vol 30d)
+
+  - name: technical_signals
+    description: >
+      Technical and mean-reversion signals from daily price data: RSI(14) and RSI(2),
+      Bollinger Band squeeze detection, 60-day z-score, and VIX percentile rank.
+    columns:
+      - name: date
+        description: Trading day date
+        tests:
+          - not_null
+      - name: adj_close
+        description: SPY adjusted closing price
+      - name: rsi_14
+        description: "14-day Relative Strength Index (0-100)"
+      - name: rsi_2
+        description: "2-day Relative Strength Index (0-100, more sensitive)"
+      - name: bb_upper
+        description: Bollinger Band upper (20d SMA + 2 std dev)
+      - name: bb_lower
+        description: Bollinger Band lower (20d SMA - 2 std dev)
+      - name: bb_bandwidth
+        description: "Bollinger Band width: (upper - lower) / middle * 100"
+      - name: bb_bandwidth_pctile
+        description: Current bandwidth percentile vs trailing 126 days (0-1)
+      - name: bb_position
+        description: "Price position within bands: (price - lower) / (upper - lower)"
+      - name: zscore_60d
+        description: "60-day rolling z-score of SPY price"
+      - name: vix_value
+        description: CBOE VIX index value
+      - name: vix_percentile_1yr
+        description: VIX 252-day percentile rank (0-1)
+      - name: vix_zscore
+        description: VIX 252-day z-score
+      - name: rsi_status
+        description: "Signal severity: high (RSI>70 overbought), medium (RSI<30 oversold), normal"
+      - name: bollinger_status
+        description: "Signal severity: high (squeeze, BW<=10th pctile), medium (touching bands), normal"
+      - name: zscore_status
+        description: "Signal severity: high (|Z|>2.0), medium (|Z|>1.5), normal"
+      - name: vix_mean_reversion_status
+        description: "Signal severity: high (>90th pctile extreme fear), medium (>80th), low (<10th complacency)"
+
+  - name: cross_asset_divergences
+    description: >
+      Cross-asset divergence signals comparing equities, credit, FX, commodities, and rates.
+      Includes HY vs equity divergence, stock-bond correlation regime, defensive/cyclical ratios,
+      gold vs real yield residuals, small/large cap breadth, copper/gold vs yields correlation,
+      AUD risk proxy, Dow Theory confirmation, and semis leadership.
+    columns:
+      - name: date
+        description: Trading day date
+        tests:
+          - not_null
+      - name: spy_close
+        description: SPY adjusted close
+      - name: hyg_close
+        description: HYG adjusted close
+      - name: hy_spread
+        description: ICE BofA US High Yield OAS (BAMLH0A0HYM2)
+      - name: hy_spread_20d_change
+        description: 20-day change in HY spread
+      - name: hy_equity_divergence_flag
+        description: HYG below 50DMA while SPY above 50DMA (1/0)
+      - name: hy_spread_divergence_flag
+        description: HY spreads rising while SPY at 52-week highs (1/0)
+      - name: stock_bond_corr_252d
+        description: 252-day rolling correlation of SPY vs GOVT returns
+      - name: stock_bond_corr_regime
+        description: Correlation regime label (positive/negative)
+      - name: xlp_xly_ratio
+        description: Defensive vs cyclical ratio (XLP/XLY)
+      - name: xlp_xly_sma_50
+        description: 50-day SMA of XLP/XLY ratio
+      - name: xlp_xly_sma_200
+        description: 200-day SMA of XLP/XLY ratio
+      - name: defensive_ratio_uptrend_flag
+        description: Ratio above 50DMA and 50DMA above 200DMA (1/0)
+      - name: gold_price
+        description: Gold spot price (commodity data)
+      - name: real_yield_10y
+        description: 10Y TIPS real yield (DFII10)
+      - name: gold_real_residual
+        description: Residual from rolling gold vs real-yield regression
+      - name: gold_real_residual_zscore
+        description: Z-score of gold/real-yield residual (252d)
+      - name: iwm_spy_ratio
+        description: Small cap / large cap ratio (IWM/SPY)
+      - name: iwm_spy_sma_50
+        description: 50-day SMA of IWM/SPY ratio
+      - name: iwm_spy_sma_200
+        description: 200-day SMA of IWM/SPY ratio
+      - name: rsp_spy_ratio
+        description: Equal-weight / cap-weight ratio (RSP/SPY)
+      - name: rsp_spy_sma_50
+        description: 50-day SMA of RSP/SPY ratio
+      - name: rsp_spy_sma_200
+        description: 200-day SMA of RSP/SPY ratio
+      - name: copper_gold_ratio
+        description: Copper/Gold ratio (scaled)
+      - name: treasury_10y_yield
+        description: Treasury 10Y yield from Treasury.gov data
+      - name: copper_gold_yield_corr_252d
+        description: 252-day correlation of copper/gold ratio vs 10Y yields
+      - name: fxa_spy_ratio
+        description: AUD risk proxy (FXA/SPY ratio)
+      - name: fxa_spy_sma_50
+        description: 50-day SMA of FXA/SPY ratio
+      - name: aud_risk_divergence_flag
+        description: FXA/ SPY below 50DMA while SPY above 50DMA (1/0)
+      - name: dia_close
+        description: Dow Industrials proxy (DIA) close
+      - name: iyt_close
+        description: Dow Transports proxy (IYT) close
+      - name: dia_high_252d
+        description: DIA 52-week high
+      - name: iyt_high_252d
+        description: IYT 52-week high
+      - name: dow_non_confirmation_flag
+        description: DIA at new high while IYT fails to confirm (1/0)
+      - name: soxx_spy_ratio
+        description: Semiconductor leadership ratio (SOXX/SPY)
+      - name: soxx_spy_sma_200
+        description: 200-day SMA of SOXX/SPY ratio
+      - name: semis_divergence_flag
+        description: SOXX/SPY below 200DMA while SPY near highs (1/0)
+
+  - name: factor_signals
+    description: >
+      Factor and valuation ratio signals using value/growth and small/large spreads.
+      Intended to support factor timing and valuation context in the signals dashboard.
+    columns:
+      - name: date
+        description: Trading day date
+        tests:
+          - not_null
+      - name: iwd_close
+        description: IWD adjusted close (Russell 1000 Value)
+      - name: iwf_close
+        description: IWF adjusted close (Russell 1000 Growth)
+      - name: iwd_iwf_ratio
+        description: Value/Growth ratio (IWD/IWF)
+      - name: iwd_iwf_sma_50
+        description: 50-day SMA of IWD/IWF ratio
+      - name: iwd_iwf_sma_200
+        description: 200-day SMA of IWD/IWF ratio
+      - name: iwm_spy_ratio
+        description: Small cap / large cap ratio (IWM/SPY)
+      - name: iwm_spy_sma_50
+        description: 50-day SMA of IWM/SPY ratio
+      - name: iwm_spy_sma_200
+        description: 200-day SMA of IWM/SPY ratio
+
+  - name: economic_acceleration_signals
+    description: >
+      Economic acceleration (second derivative) signals detecting inflection points in
+      PAYEMS, CPIAUCSL, and GDPC1. Markets price turning points, not levels — second
+      derivatives catch these 3-6 months early. Consecutive negative payroll acceleration
+      is a strong recession signal.
+    columns:
+      - name: date
+        description: Monthly observation date
+        tests:
+          - not_null
+      - name: payems_mom_pct
+        description: Nonfarm payrolls month-over-month percent change
+      - name: payems_acceleration
+        description: Second derivative of payrolls (change in MoM rate)
+      - name: payems_consecutive_negative
+        description: Consecutive months of negative payroll acceleration (>=3 is recession signal)
+      - name: payems_accel_zscore
+        description: 24-month rolling z-score of payroll acceleration
+      - name: cpi_mom_pct
+        description: CPI month-over-month percent change
+      - name: cpi_acceleration
+        description: Second derivative of CPI (change in MoM rate)
+      - name: cpi_accel_zscore
+        description: 24-month rolling z-score of CPI acceleration
+      - name: gdp_qoq_pct
+        description: Real GDP quarter-over-quarter percent change
+      - name: gdp_acceleration
+        description: Second derivative of GDP (change in QoQ rate)
+      - name: composite_accel_zscore
+        description: Average of available acceleration z-scores
+      - name: payems_accel_status
+        description: "Signal severity: high (3+ consecutive negative), medium (2), low (negative), normal"
+      - name: cpi_accel_status
+        description: "Signal severity: high (re-accelerating >0.1), medium (>0), low (sharp deceleration)"
+      - name: gdp_accel_status
+        description: "Signal severity: high (deceleration <-0.5), medium (<-0.2), low (<0)"
+
+  - name: net_liquidity_signals
+    description: >
+      Net liquidity indicator: Fed Total Assets (WALCL) minus Treasury General Account (WTREGEN)
+      minus Reverse Repo (RRPONTSYD). Proxy for money available to financial markets.
+      Weekly grain with z-scores, moving averages, and RRP depletion tracking.
+    columns:
+      - name: date
+        description: Weekly observation date
+        tests:
+          - not_null
+      - name: walcl
+        description: Fed total assets (millions)
+      - name: wtregen
+        description: Treasury General Account balance (millions)
+      - name: rrpontsyd
+        description: Reverse repo facility usage (millions)
+      - name: net_liquidity
+        description: "WALCL - WTREGEN - RRPONTSYD (millions)"
+      - name: component_count
+        description: Number of components used (3 if WTREGEN available, else 2)
+      - name: net_liquidity_4w_avg
+        description: 4-week moving average of net liquidity
+      - name: net_liquidity_13w_avg
+        description: 13-week moving average of net liquidity
+      - name: net_liquidity_4w_pct_change
+        description: 4-week percent change in net liquidity
+      - name: net_liquidity_13w_pct_change
+        description: 13-week percent change in net liquidity
+      - name: net_liquidity_52w_pct_change
+        description: 52-week percent change in net liquidity
+      - name: net_liquidity_zscore
+        description: 52-week rolling z-score of net liquidity
+      - name: net_liquidity_trend
+        description: "Trend direction: expanding, contracting, or mixed"
+      - name: net_liquidity_status
+        description: "Signal severity: high (z<-2), medium (z<-1), low (contracting trend)"
+      - name: rrp_depletion_status
+        description: "RRP depletion signal: high (<50B), medium (<200B), low (<500B)"
+
+  - name: diffusion_index_signals
+    description: >
+      Custom diffusion index measuring breadth of improving economic indicators across
+      20 FRED series spanning employment, production, housing, trade, sentiment, and credit.
+      Each indicator scored as improving (1) or deteriorating (0) based on 3-month change.
+    columns:
+      - name: date
+        description: Monthly observation date
+        tests:
+          - not_null
+      - name: total_count
+        description: Number of indicators with valid data
+      - name: improving_count
+        description: Number of indicators showing improvement
+      - name: diffusion_pct
+        description: "Percentage of improving indicators (0-100)"
+      - name: diffusion_6m_avg
+        description: 6-month average of diffusion percentage
+      - name: diffusion_zscore
+        description: 24-month rolling z-score of diffusion
+      - name: diffusion_mom_change
+        description: Month-over-month change in diffusion percentage
+      - name: diffusion_3m_change
+        description: 3-month change in diffusion percentage
+      - name: breadth_trend
+        description: "Breadth direction: broadening, stable, narrowing, recovering"
+      - name: diffusion_status
+        description: "Signal severity: high (<30 recession-like), medium (<40), low (<50)"

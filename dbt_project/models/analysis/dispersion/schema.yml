@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: sector_dispersion_analysis
+    description: >
+      Per-sector return dispersion metrics including standard deviation, best/worst spread,
+      average and median returns, top/bottom performers, and calendar-year return trends.
+    columns:
+      - name: gics_sector
+        description: "GICS sector classification"
+        tests:
+          - not_null
+          - unique
+      - name: etf_symbol
+        description: "Sector ETF symbol"
+        tests:
+          - not_null
+      - name: sector_display_name
+        description: "Human-readable sector display name"
+      - name: stock_count
+        description: "Number of stocks in the sector"
+      - name: intra_sector_std_dev
+        description: "Standard deviation of 1Y returns within the sector"
+      - name: best_worst_spread
+        description: "Difference between best and worst performer 1Y returns"
+      - name: avg_return
+        description: "Average 1Y return across sector stocks"
+      - name: median_return
+        description: "Median 1Y return across sector stocks"
+      - name: best_performer_symbol
+        description: "Symbol of the best performing stock"
+      - name: worst_performer_symbol
+        description: "Symbol of the worst performing stock"
+
+  - name: sector_breadth_timeseries
+    description: >
+      Weekly time series of per-sector market breadth: percentage of stocks above
+      their 200-day moving average, for the last 3 years.
+    columns:
+      - name: date
+        description: "Weekly sample date"
+        tests:
+          - not_null
+      - name: gics_sector
+        description: "GICS sector classification"
+        tests:
+          - not_null
+      - name: sector_display_name
+        description: "Human-readable sector display name"
+      - name: sector_stock_count
+        description: "Number of stocks with valid 200-day MA in the sector"
+      - name: stocks_above_200_ma
+        description: "Count of stocks above their 200-day MA"
+      - name: pct_above_200_ma
+        description: "Percentage of stocks above their 200-day MA"

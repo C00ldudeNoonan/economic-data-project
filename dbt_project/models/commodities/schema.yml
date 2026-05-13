@@ -1,0 +1,288 @@
+version: 2
+
+models:
+  - name: energy_commodities_summary
+    description: "Summary statistics for energy commodities across different time periods"
+    tests:
+      - unique_combination:
+          combination_of_columns: ['commodity_name', 'time_period']
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+        tests:
+          - not_null
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
+      - name: time_period
+        description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: total_return_pct
+        description: "Total return percentage for the period"
+      - name: volatility_pct
+        description: "Annualized volatility percentage"
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        description: "Percentage of days with positive price changes"
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: input_commodities_summary
+    description: "Summary statistics for input/industrial commodities across different time periods"
+    tests:
+      - unique_combination:
+          combination_of_columns: ['commodity_name', 'time_period']
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+        tests:
+          - not_null
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
+      - name: time_period
+        description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: total_return_pct
+        description: "Total return percentage for the period"
+      - name: volatility_pct
+        description: "Annualized volatility percentage"
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        description: "Percentage of days with positive price changes"
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: agriculture_commodities_summary
+    description: "Summary statistics for agricultural commodities across different time periods"
+    tests:
+      - unique_combination:
+          combination_of_columns: ['commodity_name', 'time_period']
+    columns:
+      - name: commodity_name
+        description: "Name of the commodity"
+        tests:
+          - not_null
+      - name: commodity_unit
+        description: "Unit of measurement for the commodity"
+        tests:
+          - not_null
+      - name: time_period
+        description: "Time period (12_weeks, 6_months, 1_year, 5_years)"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: total_return_pct
+        description: "Total return percentage for the period"
+      - name: volatility_pct
+        description: "Annualized volatility percentage"
+        tests:
+          - value_in_range:
+              min_value: 0
+      - name: win_rate_pct
+        description: "Percentage of days with positive price changes"
+        tests:
+          - value_in_range:
+              min_value: 0
+              max_value: 100
+
+  - name: energy_commodities_analysis_return
+    description: >
+      Daily rolling analysis of energy commodities with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: commodity_name
+        description: Name of the energy commodity
+        tests:
+          - not_null
+      - name: commodity_unit
+        description: Unit of measurement for the commodity
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: current_price
+        description: Current commodity price
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
+
+  - name: input_commodities_analysis_return
+    description: >
+      Daily rolling analysis of input/industrial commodities with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: commodity_name
+        description: Name of the input/industrial commodity
+        tests:
+          - not_null
+      - name: commodity_unit
+        description: Unit of measurement for the commodity
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: current_price
+        description: Current commodity price
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
+
+  - name: agriculture_commodities_analysis_return
+    description: >
+      Daily rolling analysis of agriculture commodities with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
+    columns:
+      - name: commodity_name
+        description: Name of the agriculture commodity
+        tests:
+          - not_null
+      - name: commodity_unit
+        description: Unit of measurement for the commodity
+        tests:
+          - not_null
+      - name: date
+        description: Trading date
+        tests:
+          - not_null
+      - name: current_price
+        description: Current commodity price
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
+

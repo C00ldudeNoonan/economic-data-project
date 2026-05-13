@@ -1,0 +1,123 @@
+version: 2
+
+models:
+  - name: dq_stale_prices
+    description: >
+      Detects consecutive days where all OHLC values are identical,
+      indicating the feed returned stale/duplicate data.
+    columns:
+      - name: source_table
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: check_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['stale_price']
+
+  - name: dq_return_spikes
+    description: >
+      Flags single-day price moves exceeding 15% (daily or overnight return).
+      For large-cap stocks and ETFs, moves this large are rare and often indicate
+      data errors rather than genuine market events.
+    columns:
+      - name: source_table
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: check_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['return_spike']
+
+  - name: dq_zscore_anomalies
+    description: >
+      Statistical anomaly detection using z-scores from a rolling 21-trading-day window.
+      Flags prices more than 2 standard deviations from their rolling mean.
+    columns:
+      - name: source_table
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: check_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['zscore']
+
+  - name: dq_commodity_anomalies
+    description: >
+      Data quality checks for commodity tables: z-score anomalies,
+      day-over-day return spikes (> 15%), stale prices, and invalid prices.
+      Positive price validation is also a dbt test on staging models.
+    columns:
+      - name: source_table
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: check_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['invalid_price', 'zscore', 'return_spike', 'stale_price']
+
+  - name: data_quality_anomalies
+    description: >
+      Unified data quality anomaly report combining all statistical check types.
+      Deterministic checks (OHLC logic, currency, positive price) are dbt tests
+      on staging models. Use this table to triage data issues and feed the
+      Google Sheets verification workflow.
+    columns:
+      - name: source_table
+        description: The raw source table where the anomaly was found
+        tests:
+          - not_null
+      - name: symbol
+        description: Ticker symbol or commodity name
+        tests:
+          - not_null
+      - name: date
+        description: Date of the anomalous data point
+        tests:
+          - not_null
+      - name: check_type
+        description: Type of quality check that flagged this row
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['stale_price', 'return_spike', 'zscore', 'invalid_price']
+      - name: failure_reason
+        description: Human-readable description of what failed
+        tests:
+          - not_null
+      - name: detected_at
+        description: Timestamp when the anomaly was detected
+        tests:
+          - not_null

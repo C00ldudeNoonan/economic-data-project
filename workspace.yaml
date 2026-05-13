@@ -1,0 +1,9 @@
+# Dagster workspace configuration
+# Defines code locations that contain Dagster definitions (assets, jobs, schedules, sensors, resources)
+
+load_from:
+  # Main code location - macro_agents
+  - grpc_server:
+      host: dagster_user_code
+      port: 4000
+      location_name: macro_agents

@@ -1,0 +1,3270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>US Labor Market Summary</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:wght@400;600;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* CSS Variables for theming */
+    :root {
+      --bg: #f8f8f8;
+      --fg: #231f20;
+      --text: #231f20;
+      --text-muted: #6a6a6a;
+      --grid: #d4d4d4;
+      --red: #bc1200;
+      --link: #0777b3;
+      --font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      --font-mono: 'Consolas', 'Monaco', monospace;
+    }
+    body.theme-dark {
+      --bg: #231f20;
+      --fg: #ffffff;
+      --text: #ffffff;
+      --text-muted: #888888;
+      --grid: #3a3a3a;
+      --red: #bc1200;
+      --link: #0777b3;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      background-color: var(--bg);
+      font-family: var(--font-family);
+      color: var(--text);
+      font-size: 12px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .dashboard {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 16px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .title-row .page-title {
+      margin-bottom: 0;
+    }
+    .theme-toggle {
+      background: transparent;
+      border: none;
+      padding: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.3s;
+    }
+    .theme-toggle:hover {
+      color: var(--text);
+    }
+    .theme-toggle svg {
+      width: 16px;
+      height: 16px;
+    }
+    .theme-toggle .icon-moon { display: block; }
+    .theme-toggle .icon-sun { display: none; }
+    body.theme-dark .theme-toggle .icon-moon { display: none; }
+    body.theme-dark .theme-toggle .icon-sun { display: block; }
+    .red-line {
+      width: 100%;
+      height: 2px;
+      background-color: var(--red);
+      margin-bottom: 8px;
+    }
+    .page-title {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .dashboard-section {
+      margin-bottom: 16px;
+    }
+    /* Visual divider only appears with explicit --- separator */
+    .dashboard-section.has-divider {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--grid);
+    }
+    .section-title {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    .chart-title {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 700;
+      font-size: 10px;
+      font-weight: bold;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 720px) {
+      .row { grid-template-columns: repeat(8, 1fr); }
+      /* Scale spans proportionally: preserve original span but cap at grid width */
+      .row > * { grid-column: span min(var(--col-span, 8), 8); }
+    }
+    @media (max-width: 480px) {
+      .row { grid-template-columns: 1fr; }
+      .row > * { grid-column: span 1; }
+      .grid-item { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+    @media print {
+      @page { size: letter portrait; margin: 0.5in; }
+      .dashboard { max-width: 100%; padding: 0; }
+      .row { gap: 6px; margin-bottom: 6px; break-inside: avoid; page-break-inside: avoid; }
+      .grid-item { break-inside: avoid; page-break-inside: avoid; }
+      .dashboard-section { break-inside: avoid; page-break-inside: avoid; }
+      .dashboard-section.page-break { page-break-before: always; }
+      .data-table { break-inside: avoid; page-break-inside: avoid; }
+      .theme-toggle { display: none; }
+      .title-row { break-after: avoid; page-break-after: avoid; }
+    }
+    .grid-item {
+      background: var(--bg);
+      padding: 4px;
+      transition: background-color 0.3s;
+    }
+    .mermaid-container svg {
+      max-width: 100%;
+      height: auto;
+      transition: background 0.3s;
+    }
+    .big-value {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 700;
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--text);
+      line-height: 1;
+    }
+    .delta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .delta .arrow {
+      font-size: 16px;
+    }
+    .delta .value {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      border-left: 2px solid;
+    }
+    .alert .icon {
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .alert .message {
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .note {
+      border-left: 3px solid var(--red);
+      background-color: color-mix(in srgb, var(--grid) 25%, transparent);
+      padding: 8px 12px;
+    }
+    .note-warning {
+      border-left-color: #C5A000;
+    }
+    .note-tip {
+      border-left-color: #00887d;
+    }
+    .note-content {
+      font-size: 11px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .note-content strong {
+      font-weight: 700;
+    }
+    .text-content {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    pre.mermaid {
+      background: transparent;
+      text-align: center;
+      padding: 16px 0;
+    }
+    .data-table {
+      width: 100%; border-collapse: collapse; font-size: 11px;
+    }
+    .data-table th {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9px; font-weight: bold;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;
+      padding: 6px 8px; border-bottom: 1px solid var(--text); text-align: left;
+    }
+    .data-table td {
+      padding: 5px 8px; color: var(--text); border-bottom: 1px solid var(--grid);
+    }
+    .data-table tr.table-striped td {
+      background-color: color-mix(in srgb, var(--grid) 19%, transparent);
+    }
+    .data-table.table-compact th, .data-table.table-compact td {
+      padding: 4px 6px;
+    }
+    .markdown-content {
+      font-size: 11px; color: var(--text); line-height: 1.5;
+    }
+    .markdown-content h1 { font-size: 18px; font-weight: 900; margin: 12px 0 6px 0; }
+    .markdown-content h2 { font-size: 14px; font-weight: 700; margin: 10px 0 4px 0; }
+    .markdown-content h3 { font-size: 12px; font-weight: 700; margin: 8px 0 4px 0; }
+    .markdown-content p { margin: 6px 0; }
+    .markdown-content ul, .markdown-content ol { margin: 6px 0; padding-left: 20px; }
+    .markdown-content li { margin: 3px 0; }
+    .markdown-content code {
+      background: color-mix(in srgb, var(--grid) 25%, transparent); padding: 1px 4px; border-radius: 2px;
+      font-family: var(--font-mono); font-size: 10px;
+    }
+    .markdown-content pre {
+      background: color-mix(in srgb, var(--grid) 25%, transparent); padding: 8px; border-radius: 3px;
+      overflow-x: auto; margin: 8px 0;
+    }
+    .markdown-content pre code { background: none; padding: 0; }
+    .markdown-content blockquote {
+      border-left: 2px solid var(--red); margin: 8px 0; padding-left: 12px;
+      color: var(--text-muted); font-style: italic;
+    }
+    .markdown-content a { color: var(--link); text-decoration: none; }
+    .markdown-content a:hover { text-decoration: underline; }
+    .markdown-content strong { font-weight: 700; }
+    .markdown-content em { font-style: italic; }
+    .empty-space { background: transparent; }
+    /* Inline header styles (### soft headers) */
+    .inline-header {
+      margin-top: 12px;
+      margin-bottom: 4px;
+    }
+    .inline-header-text {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+    }
+    /* Progress bar sparkline styles */
+    .pct-bar-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+    }
+    .pct-bar-container {
+      flex: 1;
+      height: 12px;
+      background-color: var(--grid);
+      border-radius: 2px;
+      overflow: hidden;
+      min-width: 60px;
+    }
+    .pct-bar-fill {
+      height: 100%;
+      background-color: #0777b3;
+      border-radius: 2px 0 0 2px;
+    }
+    .pct-bar-value {
+      font-size: 11px;
+      color: var(--text);
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-weight: 700;
+      min-width: 32px;
+      flex-shrink: 0;
+    }
+    /* Sparkline tooltip styles - immediate display on hover */
+    .spark-tooltip {
+      position: relative;
+      display: inline-block;
+    }
+    .spark-tooltip::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+      z-index: 1000;
+      margin-bottom: 4px;
+    }
+    .spark-tooltip:hover::after {
+      opacity: 1;
+      visibility: visible;
+    }
+  </style>
+</head>
+<body class="theme-light">
+  <div class="dashboard">
+    <div class="red-line"></div>
+    <div class="title-row">
+      <h1 class="page-title">US Labor Market Summary</h1>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+        <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      </button>
+    </div>
+    
+        <section class="dashboard-section">
+          <h2 class="section-title">US LABOR MARKET SUMMARY</h2>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">KEY METRICS (DECEMBER 2025)</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 4; grid-column: span 4;">
+      <div class="big-value">4.4</div>
+      <div class="label">Unemployment Rate</div>
+      <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
+        <span style="color: #2d7a00; font-size: 12px;">↑ +0.5</span>
+        <span style="color: var(--text-muted); font-size: 10px;">vs Year Ago</span>
+      </div>
+    </div>
+    <div class="grid-item" style="--col-span: 4; grid-column: span 4;">
+      <div class="big-value">160k</div>
+      <div class="label">Total Nonfarm Payrolls (000s)</div>
+    </div>
+    <div class="grid-item" style="--col-span: 4; grid-column: span 4;">
+      <div class="big-value">7k</div>
+      <div class="label">Job Openings (000s)</div>
+    </div>
+    <div class="grid-item" style="--col-span: 4; grid-column: span 4;">
+      <div class="big-value">$32</div>
+      <div class="label">Avg Hourly Earnings</div>
+    </div>
+          </div>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">LABOR MARKET HEALTH INDICATORS</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 4; grid-column: span 4;">
+      <div class="delta">
+        <span class="arrow" style="color: #bc1200;">↑</span>
+        <span class="value" style="color: #bc1200;">+1%</span>
+      </div>
+      <div class="label">Unemployment Rate YoY Chg</div>
+    </div>
+    <div class="grid-item" style="--col-span: 4; grid-column: span 4;">
+      <div class="delta">
+        <span class="arrow" style="color: #2d7a00;">↑</span>
+        <span class="value" style="color: #2d7a00;">+1.4%</span>
+      </div>
+      <div class="label">Payrolls YoY Growth</div>
+    </div>
+    <div class="grid-item" style="--col-span: 4; grid-column: span 4;">
+      <div class="delta">
+        <span class="arrow" style="color: #2d7a00;">↓</span>
+        <span class="value" style="color: #2d7a00;">-15%</span>
+      </div>
+      <div class="label">Job Openings YoY Chg</div>
+    </div>
+    <div class="grid-item" style="--col-span: 4; grid-column: span 4;">
+      <div class="delta">
+        <span class="arrow" style="color: #2d7a00;">↑</span>
+        <span class="value" style="color: #2d7a00;">+7.0%</span>
+      </div>
+      <div class="label">Wage Growth YoY</div>
+    </div>
+          </div>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">UNEMPLOYMENT RATE TREND</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 16; grid-column: span 16;">
+      <h3 class="chart-title">Unemployment Rate (%) - 2020 to Present</h3>
+      <div id="chart_9" style="width: 100%; height: 168px;"></div>
+    </div>
+          </div>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">EMPLOYMENT LEVELS</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 8; grid-column: span 8;">
+      <h3 class="chart-title">Total Nonfarm Payrolls (millions)</h3>
+      <div id="chart_10" style="width: 100%; height: 136px;"></div>
+    </div>
+    <div class="grid-item" style="--col-span: 8; grid-column: span 8;">
+      <h3 class="chart-title">Job Openings (millions)</h3>
+      <div id="chart_11" style="width: 100%; height: 136px;"></div>
+    </div>
+          </div>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">WAGE GROWTH &amp; LABOR PARTICIPATION</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 8; grid-column: span 8;">
+      <h3 class="chart-title">Average Hourly Earnings ($/hr)</h3>
+      <div id="chart_12" style="width: 100%; height: 136px;"></div>
+    </div>
+    <div class="grid-item" style="--col-span: 8; grid-column: span 8;">
+      <h3 class="chart-title">Labor Force Participation Rate (%)</h3>
+      <div id="chart_13" style="width: 100%; height: 136px;"></div>
+    </div>
+          </div>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">SECTOR EMPLOYMENT</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 8; grid-column: span 8;">
+      <h3 class="chart-title">Manufacturing Employment (000s)</h3>
+      <div id="chart_14" style="width: 100%; height: 136px;"></div>
+    </div>
+    <div class="grid-item" style="--col-span: 8; grid-column: span 8;">
+      <h3 class="chart-title">Construction Employment (000s)</h3>
+      <div id="chart_15" style="width: 100%; height: 136px;"></div>
+    </div>
+          </div>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">BROADER UNEMPLOYMENT MEASURES</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 16; grid-column: span 16;">
+      <h3 class="chart-title">U-3 vs U-6 Unemployment Rate (%)</h3>
+      <div id="chart_16" style="width: 100%; height: 168px;"></div>
+    </div>
+          </div>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">SUMMARY COMPARISON</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 16; grid-column: span 16;">
+      <h3 class="chart-title">Labor Market Indicators: Current vs Historical</h3>
+      <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr><th style="text-align: left; padding: 6px 8px; font-size: 11px;">Metric</th><th style="text-align: right; padding: 6px 8px; font-size: 11px;">Current</th><th style="text-align: right; padding: 6px 8px; font-size: 11px;">Year Ago</th><th style="text-align: right; padding: 6px 8px; font-size: 11px;">Pre-COVID (Feb 2020)</th><th style="text-align: right; padding: 6px 8px; font-size: 11px;">YoY Change</th></tr>
+        </thead>
+        <tbody>
+          <tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>Unemployment Rate (%)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">4.4</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">3.9</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">3.5</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #7cb6d5; color: #231f20;">0.50</td></tr><tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>U-6 Rate (%)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">8.4</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">7.3</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">7.0</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #53a0c9; color: #231f20;">1.10</td></tr><tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>Nonfarm Payrolls (M)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">159.5</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">157.3</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">152.3</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #0777b3; color: #ffffff;">2.20</td></tr><tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>Job Openings (M)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">7.1</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">8.4</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">7.0</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #f8f8f8; color: #231f20;">(1.30)</td></tr><tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>Quits Rate (%)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">2.0</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">2.2</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">2.3</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #accfe2; color: #231f20;">(0.20)</td></tr><tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>LFPR (%)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">62.4</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">62.6</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">63.3</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #accfe2; color: #231f20;">(0.20)</td></tr><tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>Avg Hourly Earnings ($)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">31.76</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">29.67</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">24.03</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #0f7bb5; color: #ffffff;">2.09</td></tr><tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>Manufacturing Emp (M)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">12.7</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">12.9</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">12.7</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #a5cce0; color: #231f20;">(0.10)</td></tr><tr><td style="text-align: left; padding: 5px 8px; font-size: 11px;  "><strong>Construction Emp (M)</strong></td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">8.3</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">8.1</td><td style="text-align: right; padding: 5px 8px; font-size: 11px;  ">7.6</td><td style="text-align: right; padding: 5px 8px; font-size: 11px; background-color: #91c1da; color: #231f20;">0.20</td></tr>
+        </tbody>
+      </table>
+    </div>
+          </div>
+        </section>
+        <section class="dashboard-section">
+          <h2 class="section-title">KEY OBSERVATIONS</h2>
+          <div class="row">
+            
+    <div class="grid-item" style="--col-span: 16; grid-column: span 16;">
+      <div class="note note-warning">
+        <div class="note-content"><strong>Labor Market Cooling:</strong> The unemployment rate has risen from 3.4% (Apr 2023 low) to 4.4% (Dec 2025). Job openings have fallen 40% from the 12M peak in early 2022 to 7.1M, indicating reduced labor demand.</div>
+      </div>
+    </div>
+          </div>
+          <div class="row">
+            
+    <div class="grid-item textarea-item" style="--col-span: 16; grid-column: span 16;">
+      <h3 class="chart-title">Analysis</h3>
+      <div class="markdown-content" id="md-2167198"></div>
+      <script>
+        document.getElementById('md-2167198').innerHTML = marked.parse(`**Current State:** The US labor market shows clear signs of cooling from the post-pandemic overheating. While not recessionary, the balance has shifted from extreme tightness toward equilibrium.
+
+**Strengths:** Total employment continues to grow (159.5M payrolls, +7.2M vs pre-COVID). Wage growth remains solid at 7% YoY. Construction employment at record highs.
+
+**Concerns:** Unemployment rising (4.4% vs 3.4% trough). U-6 underemployment at 8.4%, highest since 2021. Job openings down 40% from peak. Quits rate at 2.0% suggests workers less confident about finding new jobs. Labor force participation still 0.9pp below pre-COVID levels.`);
+      </script>
+    </div>
+          </div>
+        </section>
+  </div>
+  <script>
+    // Theme toggle function
+    function toggleTheme() {
+      var isDark = document.body.classList.contains('theme-dark');
+      var newTheme = isDark ? 'light' : 'dark';
+      document.body.classList.remove('theme-light', 'theme-dark');
+      document.body.classList.add('theme-' + newTheme);
+
+      // Update all charts
+      if (window.chartInstances && window.chartOptions) {
+        for (var id in window.chartInstances) {
+          window.chartInstances[id].setOption(window.chartOptions[id][newTheme]);
+        }
+      }
+    }
+
+    
+    (function() {
+      var chart = echarts.init(document.getElementById('chart_9'), null, {renderer: 'svg'});
+      window.chartInstances = window.chartInstances || {};
+      window.chartOptions = window.chartOptions || {};
+      window.chartInstances['chart_9'] = chart;
+      window.chartOptions['chart_9'] = {
+        light: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#0777b3",
+    "#bd4e35",
+    "#2d7a00",
+    "#e18727",
+    "#638CAD",
+    "#adadad"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#ffffff",
+    "borderColor": "#d4d4d4",
+    "textStyle": {
+      "color": "#231f20"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10",
+      "2025-12"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#d4d4d4",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 3
+  },
+  "series": [
+    {
+      "name": "unrate",
+      "type": "line",
+      "data": [
+        3.6,
+        14.8,
+        10.2,
+        6.9,
+        6.4,
+        6.1,
+        5.4,
+        4.5,
+        4,
+        3.7,
+        3.5,
+        3.6,
+        3.5,
+        3.4,
+        3.5,
+        3.9,
+        3.7,
+        3.9,
+        4.2,
+        4.1,
+        4,
+        4.2,
+        4.3,
+        4.5,
+        4.4
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#0777b3"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#0777b3",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+},
+        dark: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#3da8e0",
+    "#e06b4e",
+    "#6ed020",
+    "#f5a84a",
+    "#7faac4",
+    "#c0c0c0"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#424242",
+    "borderColor": "#3a3a3a",
+    "textStyle": {
+      "color": "#ffffff"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10",
+      "2025-12"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#3a3a3a",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 3
+  },
+  "series": [
+    {
+      "name": "unrate",
+      "type": "line",
+      "data": [
+        3.6,
+        14.8,
+        10.2,
+        6.9,
+        6.4,
+        6.1,
+        5.4,
+        4.5,
+        4,
+        3.7,
+        3.5,
+        3.6,
+        3.5,
+        3.4,
+        3.5,
+        3.9,
+        3.7,
+        3.9,
+        4.2,
+        4.1,
+        4,
+        4.2,
+        4.3,
+        4.5,
+        4.4
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#3da8e0"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#3da8e0",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+}
+      };
+      var currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      chart.setOption(window.chartOptions['chart_9'][currentTheme]);
+      window.addEventListener('resize', function() { chart.resize(); });
+    })();
+    (function() {
+      var chart = echarts.init(document.getElementById('chart_10'), null, {renderer: 'svg'});
+      window.chartInstances = window.chartInstances || {};
+      window.chartOptions = window.chartOptions || {};
+      window.chartInstances['chart_10'] = chart;
+      window.chartOptions['chart_10'] = {
+        light: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#0777b3",
+    "#bd4e35",
+    "#2d7a00",
+    "#e18727",
+    "#638CAD",
+    "#adadad"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#ffffff",
+    "borderColor": "#d4d4d4",
+    "textStyle": {
+      "color": "#231f20"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10",
+      "2025-12"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#d4d4d4",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 125
+  },
+  "series": [
+    {
+      "name": "payrolls",
+      "type": "line",
+      "data": [
+        152,
+        130.4,
+        139.3,
+        142.5,
+        142.9,
+        144.6,
+        146.8,
+        148.6,
+        150,
+        151.7,
+        153,
+        153.9,
+        154.8,
+        155.4,
+        156,
+        156.5,
+        157,
+        157.6,
+        158,
+        158.4,
+        159.1,
+        159.4,
+        159.5,
+        159.4,
+        159.5
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#0777b3"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#0777b3",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+},
+        dark: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#3da8e0",
+    "#e06b4e",
+    "#6ed020",
+    "#f5a84a",
+    "#7faac4",
+    "#c0c0c0"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#424242",
+    "borderColor": "#3a3a3a",
+    "textStyle": {
+      "color": "#ffffff"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10",
+      "2025-12"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#3a3a3a",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 125
+  },
+  "series": [
+    {
+      "name": "payrolls",
+      "type": "line",
+      "data": [
+        152,
+        130.4,
+        139.3,
+        142.5,
+        142.9,
+        144.6,
+        146.8,
+        148.6,
+        150,
+        151.7,
+        153,
+        153.9,
+        154.8,
+        155.4,
+        156,
+        156.5,
+        157,
+        157.6,
+        158,
+        158.4,
+        159.1,
+        159.4,
+        159.5,
+        159.4,
+        159.5
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#3da8e0"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#3da8e0",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+}
+      };
+      var currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      chart.setOption(window.chartOptions['chart_10'][currentTheme]);
+      window.addEventListener('resize', function() { chart.resize(); });
+    })();
+    (function() {
+      var chart = echarts.init(document.getElementById('chart_11'), null, {renderer: 'svg'});
+      window.chartInstances = window.chartInstances || {};
+      window.chartOptions = window.chartOptions || {};
+      window.chartInstances['chart_11'] = chart;
+      window.chartOptions['chart_11'] = {
+        light: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#0777b3",
+    "#bd4e35",
+    "#2d7a00",
+    "#e18727",
+    "#638CAD",
+    "#adadad"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#ffffff",
+    "borderColor": "#d4d4d4",
+    "textStyle": {
+      "color": "#231f20"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-11"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#d4d4d4",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 4
+  },
+  "series": [
+    {
+      "name": "jolts",
+      "type": "line",
+      "data": [
+        7.1,
+        4.6,
+        6.5,
+        6.8,
+        7.2,
+        9.4,
+        11,
+        11.3,
+        11.2,
+        11.9,
+        11.6,
+        10.5,
+        10.4,
+        10,
+        8.6,
+        8.6,
+        8.5,
+        7.6,
+        7.5,
+        7.6,
+        7.8,
+        7.4,
+        7.2,
+        7.1
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#0777b3"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#0777b3",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+},
+        dark: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#3da8e0",
+    "#e06b4e",
+    "#6ed020",
+    "#f5a84a",
+    "#7faac4",
+    "#c0c0c0"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#424242",
+    "borderColor": "#3a3a3a",
+    "textStyle": {
+      "color": "#ffffff"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-11"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#3a3a3a",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 4
+  },
+  "series": [
+    {
+      "name": "jolts",
+      "type": "line",
+      "data": [
+        7.1,
+        4.6,
+        6.5,
+        6.8,
+        7.2,
+        9.4,
+        11,
+        11.3,
+        11.2,
+        11.9,
+        11.6,
+        10.5,
+        10.4,
+        10,
+        8.6,
+        8.6,
+        8.5,
+        7.6,
+        7.5,
+        7.6,
+        7.8,
+        7.4,
+        7.2,
+        7.1
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#3da8e0"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#3da8e0",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+}
+      };
+      var currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      chart.setOption(window.chartOptions['chart_11'][currentTheme]);
+      window.addEventListener('resize', function() { chart.resize(); });
+    })();
+    (function() {
+      var chart = echarts.init(document.getElementById('chart_12'), null, {renderer: 'svg'});
+      window.chartInstances = window.chartInstances || {};
+      window.chartOptions = window.chartOptions || {};
+      window.chartInstances['chart_12'] = chart;
+      window.chartOptions['chart_12'] = {
+        light: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#0777b3",
+    "#bd4e35",
+    "#2d7a00",
+    "#e18727",
+    "#638CAD",
+    "#adadad"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#ffffff",
+    "borderColor": "#d4d4d4",
+    "textStyle": {
+      "color": "#231f20"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-07",
+      "2021-01",
+      "2021-07",
+      "2022-01",
+      "2022-07",
+      "2023-01",
+      "2023-07",
+      "2024-01",
+      "2024-07",
+      "2025-01",
+      "2025-07",
+      "2025-12"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#d4d4d4",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 23
+  },
+  "series": [
+    {
+      "name": "wages",
+      "type": "line",
+      "data": [
+        23.91,
+        24.69,
+        25.17,
+        25.96,
+        26.91,
+        27.66,
+        28.31,
+        29.02,
+        29.61,
+        30.17,
+        30.8,
+        31.35,
+        31.76
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#0777b3"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#0777b3",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+},
+        dark: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#3da8e0",
+    "#e06b4e",
+    "#6ed020",
+    "#f5a84a",
+    "#7faac4",
+    "#c0c0c0"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#424242",
+    "borderColor": "#3a3a3a",
+    "textStyle": {
+      "color": "#ffffff"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-07",
+      "2021-01",
+      "2021-07",
+      "2022-01",
+      "2022-07",
+      "2023-01",
+      "2023-07",
+      "2024-01",
+      "2024-07",
+      "2025-01",
+      "2025-07",
+      "2025-12"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#3a3a3a",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 23
+  },
+  "series": [
+    {
+      "name": "wages",
+      "type": "line",
+      "data": [
+        23.91,
+        24.69,
+        25.17,
+        25.96,
+        26.91,
+        27.66,
+        28.31,
+        29.02,
+        29.61,
+        30.17,
+        30.8,
+        31.35,
+        31.76
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#3da8e0"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#3da8e0",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+}
+      };
+      var currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      chart.setOption(window.chartOptions['chart_12'][currentTheme]);
+      window.addEventListener('resize', function() { chart.resize(); });
+    })();
+    (function() {
+      var chart = echarts.init(document.getElementById('chart_13'), null, {renderer: 'svg'});
+      window.chartInstances = window.chartInstances || {};
+      window.chartOptions = window.chartOptions || {};
+      window.chartInstances['chart_13'] = chart;
+      window.chartOptions['chart_13'] = {
+        light: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#0777b3",
+    "#bd4e35",
+    "#2d7a00",
+    "#e18727",
+    "#638CAD",
+    "#adadad"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#ffffff",
+    "borderColor": "#d4d4d4",
+    "textStyle": {
+      "color": "#231f20"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10",
+      "2025-12"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#d4d4d4",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 59,
+    "max": 64
+  },
+  "series": [
+    {
+      "name": "lfpr",
+      "type": "line",
+      "data": [
+        63.3,
+        60.1,
+        61.5,
+        61.7,
+        61.4,
+        61.6,
+        61.8,
+        61.8,
+        62.2,
+        62.2,
+        62.1,
+        62.2,
+        62.4,
+        62.6,
+        62.6,
+        62.6,
+        62.5,
+        62.6,
+        62.7,
+        62.5,
+        62.6,
+        62.6,
+        62.2,
+        62.5,
+        62.4
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#0777b3"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#0777b3",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+},
+        dark: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "color": [
+    "#3da8e0",
+    "#e06b4e",
+    "#6ed020",
+    "#f5a84a",
+    "#7faac4",
+    "#c0c0c0"
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#424242",
+    "borderColor": "#3a3a3a",
+    "textStyle": {
+      "color": "#ffffff"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "6%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10",
+      "2025-12"
+    ],
+    "boundaryGap": false,
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#3a3a3a",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 59,
+    "max": 64
+  },
+  "series": [
+    {
+      "name": "lfpr",
+      "type": "line",
+      "data": [
+        63.3,
+        60.1,
+        61.5,
+        61.7,
+        61.4,
+        61.6,
+        61.8,
+        61.8,
+        62.2,
+        62.2,
+        62.1,
+        62.2,
+        62.4,
+        62.6,
+        62.6,
+        62.6,
+        62.5,
+        62.6,
+        62.7,
+        62.5,
+        62.6,
+        62.6,
+        62.2,
+        62.5,
+        62.4
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#3da8e0"
+      },
+      "endLabel": {
+        "show": false,
+        "formatter": "{a}",
+        "color": "#3da8e0",
+        "fontSize": 10,
+        "offset": [
+          5,
+          0
+        ]
+      },
+      "labelLayout": {
+        "moveOverlap": "shiftY"
+      }
+    }
+  ]
+}
+      };
+      var currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      chart.setOption(window.chartOptions['chart_13'][currentTheme]);
+      window.addEventListener('resize', function() { chart.resize(); });
+    })();
+    (function() {
+      var chart = echarts.init(document.getElementById('chart_14'), null, {renderer: 'svg'});
+      window.chartInstances = window.chartInstances || {};
+      window.chartOptions = window.chartOptions || {};
+      window.chartInstances['chart_14'] = chart;
+      window.chartOptions['chart_14'] = {
+        light: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "tooltip": {
+    "trigger": "axis",
+    "axisPointer": {
+      "type": "shadow"
+    },
+    "backgroundColor": "#ffffff",
+    "borderColor": "#d4d4d4",
+    "textStyle": {
+      "color": "#231f20"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "14%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-02",
+      "2020-04",
+      "2021-01",
+      "2022-01",
+      "2023-01",
+      "2024-01",
+      "2025-01",
+      "2025-08"
+    ],
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "fontSize": 11,
+      "margin": 10,
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#d4d4d4",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 11000
+  },
+  "series": [
+    {
+      "name": "manemp",
+      "type": "bar",
+      "data": [
+        12743,
+        11382,
+        12145,
+        12560,
+        12897,
+        12866,
+        12755,
+        12722
+      ],
+      "barMaxWidth": 32,
+      "itemStyle": {
+        "color": "#0777b3"
+      },
+      "label": {
+        "show": true,
+        "position": "top",
+        "color": "#6a6a6a",
+        "fontSize": 10,
+        "offset": [
+          0,
+          -2
+        ],
+        "formatter": function(params) {
+  var v = params.value;
+  if (v == null) return '';
+  if (Array.isArray(v)) v = v[1];
+  var abs = Math.abs(v);
+  var neg = v < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = s >= 100 ? p + s.toFixed(1) + 'b' : s >= 10 ? p + s.toFixed(2) + 'b' : p + s.toFixed(3) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = s >= 100 ? p + s.toFixed(1) + 'm' : s >= 10 ? p + s.toFixed(2) + 'm' : p + s.toFixed(3) + 'm';
+  } else if (abs >= 1e4) {
+    var s = abs / 1e3;
+    r = s >= 100 ? p + s.toFixed(1) + 'k' : p + s.toFixed(2) + 'k';
+  } else if (abs >= 1e3) {
+    r = p + abs.toLocaleString('en-US', {maximumFractionDigits: 0});
+  } else {
+    r = abs === Math.floor(abs) ? p + abs : p + abs.toFixed(2);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+      }
+    }
+  ]
+},
+        dark: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "tooltip": {
+    "trigger": "axis",
+    "axisPointer": {
+      "type": "shadow"
+    },
+    "backgroundColor": "#424242",
+    "borderColor": "#3a3a3a",
+    "textStyle": {
+      "color": "#ffffff"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "14%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-02",
+      "2020-04",
+      "2021-01",
+      "2022-01",
+      "2023-01",
+      "2024-01",
+      "2025-01",
+      "2025-08"
+    ],
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "fontSize": 11,
+      "margin": 10,
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#3a3a3a",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 11000
+  },
+  "series": [
+    {
+      "name": "manemp",
+      "type": "bar",
+      "data": [
+        12743,
+        11382,
+        12145,
+        12560,
+        12897,
+        12866,
+        12755,
+        12722
+      ],
+      "barMaxWidth": 32,
+      "itemStyle": {
+        "color": "#3da8e0"
+      },
+      "label": {
+        "show": true,
+        "position": "top",
+        "color": "#ffffff",
+        "fontSize": 10,
+        "offset": [
+          0,
+          -2
+        ],
+        "formatter": function(params) {
+  var v = params.value;
+  if (v == null) return '';
+  if (Array.isArray(v)) v = v[1];
+  var abs = Math.abs(v);
+  var neg = v < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = s >= 100 ? p + s.toFixed(1) + 'b' : s >= 10 ? p + s.toFixed(2) + 'b' : p + s.toFixed(3) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = s >= 100 ? p + s.toFixed(1) + 'm' : s >= 10 ? p + s.toFixed(2) + 'm' : p + s.toFixed(3) + 'm';
+  } else if (abs >= 1e4) {
+    var s = abs / 1e3;
+    r = s >= 100 ? p + s.toFixed(1) + 'k' : p + s.toFixed(2) + 'k';
+  } else if (abs >= 1e3) {
+    r = p + abs.toLocaleString('en-US', {maximumFractionDigits: 0});
+  } else {
+    r = abs === Math.floor(abs) ? p + abs : p + abs.toFixed(2);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+      }
+    }
+  ]
+}
+      };
+      var currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      chart.setOption(window.chartOptions['chart_14'][currentTheme]);
+      window.addEventListener('resize', function() { chart.resize(); });
+    })();
+    (function() {
+      var chart = echarts.init(document.getElementById('chart_15'), null, {renderer: 'svg'});
+      window.chartInstances = window.chartInstances || {};
+      window.chartOptions = window.chartOptions || {};
+      window.chartInstances['chart_15'] = chart;
+      window.chartOptions['chart_15'] = {
+        light: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "tooltip": {
+    "trigger": "axis",
+    "axisPointer": {
+      "type": "shadow"
+    },
+    "backgroundColor": "#ffffff",
+    "borderColor": "#d4d4d4",
+    "textStyle": {
+      "color": "#231f20"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "14%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-02",
+      "2020-04",
+      "2021-01",
+      "2022-01",
+      "2023-01",
+      "2024-01",
+      "2025-01",
+      "2025-08"
+    ],
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "fontSize": 11,
+      "margin": 10,
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#d4d4d4",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 6000
+  },
+  "series": [
+    {
+      "name": "cons",
+      "type": "bar",
+      "data": [
+        7610,
+        6522,
+        7358,
+        7586,
+        7922,
+        8113,
+        8286,
+        8295
+      ],
+      "barMaxWidth": 32,
+      "itemStyle": {
+        "color": "#0777b3"
+      },
+      "label": {
+        "show": true,
+        "position": "top",
+        "color": "#6a6a6a",
+        "fontSize": 10,
+        "offset": [
+          0,
+          -2
+        ],
+        "formatter": function(params) {
+  var v = params.value;
+  if (v == null) return '';
+  if (Array.isArray(v)) v = v[1];
+  var abs = Math.abs(v);
+  var neg = v < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = s >= 100 ? p + s.toFixed(1) + 'b' : s >= 10 ? p + s.toFixed(2) + 'b' : p + s.toFixed(3) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = s >= 100 ? p + s.toFixed(1) + 'm' : s >= 10 ? p + s.toFixed(2) + 'm' : p + s.toFixed(3) + 'm';
+  } else if (abs >= 1e4) {
+    var s = abs / 1e3;
+    r = s >= 100 ? p + s.toFixed(1) + 'k' : p + s.toFixed(2) + 'k';
+  } else if (abs >= 1e3) {
+    r = p + abs.toLocaleString('en-US', {maximumFractionDigits: 0});
+  } else {
+    r = abs === Math.floor(abs) ? p + abs : p + abs.toFixed(2);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+      }
+    }
+  ]
+},
+        dark: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "tooltip": {
+    "trigger": "axis",
+    "axisPointer": {
+      "type": "shadow"
+    },
+    "backgroundColor": "#424242",
+    "borderColor": "#3a3a3a",
+    "textStyle": {
+      "color": "#ffffff"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "14%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-02",
+      "2020-04",
+      "2021-01",
+      "2022-01",
+      "2023-01",
+      "2024-01",
+      "2025-01",
+      "2025-08"
+    ],
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": {
+    "type": "value",
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "fontSize": 11,
+      "margin": 10,
+      "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "#3a3a3a",
+        "type": [
+          2,
+          3
+        ],
+        "opacity": 0.6
+      }
+    },
+    "min": 6000
+  },
+  "series": [
+    {
+      "name": "cons",
+      "type": "bar",
+      "data": [
+        7610,
+        6522,
+        7358,
+        7586,
+        7922,
+        8113,
+        8286,
+        8295
+      ],
+      "barMaxWidth": 32,
+      "itemStyle": {
+        "color": "#3da8e0"
+      },
+      "label": {
+        "show": true,
+        "position": "top",
+        "color": "#ffffff",
+        "fontSize": 10,
+        "offset": [
+          0,
+          -2
+        ],
+        "formatter": function(params) {
+  var v = params.value;
+  if (v == null) return '';
+  if (Array.isArray(v)) v = v[1];
+  var abs = Math.abs(v);
+  var neg = v < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = s >= 100 ? p + s.toFixed(1) + 'b' : s >= 10 ? p + s.toFixed(2) + 'b' : p + s.toFixed(3) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = s >= 100 ? p + s.toFixed(1) + 'm' : s >= 10 ? p + s.toFixed(2) + 'm' : p + s.toFixed(3) + 'm';
+  } else if (abs >= 1e4) {
+    var s = abs / 1e3;
+    r = s >= 100 ? p + s.toFixed(1) + 'k' : p + s.toFixed(2) + 'k';
+  } else if (abs >= 1e3) {
+    r = p + abs.toLocaleString('en-US', {maximumFractionDigits: 0});
+  } else {
+    r = abs === Math.floor(abs) ? p + abs : p + abs.toFixed(2);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+      }
+    }
+  ]
+}
+      };
+      var currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      chart.setOption(window.chartOptions['chart_15'][currentTheme]);
+      window.addEventListener('resize', function() { chart.resize(); });
+    })();
+    (function() {
+      var chart = echarts.init(document.getElementById('chart_16'), null, {renderer: 'svg'});
+      window.chartInstances = window.chartInstances || {};
+      window.chartOptions = window.chartOptions || {};
+      window.chartInstances['chart_16'] = chart;
+      window.chartOptions['chart_16'] = {
+        light: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#ffffff",
+    "borderColor": "#d4d4d4",
+    "textStyle": {
+      "color": "#231f20"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "14%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "legend": {
+    "data": [
+      "u3",
+      "u6"
+    ],
+    "top": 0,
+    "textStyle": {
+      "color": "#6a6a6a",
+      "fontSize": 11
+    },
+    "itemWidth": 14,
+    "itemHeight": 3,
+    "itemGap": 24
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10",
+      "2025-12"
+    ],
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#6a6a6a",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": [
+    {
+      "type": "value",
+      "axisLine": {
+        "show": false
+      },
+      "axisTick": {
+        "show": false
+      },
+      "axisLabel": {
+        "color": "#6a6a6a",
+        "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d4d4d4",
+          "type": [
+            2,
+            3
+          ],
+          "opacity": 0.6
+        }
+      },
+      "min": 3
+    }
+  ],
+  "series": [
+    {
+      "name": "u3",
+      "type": "bar",
+      "data": [
+        3.6,
+        14.8,
+        10.2,
+        6.9,
+        6.4,
+        6.1,
+        5.4,
+        4.5,
+        4,
+        3.7,
+        3.5,
+        3.6,
+        3.5,
+        3.4,
+        3.5,
+        3.9,
+        3.7,
+        3.9,
+        4.2,
+        4.1,
+        4,
+        4.2,
+        4.3,
+        4.5,
+        4.4
+      ],
+      "barMaxWidth": 32,
+      "itemStyle": {
+        "color": "#0777b3"
+      }
+    },
+    {
+      "name": "u6",
+      "type": "line",
+      "data": [
+        7,
+        22.9,
+        16.5,
+        12.1,
+        11.2,
+        10.3,
+        9.2,
+        8.2,
+        7.1,
+        7,
+        6.8,
+        6.7,
+        6.7,
+        6.6,
+        6.7,
+        7.2,
+        7.2,
+        7.4,
+        7.8,
+        7.7,
+        7.5,
+        7.8,
+        7.9,
+        8.7,
+        8.4
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#bd4e35"
+      }
+    }
+  ]
+},
+        dark: {
+  "backgroundColor": "transparent",
+  "animation": false,
+  "tooltip": {
+    "trigger": "axis",
+    "backgroundColor": "#424242",
+    "borderColor": "#3a3a3a",
+    "textStyle": {
+      "color": "#ffffff"
+    }
+  },
+  "grid": {
+    "left": "2%",
+    "right": "2%",
+    "top": "14%",
+    "bottom": "8%",
+    "containLabel": true
+  },
+  "legend": {
+    "data": [
+      "u3",
+      "u6"
+    ],
+    "top": 0,
+    "textStyle": {
+      "color": "#888888",
+      "fontSize": 11
+    },
+    "itemWidth": 14,
+    "itemHeight": 3,
+    "itemGap": 24
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10",
+      "2025-12"
+    ],
+    "axisLine": {
+      "show": false
+    },
+    "axisTick": {
+      "show": false
+    },
+    "axisLabel": {
+      "color": "#888888",
+      "interval": 0,
+      "rotate": 45,
+      "overflow": "truncate",
+      "ellipsis": "...",
+      "width": 100
+    }
+  },
+  "yAxis": [
+    {
+      "type": "value",
+      "axisLine": {
+        "show": false
+      },
+      "axisTick": {
+        "show": false
+      },
+      "axisLabel": {
+        "color": "#888888",
+        "formatter": function(value) {
+  if (value == null) return '';
+  var abs = Math.abs(value);
+  var neg = value < 0;
+  var p = false ? '$' : '';
+  var r;
+  if (abs >= 1e9) {
+    var s = abs / 1e9;
+    r = p + s.toFixed(1) + 'b';
+  } else if (abs >= 1e6) {
+    var s = abs / 1e6;
+    r = p + s.toFixed(1) + 'm';
+  } else if (abs >= 1e3) {
+    var s = abs / 1e3;
+    r = p + s.toFixed(1) + 'k';
+  } else {
+    r = abs === Math.floor(abs) ? p + Math.floor(abs) : p + abs.toFixed(1);
+  }
+  return neg ? '(' + r + ')' : r;
+}
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#3a3a3a",
+          "type": [
+            2,
+            3
+          ],
+          "opacity": 0.6
+        }
+      },
+      "min": 3
+    }
+  ],
+  "series": [
+    {
+      "name": "u3",
+      "type": "bar",
+      "data": [
+        3.6,
+        14.8,
+        10.2,
+        6.9,
+        6.4,
+        6.1,
+        5.4,
+        4.5,
+        4,
+        3.7,
+        3.5,
+        3.6,
+        3.5,
+        3.4,
+        3.5,
+        3.9,
+        3.7,
+        3.9,
+        4.2,
+        4.1,
+        4,
+        4.2,
+        4.3,
+        4.5,
+        4.4
+      ],
+      "barMaxWidth": 32,
+      "itemStyle": {
+        "color": "#3da8e0"
+      }
+    },
+    {
+      "name": "u6",
+      "type": "line",
+      "data": [
+        7,
+        22.9,
+        16.5,
+        12.1,
+        11.2,
+        10.3,
+        9.2,
+        8.2,
+        7.1,
+        7,
+        6.8,
+        6.7,
+        6.7,
+        6.6,
+        6.7,
+        7.2,
+        7.2,
+        7.4,
+        7.8,
+        7.7,
+        7.5,
+        7.8,
+        7.9,
+        8.7,
+        8.4
+      ],
+      "smooth": false,
+      "symbol": "none",
+      "lineStyle": {
+        "width": 2
+      },
+      "itemStyle": {
+        "color": "#e06b4e"
+      }
+    }
+  ]
+}
+      };
+      var currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      chart.setOption(window.chartOptions['chart_16'][currentTheme]);
+      window.addEventListener('resize', function() { chart.resize(); });
+    })();
+
+    // Sparkline tooltip interactivity
+    document.querySelectorAll('.spark-hit').forEach(hit => {
+      hit.addEventListener('mouseenter', function() {
+        const tooltip = this.closest('.spark-tooltip');
+        if (tooltip) {
+          tooltip.setAttribute('data-tooltip', this.dataset.idx + ': ' + this.dataset.val);
+        }
+      });
+      hit.addEventListener('mouseleave', function() {
+        const tooltip = this.closest('.spark-tooltip');
+        if (tooltip && tooltip.dataset.default) {
+          tooltip.setAttribute('data-tooltip', tooltip.dataset.default);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

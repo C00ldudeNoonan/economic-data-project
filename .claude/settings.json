@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(uv run ruff check:*)",
+      "Bash(uv run dg check defs:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose ps -a:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker inspect:*)",
+      "Bash(git status:*)",
+      "Bash(git branch --show-current)",
+      "Bash(git log --oneline:*)",
+      "Bash(git diff --stat:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read file_path; if echo \"$file_path\" | grep -Eq '\\\\.(ts|tsx|py)$'; then npx tsc --noEmit && uv run ruff check . && uv run dg check defs; fi; }"
+          }
+        ]
+      }
+    ]
+  }
+}

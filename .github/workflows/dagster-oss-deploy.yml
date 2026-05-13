@@ -1,0 +1,182 @@
+name: Deploy to Dagster OSS on GCP
+
+'on':
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_ZONE: ${{ secrets.GCP_ZONE }}
+  VM_NAME: ${{ secrets.GCP_VM_NAME }}
+
+jobs:
+  deploy:
+    if: false  # Temporarily disabled - remove this line when ready to deploy
+    name: Deploy Dagster OSS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Prepare deployment files
+        run: |
+          echo "Preparing deployment package..."
+          mkdir -p deploy_temp
+
+          # Copy Docker and Dagster configuration files
+          cp docker-compose.yml deploy_temp/
+          cp dagster.yaml deploy_temp/
+          cp workspace.yaml deploy_temp/
+
+          # Copy macro_agents code
+          cp -r macro_agents deploy_temp/
+
+          # Copy dbt_project (needed for dbt assets)
+          cp -r dbt_project deploy_temp/
+
+          echo "Deployment package prepared"
+
+      - name: Copy files to GCP VM
+        run: |
+          echo "Copying files to VM: $VM_NAME in zone $GCP_ZONE..."
+
+          # Create dagster directory on VM if it doesn't exist
+          gcloud compute ssh $VM_NAME --zone=$GCP_ZONE --command='mkdir -p ~/dagster'
+
+          # Copy all files
+          gcloud compute scp --recurse deploy_temp/* $VM_NAME:~/dagster/ --zone=$GCP_ZONE
+
+          echo "Files copied successfully"
+
+      - name: Deploy on GCP VM
+        run: |
+          echo "Deploying Dagster OSS on VM..."
+
+          gcloud compute ssh $VM_NAME --zone=$GCP_ZONE --command='
+            cd ~/dagster
+
+            # Pull latest base images
+            docker compose pull dagster_webserver dagster_daemon
+
+            # Stop existing containers
+            docker compose down
+
+            # Build user code image
+            docker compose build dagster_user_code
+
+            # Start all services
+            docker compose up -d
+
+            # Wait for services to start
+            sleep 15
+
+            # Check container status
+            echo "Container status:"
+            docker compose ps
+
+            # Check for any failed containers
+            if docker compose ps | grep -q "Exit"; then
+              echo "ERROR: Some containers failed to start"
+              docker compose logs
+              exit 1
+            fi
+          '
+
+          echo "Deployment completed"
+
+      - name: Health check
+        run: |
+          echo "Performing health check..."
+
+          # Get VM external IP
+          EXTERNAL_IP=$(gcloud compute instances describe $VM_NAME --zone=$GCP_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+          echo "VM External IP: $EXTERNAL_IP"
+
+          # Wait for Dagster UI to be ready
+          echo "Waiting for Dagster UI to be accessible..."
+          sleep 30
+
+          # Try to access Dagster UI
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -f -s -o /dev/null http://$EXTERNAL_IP:3000; then
+              echo "✅ Dagster UI is accessible at http://$EXTERNAL_IP:3000"
+              exit 0
+            else
+              echo "Attempt $((RETRY_COUNT + 1))/$MAX_RETRIES: Dagster UI not ready yet..."
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              sleep 10
+            fi
+          done
+
+          echo "❌ Health check failed - Dagster UI not accessible after $MAX_RETRIES attempts"
+
+          # Collect logs for debugging
+          gcloud compute ssh $VM_NAME --zone=$GCP_ZONE --command='docker compose logs --tail=100'
+
+          exit 1
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying Dagster services..."
+
+          gcloud compute ssh $VM_NAME --zone=$GCP_ZONE --command='
+            cd ~/dagster
+
+            echo "=== Container Health ==="
+            docker compose ps
+
+            echo ""
+            echo "=== PostgreSQL Status ==="
+            docker compose exec -T dagster_postgresql pg_isready -U dagster_user || echo "PostgreSQL not ready"
+
+            echo ""
+            echo "=== Recent Webserver Logs ==="
+            docker compose logs --tail=20 dagster_webserver
+
+            echo ""
+            echo "=== Recent Daemon Logs ==="
+            docker compose logs --tail=20 dagster_daemon
+          '
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "⚠️ Deployment failed! Check the logs above for details."
+          EXTERNAL_IP=$(gcloud compute instances describe $VM_NAME --zone=$GCP_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+          echo "You can manually check the VM at: $EXTERNAL_IP"
+          echo "SSH command: gcloud compute ssh $VM_NAME --zone=$GCP_ZONE"
+
+      - name: Notify on success
+        if: success()
+        run: |
+          EXTERNAL_IP=$(gcloud compute instances describe $VM_NAME --zone=$GCP_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+          echo "✅ Deployment successful!"
+          echo "Dagster UI: http://$EXTERNAL_IP:3000"
+          echo "To view logs: gcloud compute ssh $VM_NAME --zone=$GCP_ZONE --command='cd ~/dagster && docker compose logs -f'"

@@ -1,0 +1,69 @@
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DAGSTER_HOME=/opt/dagster/dagster_home \
+    UV_SYSTEM_PYTHON=1 \
+    UV_COMPILE_BYTECODE=1
+
+# Set working directory
+WORKDIR /opt/dagster/app
+
+# Install system dependencies and uv
+# - build-essential: Required for compiling Python packages with C extensions
+# - git: Required for some pip installations from git repositories
+# - curl: Useful for health checks and installing uv
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add uv to PATH
+ENV PATH="/root/.local/bin:$PATH"
+
+# Copy project files including lockfile for reproducible installs
+# Note: Build context is repo root, so paths are relative to root
+COPY macro_agents/pyproject.toml macro_agents/uv.lock ./
+COPY macro_agents/src ./src
+
+# Install the package and all dependencies using uv
+# Uses the lockfile for fast, reproducible installs
+RUN uv pip install -e .
+
+# Copy dbt project
+# The dbt project is needed for dbt assets to compile and run models
+# Build context is repo root, so we can reference dbt_project directly
+COPY dbt_project /opt/dagster/dbt_project
+
+# Copy Dagster instance config for run containers
+RUN mkdir -p /opt/dagster/dagster_home
+COPY dagster.yaml /opt/dagster/dagster_home/dagster.yaml
+COPY workspace.yaml /opt/dagster/dagster_home/workspace.yaml
+RUN mkdir -p /opt/dagster/dagster_home_run
+COPY dagster_run.yaml /opt/dagster/dagster_home_run/dagster.yaml
+COPY workspace.yaml /opt/dagster/dagster_home_run/workspace.yaml
+
+# Create directory for GCP credentials
+RUN mkdir -p /opt/dagster/gcp
+
+# Copy and set up entrypoint script
+# sed removes Windows line endings (CRLF -> LF)
+COPY docker/entrypoint.sh /opt/dagster/entrypoint.sh
+RUN sed -i 's/\r$//' /opt/dagster/entrypoint.sh && chmod +x /opt/dagster/entrypoint.sh
+
+# Expose gRPC port for Dagster code server
+EXPOSE 4000
+
+ENTRYPOINT ["/opt/dagster/entrypoint.sh"]
+
+# Health check
+# Verifies that the gRPC server is responsive
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD python -c "import grpc; channel = grpc.insecure_channel('localhost:4000'); channel.close()" || exit 1
+
+# Run the Dagster gRPC server
+# This makes your Dagster definitions available to the webserver and daemon
+CMD ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-m", "macro_agents.definitions"]

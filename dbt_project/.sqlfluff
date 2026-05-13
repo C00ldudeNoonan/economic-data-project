@@ -1,0 +1,6 @@
+[sqlfluff]
+dialect = duckdb
+# Note: templater setting must be in root .sqlfluff file, not in subdirectories
+
+# Additional SQLFluff rules can be specified here if needed
+

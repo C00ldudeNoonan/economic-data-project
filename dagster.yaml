@@ -1,0 +1,109 @@
+# Dagster instance configuration
+# Uses DefaultRunLauncher (runs execute inside user code container)
+# No Docker-in-Docker needed — works on Windows, Mac, and Linux
+
+run_launcher:
+  module: dagster.core.launcher
+  class: DefaultRunLauncher
+
+run_storage:
+  module: dagster_postgres.run_storage
+  class: PostgresRunStorage
+  config:
+    postgres_db:
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      hostname:
+        env: DAGSTER_POSTGRES_HOSTNAME
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+      port:
+        env: DAGSTER_POSTGRES_PORT
+
+event_log_storage:
+  module: dagster_postgres.event_log
+  class: PostgresEventLogStorage
+  config:
+    postgres_db:
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      hostname:
+        env: DAGSTER_POSTGRES_HOSTNAME
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+      port:
+        env: DAGSTER_POSTGRES_PORT
+
+schedule_storage:
+  module: dagster_postgres.schedule_storage
+  class: PostgresScheduleStorage
+  config:
+    postgres_db:
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      hostname:
+        env: DAGSTER_POSTGRES_HOSTNAME
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+      port:
+        env: DAGSTER_POSTGRES_PORT
+
+compute_logs:
+  module: dagster.core.storage.local_compute_log_manager
+  class: LocalComputeLogManager
+  config:
+    base_dir: /opt/dagster/dagster_home/storage/logs
+
+local_artifact_storage:
+  module: dagster.core.storage.root
+  class: LocalArtifactStorage
+  config:
+    base_dir: /opt/dagster/dagster_home/storage/artifacts
+
+python_logs:
+  managed_python_loggers:
+    - root
+  python_log_level: INFO
+
+# Run coordinator configuration
+# QueuedRunCoordinator enables:
+# - Parallel run execution with configurable limits
+# - Run prioritization
+# - Resource-aware scheduling
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 4
+    tag_concurrency_limits:
+      - key: "dagster/backfill"
+        limit: 2
+      - key: "series_code"
+        limit: 4
+      - key: "job_type"
+        value: "daily_ingestion"
+        limit: 1
+    dequeue_interval_seconds: 5
+
+# Run monitoring — detect and fail hung runs
+run_monitoring:
+  enabled: true
+  start_timeout_seconds: 600
+  cancel_timeout_seconds: 300
+  max_runtime_seconds: 7200  # 2 hours — kill runs that exceed this
+  max_resume_run_attempts: 0  # DefaultRunLauncher doesn't support run resumption
+  poll_interval_seconds: 60   # Faster detection of recovered container
+
+# Run retries — automatically retry on worker crashes or asset/op failures
+run_retries:
+  max_retries: 2
+  retry_on_asset_or_op_failure: true
+
+telemetry:
+  enabled: false

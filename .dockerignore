@@ -1,0 +1,25 @@
+# dbt artifacts - stale partial_parse.msgpack causes KeyError during macro loading
+dbt_project/target/
+dbt_project/logs/
+
+# Git
+.git/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Local Dagster
+dagster_home_local/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

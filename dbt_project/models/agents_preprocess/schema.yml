@@ -1,0 +1,91 @@
+version: 2
+
+models:
+  - name: agent_market_performance
+    description: >
+      Union of market summary models (us_sector, major_indicies, sp500, nasdaq)
+      with standardized column names for agent consumption.
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: market_category
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['sector', 'major_index']
+
+  - name: agent_commodity_performance
+    description: >
+      Union of commodity summary models (energy, agriculture, input)
+      with standardized column names for agent consumption.
+    columns:
+      - name: commodity_name
+        tests:
+          - not_null
+      - name: time_period
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['12_weeks', '6_months', '1_year', '5_years']
+      - name: commodity_category
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['energy', 'agriculture', 'input']
+
+  - name: agent_fred_series_latest_aggregates
+    description: "Passthrough of fred_series_latest_aggregates for agent consumption"
+    columns:
+      - name: series_code
+        tests:
+          - not_null
+
+  - name: agent_leading_econ_return_indicator
+    description: "Passthrough of leading_econ_return_indicator for agent consumption"
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: agent_financial_conditions_index
+    description: "Financial conditions index data for agent consumption"
+
+  - name: agent_fred_monthly_diff
+    description: "FRED monthly differences for agent consumption"
+
+  - name: agent_housing_inventory_latest_aggregates
+    description: "Housing inventory aggregates for agent consumption"
+
+  - name: agent_housing_mortgage_rates
+    description: "Housing mortgage rates for agent consumption"
+
+  - name: agent_reddit_posts_daily
+    description: "Daily Reddit post aggregates for agent consumption"
+
+  - name: agent_reddit_sentiment_trends
+    description: "Reddit sentiment trends for agent consumption"
+
+  - name: agent_fred_series_latest_aggregates_snapshot
+    description: "Snapshot view of FRED aggregates for agent consumption"
+
+  - name: agent_leading_econ_return_indicator_snapshot
+    description: "Snapshot view of leading economic return indicator for agent consumption"
+
+  - name: agent_market_performance_snapshot
+    description: "Incremental snapshot of market performance for agent consumption"
+
+  - name: agent_commodity_performance_snapshot
+    description: "Incremental snapshot of commodity performance for agent consumption"
+
+  - name: agent_treasury_yield_curve_spreads
+    description: "Incremental treasury yield curve spreads for agent consumption"

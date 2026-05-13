@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DAGSTER_HOME=/opt/dagster/dagster_home \
+    UV_SYSTEM_PYTHON=1 \
+    UV_COMPILE_BYTECODE=1
+
+WORKDIR /opt/dagster
+
+# Install uv for fast package installation
+RUN apt-get update && apt-get install -y curl \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install Dagster webserver dependencies
+# Versions must match user code container (macro_agents)
+RUN uv pip install \
+    dagster==1.12.12 \
+    dagster-graphql==1.12.12 \
+    dagster-webserver==1.12.12 \
+    dagster-docker==0.28.12 \
+    dagster-postgres==0.28.12
+
+# Create dagster home directory
+RUN mkdir -p ${DAGSTER_HOME}
+
+EXPOSE 3000
+
+ENTRYPOINT ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "/opt/dagster/dagster_home/workspace.yaml"]

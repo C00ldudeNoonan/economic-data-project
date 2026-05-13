@@ -1,0 +1,65 @@
+name: Dagster CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "macro_agents/**"
+      - "dbt_project/**"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "macro_agents/**"
+      - "dbt_project/**"
+
+jobs:
+  test:
+    name: Test Dagster
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-dagster-${{ hashFiles('macro_agents/pyproject.toml', 'macro_agents/uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-dagster-
+
+      - name: Install dependencies with uv
+        run: |
+          cd macro_agents
+          uv sync --extra dev
+
+      - name: Lint with ruff
+        run: |
+          cd macro_agents
+          uv run ruff check . --exclude .claude
+          uv run ruff format --check . --exclude .claude
+
+      - name: Typecheck with ty
+        run: |
+          cd macro_agents
+          uv run ty check --extra-search-path src src/macro_agents
+
+      - name: Test Dagster definitions
+        run: |
+          cd macro_agents
+          uv run dg check defs
+
+      - name: Test with pytest
+        run: |
+          cd macro_agents
+          uv run pytest tests/ -v -m "not skip_ci"

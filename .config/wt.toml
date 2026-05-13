@@ -1,0 +1,6 @@
+[pre-commit]
+backend_ruff = "ruff check . --exclude .claude"
+
+[pre-merge]
+tests = "make test"
+typecheck = "make typecheck-dagster"

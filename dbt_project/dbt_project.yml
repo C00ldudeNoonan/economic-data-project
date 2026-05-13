@@ -1,0 +1,36 @@
+name: "dbt_project"
+version: "1.0.0"
+config-version: 2
+profile: "econ_database"
+
+# Directory configurations
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+    - "target"
+    - "dbt_packages"
+
+# Model configurations
+models:
+  dbt_project:
+    +materialized: table
+    staging:
+      +materialized: view
+    markets:
+      +materialized: table
+    commodities:
+      +materialized: table
+    signals:
+      +materialized: table
+    agents_preprocess:
+      +materialized: view
+    data_quality:
+      +materialized: table
+    backtesting:
+      +materialized: incremental
