@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 import dagster as dg
 import polars as pl
+from metaxy.ext.dagster import MetaxyStoreFromConfigResource, metaxify
 
 from macro_agents.defs.domains.sec.metadata import sec_filing_metadata
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_content_table
@@ -12,17 +13,20 @@ from macro_agents.defs.domains.sec.config import BATCH_SIZE_STANDARD, MAX_ERROR_
 from macro_agents.defs.utils.sec_text_extractor import SECTextExtractor
 
 
+@metaxify
 @dg.asset(
     group_name="transformation",
     kinds={"gcs", "duckdb", "sec_filing_documents"},
     deps=[sec_filing_metadata],
     description="Extract text content from SEC filings stored in GCS",
+    metadata={"metaxy/feature": "sec/extracted_text"},
 )
 def sec_filing_text_extracted(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
     md: MotherDuckResource,
+    metaxy_store: MetaxyStoreFromConfigResource,
 ) -> dg.MaterializeResult:
     """
     Extract text content from SEC filings stored in GCS.
@@ -34,6 +38,9 @@ def sec_filing_text_extracted(
     4. Store extracted content in sec_filing_content table
     """
     conn = None
+    metaxy_stale_count: int | None = None
+    metaxy_divergence_count: int | None = None
+    metaxy_shadow_error: str | None = None
     try:
         conn = md.get_connection()
         ensure_sec_filing_content_table(conn)
@@ -55,10 +62,38 @@ def sec_filing_text_extracted(
             connection=conn,
         )
 
+        # Shadow mode (issue #46 Phase 1): compute Metaxy's stale set and log
+        # divergence vs. the boolean-based query above. Behavior is unchanged —
+        # only measurement happens here. Wrapped in try/except so a store
+        # outage cannot block extraction.
+        try:
+            boolean_stale_ids = set(filings_to_process["filing_id"].to_list())
+            with metaxy_store.get_store() as store:
+                increment = store.resolve_update("sec/extracted_text")
+                metaxy_stale_df = increment.to_native()
+                metaxy_stale_ids = (
+                    set(metaxy_stale_df["filing_id"].to_list())
+                    if "filing_id" in metaxy_stale_df.columns
+                    else set()
+                )
+            metaxy_stale_count = len(metaxy_stale_ids)
+            metaxy_divergence_count = len(
+                metaxy_stale_ids.symmetric_difference(boolean_stale_ids)
+            )
+        except Exception as e:  # noqa: BLE001 — shadow mode must never fail the asset
+            metaxy_shadow_error = f"{type(e).__name__}: {e}"
+            context.log.warning(f"Metaxy shadow comparison failed: {metaxy_shadow_error}")
+
         if filings_to_process.is_empty():
             context.log.debug("No filings to extract text from")
             return dg.MaterializeResult(
-                metadata={"status": "no_filings", "filings_processed": 0}
+                metadata={
+                    "status": "no_filings",
+                    "filings_processed": 0,
+                    "metaxy_stale_count": metaxy_stale_count,
+                    "metaxy_divergence_count": metaxy_divergence_count,
+                    "metaxy_shadow_error": metaxy_shadow_error,
+                }
             )
 
         context.log.debug(f"Extracting text from {len(filings_to_process)} filings")
@@ -218,6 +253,9 @@ def sec_filing_text_extracted(
                 "errors": total_errors,
                 "remaining_to_process": remaining,
                 "error_details": errors[:MAX_ERROR_DETAILS] if errors else [],
+                "metaxy_stale_count": metaxy_stale_count,
+                "metaxy_divergence_count": metaxy_divergence_count,
+                "metaxy_shadow_error": metaxy_shadow_error,
             }
         )
 

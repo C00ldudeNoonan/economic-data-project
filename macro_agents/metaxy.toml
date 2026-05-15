@@ -1,0 +1,13 @@
+# Metaxy metadata layer config (issue #46).
+# Database connection string is injected via env var
+# METAXY_STORES__PROD__CONFIG__DATABASE — typically
+# "md:econ_data_metaxy?motherduck_token=$MOTHERDUCK_TOKEN" — so this file does
+# not contain secrets.
+
+store = "prod"
+entrypoints = ["macro_agents.defs.domains.sec.lineage"]
+auto_create_tables = true
+
+[stores.prod]
+type = "metaxy.ext.duckdb.DuckDBMetadataStore"
+config = {}
