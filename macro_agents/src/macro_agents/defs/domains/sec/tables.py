@@ -111,19 +111,48 @@ def ensure_sec_filing_documents_table(conn: duckdb.DuckDBPyConnection) -> None:
 
 
 def ensure_sec_filing_content_table(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create sec_filing_content table if it doesn't exist."""
+    """Create sec_filing_content table if it doesn't exist.
+
+    Issue #70: this table used to have `content_text TEXT` and
+    `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`. Section text moved to
+    GCS (single source of truth), and `created_at` was never read. The
+    asset writes a 6-column DataFrame; `upsert_data` does strict schema
+    equality, so the legacy columns broke the bulk upsert.
+
+    DuckDB blocks ALTER TABLE on indexed tables, so the migration drops
+    indexes first, then columns, then recreates indexes. The whole dance
+    is gated on the presence of the legacy columns so it only fires once.
+    """
     conn.execute("""
         CREATE TABLE IF NOT EXISTS sec_filing_content (
             content_id VARCHAR PRIMARY KEY,
             filing_id VARCHAR NOT NULL,
             section_name VARCHAR,
             section_order INTEGER,
-            content_text TEXT,
             word_count INTEGER,
-            gcs_path VARCHAR,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            gcs_path VARCHAR
         )
     """)
+
+    legacy_columns_row = conn.execute(
+        "SELECT COUNT(*) FROM duckdb_columns() "
+        "WHERE table_name = 'sec_filing_content' "
+        "AND database_name = current_database() "
+        "AND schema_name = current_schema() "
+        "AND column_name IN ('content_text', 'created_at')"
+    ).fetchone()
+    legacy_columns_present = (
+        (legacy_columns_row[0] or 0) > 0 if legacy_columns_row else False
+    )
+
+    if legacy_columns_present:
+        conn.execute("DROP INDEX IF EXISTS idx_sec_filing_content_filing_id")
+        conn.execute("DROP INDEX IF EXISTS idx_sec_filing_content_filing_section")
+        conn.execute(
+            "ALTER TABLE sec_filing_content DROP COLUMN IF EXISTS content_text"
+        )
+        conn.execute("ALTER TABLE sec_filing_content DROP COLUMN IF EXISTS created_at")
+
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_sec_filing_content_filing_id
         ON sec_filing_content(filing_id)
