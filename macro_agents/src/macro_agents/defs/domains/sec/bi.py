@@ -1,6 +1,9 @@
 import dagster as dg
 import polars as pl
+from metaxy.ext.dagster import metaxify
+from metaxy.metadata_store.base import MetadataStore
 
+from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register features
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_search_terms_table
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
 from macro_agents.defs.resources.gcs import GCSResource
@@ -16,17 +19,20 @@ from macro_agents.defs.domains.sec.config import (
 from macro_agents.defs.utils.sec_bi_extractor import SECBIExtractor
 
 
+@metaxify(key="sec_filing_business_intelligence")
 @dg.asset(
     group_name="transformation",
     kinds={"gcs", "duckdb", "sec_filing_documents"},
     deps=[sec_filing_text_extracted],
     description="Extract business intelligence signals from SEC filing content",
+    metadata={"metaxy/feature": "sec/bi_signals"},
 )
 def sec_filing_business_intelligence(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
     md: MotherDuckResource,
+    metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """
     Extract business intelligence signals from SEC filing content.
@@ -48,6 +54,9 @@ def sec_filing_business_intelligence(
     3. Store signals in sec_filing_search_terms table
     """
     conn = None
+    metaxy_stale_count: int | None = None
+    metaxy_divergence_count: int | None = None
+    metaxy_shadow_error: str | None = None
     try:
         conn = md.get_connection()
         ensure_sec_filing_search_terms_table(conn)
@@ -77,10 +86,43 @@ def sec_filing_business_intelligence(
             connection=conn,
         )
 
+        # Shadow mode (issue #46 Phase 2): expansion lineage, so Metaxy yields
+        # term-level rows but with `filing_id` carried through. Collapse to
+        # filing_ids for parity with the boolean-driven query above. Some
+        # divergence is expected by design — the boolean check is filing-level
+        # ("any term exists?") while Metaxy is term-level.
+        try:
+            boolean_stale_filing_ids = set(
+                filings_to_process["filing_id"].unique().to_list()
+            )
+            with metaxy_store:
+                increment = metaxy_store.resolve_update("sec/bi_signals").to_polars()
+                metaxy_stale_filing_ids: set[str] = set()
+                for frame in (increment.new, increment.stale):
+                    if "filing_id" in frame.columns:
+                        metaxy_stale_filing_ids.update(
+                            frame["filing_id"].unique().to_list()
+                        )
+            metaxy_stale_count = len(metaxy_stale_filing_ids)
+            metaxy_divergence_count = len(
+                metaxy_stale_filing_ids.symmetric_difference(boolean_stale_filing_ids)
+            )
+        except Exception as e:  # noqa: BLE001 — shadow mode must never fail the asset
+            metaxy_shadow_error = f"{type(e).__name__}: {e}"
+            context.log.warning(
+                f"Metaxy shadow comparison failed: {metaxy_shadow_error}"
+            )
+
         if filings_to_process.is_empty():
             context.log.debug("No filings to extract business intelligence from")
             return dg.MaterializeResult(
-                metadata={"status": "no_filings", "filings_processed": 0}
+                metadata={
+                    "status": "no_filings",
+                    "filings_processed": 0,
+                    "metaxy_stale_count": metaxy_stale_count,
+                    "metaxy_divergence_count": metaxy_divergence_count,
+                    "metaxy_shadow_error": metaxy_shadow_error,
+                }
             )
 
         # Group by filing_id to process all sections together
@@ -212,6 +254,9 @@ def sec_filing_business_intelligence(
                 "errors": total_errors,
                 "remaining_to_process": remaining,
                 "error_details": errors[:MAX_ERROR_DETAILS] if errors else [],
+                "metaxy_stale_count": metaxy_stale_count,
+                "metaxy_divergence_count": metaxy_divergence_count,
+                "metaxy_shadow_error": metaxy_shadow_error,
             }
         )
 

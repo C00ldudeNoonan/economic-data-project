@@ -1,9 +1,9 @@
 """Metaxy FeatureSpecs for the SEC filing pipeline.
 
-Phase 1 (issue #46) declares only the first two stages — `sec/raw_html` as a
-source feature, and `sec/extracted_text` as identity lineage downstream of it.
-Subsequent phases will add `sec/embeddings`, `sec/fts_index`, `sec/bi_signals`,
-and `sec/search_index`.
+Phase 1 (issue #46) declared `sec/raw_html` and `sec/extracted_text`.
+Phase 2 adds `sec/bi_signals` (expansion from extracted_text — each filing
+produces many term rows).
+Remaining phases will add `sec/embeddings`, `sec/fts_index`, `sec/search_index`.
 
 Features subclass `BaseFeature` (rather than being bare `FeatureSpec`
 instances) so they register in Metaxy's feature graph at import time. The
@@ -37,6 +37,22 @@ class ExtractedText(
             mx.FeatureDep(
                 feature="sec/raw_html",
                 lineage=mx.LineageRelationship.identity(),
+            ),
+        ],
+    ),
+):
+    pass
+
+
+class BiSignals(
+    mx.BaseFeature,
+    spec=mx.FeatureSpec(
+        key="sec/bi_signals",
+        id_columns=("term_id",),
+        deps=[
+            mx.FeatureDep(
+                feature="sec/extracted_text",
+                lineage=mx.LineageRelationship.expansion(on=["filing_id"]),
             ),
         ],
     ),

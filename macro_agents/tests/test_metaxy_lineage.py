@@ -32,3 +32,15 @@ def test_extracted_text_has_identity_lineage_from_raw_html():
     parent = spec.deps[0]
     assert str(parent.feature) == "sec/raw_html"
     assert type(parent.lineage.relationship).__name__ == "IdentityRelationship"
+
+
+def test_bi_signals_has_expansion_lineage_from_extracted_text():
+    spec = _spec(lineage.BiSignals)
+    assert str(spec.key) == "sec/bi_signals"
+    assert spec.id_columns == ("term_id",)
+    assert len(spec.deps) == 1
+    parent = spec.deps[0]
+    assert str(parent.feature) == "sec/extracted_text"
+    rel = parent.lineage.relationship
+    assert type(rel).__name__ == "ExpansionRelationship"
+    assert list(rel.on) == ["filing_id"]
