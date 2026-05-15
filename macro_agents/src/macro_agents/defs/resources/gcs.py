@@ -1,17 +1,25 @@
 import json
 import os
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import dagster as dg
 from pydantic import Field
 
+# Optional GCS deps — keep imports lazy-safe so the resource module can be
+# loaded in environments without google-cloud-storage installed.
+storage: ModuleType | None = None
+service_account: ModuleType | None = None
+
 try:
-    from google.cloud import storage
-    from google.oauth2 import service_account
+    from google.cloud import storage as _storage_mod
+    from google.oauth2 import service_account as _service_account_mod
+
+    storage = _storage_mod
+    service_account = _service_account_mod
 except ImportError:
-    storage = None  # type: ignore[assignment]
-    service_account = None  # type: ignore[assignment]
+    pass
 
 
 class GCSResource(dg.ConfigurableResource):
@@ -29,7 +37,7 @@ class GCSResource(dg.ConfigurableResource):
 
     def setup_for_execution(self, context: dg.InitResourceContext) -> None:
         """Initialize GCS client."""
-        if storage is None:
+        if storage is None or service_account is None:
             raise ImportError(
                 "google-cloud-storage is not installed. Install it with: pip install google-cloud-storage"
             )
