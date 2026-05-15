@@ -13,12 +13,8 @@ from macro_agents.defs.domains.sec import lineage  # noqa: E402
 
 
 def _spec(cls):
-    """Return the FeatureSpec attached to a BaseFeature subclass.
-
-    Metaxy 0.1.x stores it on `_feature_spec`; fall back to `spec` if that
-    moves in a future release.
-    """
-    return getattr(cls, "_feature_spec", None) or cls.spec
+    """Return the FeatureSpec attached to a BaseFeature subclass."""
+    return cls._spec
 
 
 def test_raw_html_is_source_feature():

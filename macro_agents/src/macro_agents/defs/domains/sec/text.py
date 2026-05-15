@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 
 import dagster as dg
 import polars as pl
-from metaxy.ext.dagster import MetaxyStoreFromConfigResource, metaxify
+from metaxy.ext.dagster import metaxify
+from metaxy.metadata_store.base import MetadataStore
 
 # Importing the lineage module registers SEC FeatureSpecs in Metaxy's global
 # feature graph before @metaxify below tries to look them up.
@@ -16,7 +17,7 @@ from macro_agents.defs.domains.sec.config import BATCH_SIZE_STANDARD, MAX_ERROR_
 from macro_agents.defs.utils.sec_text_extractor import SECTextExtractor
 
 
-@metaxify
+@metaxify(key="sec_filing_text_extracted")
 @dg.asset(
     group_name="transformation",
     kinds={"gcs", "duckdb", "sec_filing_documents"},
@@ -29,7 +30,7 @@ def sec_filing_text_extracted(
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
     md: MotherDuckResource,
-    metaxy_store: MetaxyStoreFromConfigResource,
+    metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """
     Extract text content from SEC filings stored in GCS.
@@ -71,21 +72,26 @@ def sec_filing_text_extracted(
         # outage cannot block extraction.
         try:
             boolean_stale_ids = set(filings_to_process["filing_id"].to_list())
-            with metaxy_store.get_store() as store:
-                increment = store.resolve_update("sec/extracted_text")
-                metaxy_stale_df = increment.to_native()
-                metaxy_stale_ids = (
-                    set(metaxy_stale_df["filing_id"].to_list())
-                    if "filing_id" in metaxy_stale_df.columns
-                    else set()
-                )
+            with metaxy_store:
+                increment = metaxy_store.resolve_update(
+                    "sec/extracted_text"
+                ).to_polars()
+                # "stale" in this context means filings the asset still needs
+                # to run on — i.e., new samples plus samples whose upstream
+                # provenance changed.
+                metaxy_stale_ids: set[str] = set()
+                for frame in (increment.new, increment.stale):
+                    if "filing_id" in frame.columns:
+                        metaxy_stale_ids.update(frame["filing_id"].to_list())
             metaxy_stale_count = len(metaxy_stale_ids)
             metaxy_divergence_count = len(
                 metaxy_stale_ids.symmetric_difference(boolean_stale_ids)
             )
         except Exception as e:  # noqa: BLE001 — shadow mode must never fail the asset
             metaxy_shadow_error = f"{type(e).__name__}: {e}"
-            context.log.warning(f"Metaxy shadow comparison failed: {metaxy_shadow_error}")
+            context.log.warning(
+                f"Metaxy shadow comparison failed: {metaxy_shadow_error}"
+            )
 
         if filings_to_process.is_empty():
             context.log.debug("No filings to extract text from")
