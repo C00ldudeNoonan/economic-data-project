@@ -23,8 +23,13 @@ class MotherDuckResource(dg.ConfigurableResource):
     environment: str = Field(description="Environment (dev or prod)", default="LOCAL")
 
     @property
-    def db_connection(self) -> str:
-        """Get the database connection string based on environment."""
+    def _db_connection(self) -> str:
+        """Internal: connection string, may contain the MotherDuck token.
+
+        Why: returning this from a public method risks leaking the token into
+        Dagster logs, exception traces, and asset metadata. Keep it private and
+        only pass it directly to ``duckdb.connect``.
+        """
         if self.environment == "dev":
             return self.local_path
         return f"md:?motherduck_token={self.md_token}"
@@ -41,16 +46,16 @@ class MotherDuckResource(dg.ConfigurableResource):
             ):
                 try:
                     # Try to connect - if it fails with IO error, delete the file
-                    conn = duckdb.connect(self.db_connection)
+                    conn = duckdb.connect(self._db_connection)
                 except duckdb.IOException:
                     # File exists but is not a valid DuckDB file, delete it
                     os.remove(self.local_path)
-                    conn = duckdb.connect(self.db_connection)
+                    conn = duckdb.connect(self._db_connection)
                 except Exception:
                     # For other errors, try connecting normally
-                    conn = duckdb.connect(self.db_connection)
+                    conn = duckdb.connect(self._db_connection)
             else:
-                conn = duckdb.connect(self.db_connection)
+                conn = duckdb.connect(self._db_connection)
 
             if self.environment != "dev":
                 # Create database if it doesn't exist
@@ -77,7 +82,7 @@ class MotherDuckResource(dg.ConfigurableResource):
                 time.sleep(0.5)
                 # Retry once
                 try:
-                    conn = duckdb.connect(self.db_connection)
+                    conn = duckdb.connect(self._db_connection)
                     conn.commit()
                     return conn
                 except Exception:
@@ -89,6 +94,9 @@ class MotherDuckResource(dg.ConfigurableResource):
     ) -> str:
         """
         Drop and recreate a table with the provided DataFrame data.
+
+        Returns the table name. Previously returned the connection string, which
+        could leak the MotherDuck token into Dagster logs and asset metadata.
 
         Column names are sanitized for DuckDB compatibility (spaces and special
         characters are quoted, reserved keywords are handled).
@@ -129,7 +137,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         finally:
             if conn:
                 conn.close()
-        return self.db_connection
+        return table_name
 
     @staticmethod
     def sanitize_column_name(column_name: str) -> str:

@@ -23,7 +23,7 @@ class TestMotherDuckResource:
 
         assert resource.environment == "dev"
         assert resource.local_path == "test.duckdb"
-        assert resource.db_connection == "test.duckdb"
+        assert resource._db_connection == "test.duckdb"
 
     def test_initialization_prod_environment(self):
         """Test resource initialization in prod environment."""
@@ -33,7 +33,25 @@ class TestMotherDuckResource:
 
         assert resource.environment == "prod"
         assert resource.md_token == "test_token"
-        assert resource.db_connection == "md:?motherduck_token=test_token"
+        assert resource._db_connection == "md:?motherduck_token=test_token"
+
+    def test_drop_create_does_not_leak_token(self):
+        """drop_create_duck_db_table must not return the connection string."""
+        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+        try:
+            resource = MotherDuckResource(
+                md_token="secret_token", environment="dev", local_path=tmp_path
+            )
+            result = resource.drop_create_duck_db_table(
+                "leak_check", pl.DataFrame({"id": [1]})
+            )
+            assert "motherduck_token" not in result
+            assert "secret_token" not in result
+            assert result == "leak_check"
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     def test_table_exists(self):
         """Test table existence check."""
