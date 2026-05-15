@@ -136,8 +136,18 @@ resource "google_compute_instance" "dagster" {
   }
 
   service_account {
-    email  = google_service_account.dagster_vm.email
-    scopes = ["cloud-platform"]
+    email = google_service_account.dagster_vm.email
+    # Narrow the OAuth scope envelope to what the VM actually needs. The
+    # service account's IAM roles still gate API access, but constraining
+    # scopes here means a compromised process on the VM can't request
+    # tokens for unrelated APIs (Compute Engine admin, Cloud SQL, etc.).
+    scopes = [
+      "https://www.googleapis.com/auth/devstorage.read_write",
+      "https://www.googleapis.com/auth/bigquery",
+      "https://www.googleapis.com/auth/logging.write",
+      "https://www.googleapis.com/auth/monitoring.write",
+      "https://www.googleapis.com/auth/cloud-platform.read-only",
+    ]
   }
 
   metadata = {

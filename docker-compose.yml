@@ -87,8 +87,8 @@ services:
       REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID}
       REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
-      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-C00ldudeNoonan}
-      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-economic-data-project-full}
+      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:?GITHUB_REPO_OWNER must be set}
+      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:?GITHUB_REPO_NAME must be set}
 
 
     volumes:
@@ -214,8 +214,8 @@ services:
       REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID}
       REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
-      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-C00ldudeNoonan}
-      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-economic-data-project-full}
+      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:?GITHUB_REPO_OWNER must be set}
+      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:?GITHUB_REPO_NAME must be set}
     volumes:
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml:ro
       - ./workspace.yaml:/opt/dagster/dagster_home/workspace.yaml:ro

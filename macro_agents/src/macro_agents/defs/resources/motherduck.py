@@ -1,12 +1,26 @@
 import io
 import logging
 import os
+import re
 from typing import Any
 
 import dagster as dg
 import duckdb
 import polars as pl
 from pydantic import Field
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
+
+
+def _validate_identifier(name: str, kind: str = "identifier") -> str:
+    """Reject any string that isn't a plain SQL identifier or schema.table.
+
+    Why: identifiers can't be parameterized in DuckDB. Callers that interpolate
+    table or column names need a strict allowlist to prevent SQL injection.
+    """
+    if not isinstance(name, str) or not _IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid {kind}: {name!r}")
+    return name
 
 
 class MotherDuckResource(dg.ConfigurableResource):
@@ -23,8 +37,13 @@ class MotherDuckResource(dg.ConfigurableResource):
     environment: str = Field(description="Environment (dev or prod)", default="LOCAL")
 
     @property
-    def db_connection(self) -> str:
-        """Get the database connection string based on environment."""
+    def _db_connection(self) -> str:
+        """Internal: connection string, may contain the MotherDuck token.
+
+        Why: returning this from a public method risks leaking the token into
+        Dagster logs, exception traces, and asset metadata. Keep it private and
+        only pass it directly to ``duckdb.connect``.
+        """
         if self.environment == "dev":
             return self.local_path
         return f"md:?motherduck_token={self.md_token}"
@@ -41,16 +60,16 @@ class MotherDuckResource(dg.ConfigurableResource):
             ):
                 try:
                     # Try to connect - if it fails with IO error, delete the file
-                    conn = duckdb.connect(self.db_connection)
+                    conn = duckdb.connect(self._db_connection)
                 except duckdb.IOException:
                     # File exists but is not a valid DuckDB file, delete it
                     os.remove(self.local_path)
-                    conn = duckdb.connect(self.db_connection)
+                    conn = duckdb.connect(self._db_connection)
                 except Exception:
                     # For other errors, try connecting normally
-                    conn = duckdb.connect(self.db_connection)
+                    conn = duckdb.connect(self._db_connection)
             else:
-                conn = duckdb.connect(self.db_connection)
+                conn = duckdb.connect(self._db_connection)
 
             if self.environment != "dev":
                 # Create database if it doesn't exist
@@ -77,7 +96,7 @@ class MotherDuckResource(dg.ConfigurableResource):
                 time.sleep(0.5)
                 # Retry once
                 try:
-                    conn = duckdb.connect(self.db_connection)
+                    conn = duckdb.connect(self._db_connection)
                     conn.commit()
                     return conn
                 except Exception:
@@ -89,6 +108,9 @@ class MotherDuckResource(dg.ConfigurableResource):
     ) -> str:
         """
         Drop and recreate a table with the provided DataFrame data.
+
+        Returns the table name. Previously returned the connection string, which
+        could leak the MotherDuck token into Dagster logs and asset metadata.
 
         Column names are sanitized for DuckDB compatibility (spaces and special
         characters are quoted, reserved keywords are handled).
@@ -129,7 +151,7 @@ class MotherDuckResource(dg.ConfigurableResource):
         finally:
             if conn:
                 conn.close()
-        return self.db_connection
+        return table_name
 
     @staticmethod
     def sanitize_column_name(column_name: str) -> str:
@@ -550,6 +572,8 @@ class MotherDuckResource(dg.ConfigurableResource):
     # Enhanced methods for querying and data analysis
     def get_unique_categories(self, table_name: str, column: str) -> list[str]:
         """Get unique values from a specified column."""
+        _validate_identifier(table_name, "table name")
+        _validate_identifier(column, "column name")
         query = f"SELECT DISTINCT {column} FROM {table_name} WHERE {column} IS NOT NULL ORDER BY {column}"
         conn = None
         try:
@@ -568,16 +592,26 @@ class MotherDuckResource(dg.ConfigurableResource):
         sampling_strategy: str = "top_correlations",
     ) -> str:
         """Query sampled data from DuckDB with various sampling strategies."""
-        where_conditions = []
+        _validate_identifier(table_name, "table name")
+        if not isinstance(sample_size, int) or sample_size <= 0:
+            raise ValueError(f"Invalid sample_size: {sample_size!r}")
+        if sampling_strategy not in {"top_correlations", "random", "mixed"}:
+            raise ValueError(f"Unknown sampling strategy: {sampling_strategy}")
+
+        where_conditions: list[str] = []
+        query_params: list[Any] = []
         if filters:
             for column, value in filters.items():
-                if isinstance(value, str):
-                    where_conditions.append(f"{column} = '{value}'")
-                elif isinstance(value, list):
-                    value_str = "', '".join(str(v) for v in value)
-                    where_conditions.append(f"{column} IN ('{value_str}')")
+                _validate_identifier(column, "filter column")
+                if isinstance(value, list):
+                    if not value:
+                        continue
+                    placeholders = ", ".join("?" for _ in value)
+                    where_conditions.append(f"{column} IN ({placeholders})")
+                    query_params.extend(value)
                 else:
-                    where_conditions.append(f"{column} = {value}")
+                    where_conditions.append(f"{column} = ?")
+                    query_params.append(value)
 
         where_clause = (
             " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
@@ -622,13 +656,13 @@ class MotherDuckResource(dg.ConfigurableResource):
                     LIMIT {sample_size - half_size}
                 )
             """
-        else:
-            raise ValueError(f"Unknown sampling strategy: {sampling_strategy}")
+            # The mixed query references where_clause twice; duplicate the bound params to match.
+            query_params = query_params + query_params
 
         conn = None
         try:
             conn = self.get_connection()
-            df = conn.execute(query).pl()
+            df = conn.execute(query, query_params).pl()
             csv_buffer = io.StringIO()
             df.write_csv(csv_buffer)
             return csv_buffer.getvalue()

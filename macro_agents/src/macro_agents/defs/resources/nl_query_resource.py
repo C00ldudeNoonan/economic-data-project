@@ -40,6 +40,16 @@ class NaturalLanguageQueryResource(dg.ConfigurableResource):
         description="Anthropic API key (required if provider='anthropic'). Can be set via ANTHROPIC_API_KEY env var.",
     )
 
+    max_calls_per_run: int = Field(
+        default=500,
+        description=(
+            "Hard cap on the number of LLM completions issued by this resource "
+            "instance. Prevents runaway spend from a misconfigured backtest "
+            "loop or sensor that fans out NL-to-SQL calls. Configure higher "
+            "for production batch jobs; set via NL_QUERY_MAX_CALLS env var."
+        ),
+    )
+
     def setup_for_execution(self, context: dg.InitResourceContext) -> None:
         """
         Initialize DSPy LM and NL-to-SQL module.
@@ -136,6 +146,7 @@ class NaturalLanguageQueryResource(dg.ConfigurableResource):
         # Initialize NL-to-SQL module and validator
         self._nl_module = NaturalLanguageToSQLModule()
         self._sql_validator = SQLValidator()
+        self._call_count = 0
 
         if log:
             log.info("NL-to-SQL module and SQL validator initialized successfully")
@@ -168,6 +179,15 @@ class NaturalLanguageQueryResource(dg.ConfigurableResource):
         """
         if context:
             context.log.info(f"Processing question: {question}")
+
+        # Enforce per-run LLM call cap to bound spend on runaway loops.
+        current = getattr(self, "_call_count", 0)
+        if current >= self.max_calls_per_run:
+            raise RuntimeError(
+                f"NL query LLM call cap reached ({self.max_calls_per_run}). "
+                f"Increase max_calls_per_run if this is expected."
+            )
+        self._call_count = current + 1
 
         # Generate SQL using DSPy module
         result = self._nl_module.forward(
@@ -226,4 +246,5 @@ nl_query_resource = NaturalLanguageQueryResource(
     openai_api_key=dg.EnvVar("OPENAI_API_KEY"),
     gemini_api_key=dg.EnvVar("GEMINI_API_KEY"),
     anthropic_api_key=dg.EnvVar("ANTHROPIC_API_KEY"),
+    max_calls_per_run=int(os.getenv("NL_QUERY_MAX_CALLS", "500")),
 )

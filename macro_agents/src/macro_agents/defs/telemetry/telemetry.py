@@ -93,9 +93,9 @@ def telemetry_events_raw(
         last_id = None
 
     # Build WHERE clause for incremental replication
-    where_clause = None
+    where = None
     if last_id is not None:
-        where_clause = f"id > {last_id}"
+        where = ("id > ?", (last_id,))
         context.log.info(f"Fetching events with id > {last_id}")
     else:
         context.log.info("Fetching all events (first run)")
@@ -104,8 +104,8 @@ def telemetry_events_raw(
     try:
         df = sqlite.read_table_as_polars(
             table_name="telemetry_events",
-            where_clause=where_clause,
-            order_by="id ASC",
+            where=where,
+            order_by=("id", "ASC"),
         )
     except Exception as e:
         context.log.error(f"Failed to read from SQLite: {e}")
@@ -259,7 +259,7 @@ def users_raw(
 
     # Read all users from SQLite
     try:
-        df = sqlite.read_table_as_polars(table_name="users", order_by="id ASC")
+        df = sqlite.read_table_as_polars(table_name="users", order_by=("id", "ASC"))
     except Exception as e:
         context.log.error(f"Failed to read users from SQLite: {e}")
         ensure_table_exists()

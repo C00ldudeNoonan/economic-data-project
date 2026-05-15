@@ -62,7 +62,7 @@ else
         --boot-disk-type=pd-ssd \
         --image-family=ubuntu-2204-lts \
         --image-project=ubuntu-os-cloud \
-        --scopes=cloud-platform \
+        --scopes=https://www.googleapis.com/auth/devstorage.read_write,https://www.googleapis.com/auth/bigquery,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/cloud-platform.read-only \
         --tags=dagster,http-server \
         --metadata=enable-oslogin=TRUE
 
