@@ -29,7 +29,7 @@ except ImportError:
     pass
 
 try:
-    import google.generativeai as _genai_mod
+    from google import genai as _genai_mod
 
     genai = _genai_mod
 except ImportError:
@@ -148,18 +148,21 @@ def _get_gemini_models(api_key: str | None = None) -> list[str]:
         return []
 
     try:
-        genai.configure(api_key=api_key)
+        # New google-genai SDK: client-based API replaces the module-level
+        # configure()/list_models() pattern from the deprecated
+        # google-generativeai package.
+        client = genai.Client(api_key=api_key)
+        models = client.models.list()
 
-        # List available models
-        models = genai.list_models()
-
-        # Filter for chat/completion models (those that support generateContent)
         chat_models = []
         for model in models:
-            # Only include models that support generateContent (chat/completion)
-            if "generateContent" in model.supported_generation_methods:
-                model_name = model.name.replace("models/", "")
-                chat_models.append(model_name)
+            supported = getattr(model, "supported_actions", None) or getattr(
+                model, "supported_generation_methods", []
+            )
+            if "generateContent" in supported:
+                model_name = (model.name or "").replace("models/", "")
+                if model_name:
+                    chat_models.append(model_name)
 
         return sorted(chat_models)
     except Exception as e:
