@@ -46,6 +46,7 @@ postgres_data/
 # Local Dagster development storage
 macro_agents/storage/*
 dagster_localscripts/analysis_report.md
+logs/
 
 # Reference materials (large binaries stored in GCS)
 docs/reference_materials/*
