@@ -133,7 +133,10 @@ class SQLValidator:
             return False, "SQL query is empty"
 
         if len(sql) > SQLValidator.MAX_QUERY_LENGTH:
-            return False, f"Query is too long (max {SQLValidator.MAX_QUERY_LENGTH} characters)"
+            return (
+                False,
+                f"Query is too long (max {SQLValidator.MAX_QUERY_LENGTH} characters)",
+            )
 
         try:
             statements = sqlglot.parse(sql, dialect="duckdb")
@@ -144,11 +147,15 @@ class SQLValidator:
         if len(non_empty) == 0:
             return False, "SQL query is empty"
         if len(non_empty) > 1:
-            return False, "Multiple SQL statements detected. Only single SELECT queries allowed."
+            return (
+                False,
+                "Multiple SQL statements detected. Only single SELECT queries allowed.",
+            )
 
         root = non_empty[0]
         if not isinstance(root, exp.Select) and not (
-            isinstance(root, (exp.Union, exp.Subquery)) and root.find(exp.Select) is not None
+            isinstance(root, (exp.Union, exp.Subquery))
+            and root.find(exp.Select) is not None
         ):
             return False, "Only SELECT queries are allowed."
 
