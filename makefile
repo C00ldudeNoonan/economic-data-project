@@ -8,10 +8,10 @@ lint:
 fix:
 	cd macro_agents && uv sync --extra dev && uv run sqlfluff fix ../dbt_project/models --disable-progress-bar --processes 4
 
-test:
+test: dbt-manifest
 	cd macro_agents && uv sync --extra dev && uv run pytest tests/ -v
 
-test-dagster:
+test-dagster: dbt-manifest
 	cd macro_agents && uv sync --extra dev && uv run pytest tests/ -v
 
 typecheck-dagster:
