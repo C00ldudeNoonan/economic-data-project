@@ -45,6 +45,7 @@ dependencies = [
     "networkx>=3.2.0,<4.0.0",
     "pdfplumber>=0.11.0,<1.0.0",
     "vadersentiment>=3.3.2",
+    "sqlglot>=25.0.0,<27.0.0",
 ]
 
 [project.optional-dependencies]

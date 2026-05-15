@@ -1,12 +1,26 @@
 import io
 import logging
 import os
+import re
 from typing import Any
 
 import dagster as dg
 import duckdb
 import polars as pl
 from pydantic import Field
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
+
+
+def _validate_identifier(name: str, kind: str = "identifier") -> str:
+    """Reject any string that isn't a plain SQL identifier or schema.table.
+
+    Why: identifiers can't be parameterized in DuckDB. Callers that interpolate
+    table or column names need a strict allowlist to prevent SQL injection.
+    """
+    if not isinstance(name, str) or not _IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid {kind}: {name!r}")
+    return name
 
 
 class MotherDuckResource(dg.ConfigurableResource):
@@ -558,6 +572,8 @@ class MotherDuckResource(dg.ConfigurableResource):
     # Enhanced methods for querying and data analysis
     def get_unique_categories(self, table_name: str, column: str) -> list[str]:
         """Get unique values from a specified column."""
+        _validate_identifier(table_name, "table name")
+        _validate_identifier(column, "column name")
         query = f"SELECT DISTINCT {column} FROM {table_name} WHERE {column} IS NOT NULL ORDER BY {column}"
         conn = None
         try:
@@ -576,16 +592,26 @@ class MotherDuckResource(dg.ConfigurableResource):
         sampling_strategy: str = "top_correlations",
     ) -> str:
         """Query sampled data from DuckDB with various sampling strategies."""
-        where_conditions = []
+        _validate_identifier(table_name, "table name")
+        if not isinstance(sample_size, int) or sample_size <= 0:
+            raise ValueError(f"Invalid sample_size: {sample_size!r}")
+        if sampling_strategy not in {"top_correlations", "random", "mixed"}:
+            raise ValueError(f"Unknown sampling strategy: {sampling_strategy}")
+
+        where_conditions: list[str] = []
+        query_params: list[Any] = []
         if filters:
             for column, value in filters.items():
-                if isinstance(value, str):
-                    where_conditions.append(f"{column} = '{value}'")
-                elif isinstance(value, list):
-                    value_str = "', '".join(str(v) for v in value)
-                    where_conditions.append(f"{column} IN ('{value_str}')")
+                _validate_identifier(column, "filter column")
+                if isinstance(value, list):
+                    if not value:
+                        continue
+                    placeholders = ", ".join("?" for _ in value)
+                    where_conditions.append(f"{column} IN ({placeholders})")
+                    query_params.extend(value)
                 else:
-                    where_conditions.append(f"{column} = {value}")
+                    where_conditions.append(f"{column} = ?")
+                    query_params.append(value)
 
         where_clause = (
             " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
@@ -630,13 +656,13 @@ class MotherDuckResource(dg.ConfigurableResource):
                     LIMIT {sample_size - half_size}
                 )
             """
-        else:
-            raise ValueError(f"Unknown sampling strategy: {sampling_strategy}")
+            # The mixed query references where_clause twice; duplicate the bound params to match.
+            query_params = query_params + query_params
 
         conn = None
         try:
             conn = self.get_connection()
-            df = conn.execute(query).pl()
+            df = conn.execute(query, query_params).pl()
             csv_buffer = io.StringIO()
             df.write_csv(csv_buffer)
             return csv_buffer.getvalue()

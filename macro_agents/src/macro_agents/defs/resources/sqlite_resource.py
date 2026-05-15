@@ -1,6 +1,7 @@
 """SQLite resource for accessing telemetry and user data."""
 
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -9,6 +10,19 @@ from typing import Any, Generator
 import dagster as dg
 import polars as pl
 from pydantic import Field
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_identifier(name: str, kind: str = "identifier") -> str:
+    """Reject any string that isn't a plain SQL identifier.
+
+    Why: identifiers can't be parameterized, so callers that interpolate
+    table or column names need a strict allowlist to prevent SQL injection.
+    """
+    if not isinstance(name, str) or not _IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid {kind}: {name!r}")
+    return name
 
 
 class SQLiteResource(dg.ConfigurableResource):
@@ -73,52 +87,55 @@ class SQLiteResource(dg.ConfigurableResource):
     def read_table_as_polars(
         self,
         table_name: str,
-        where_clause: str | None = None,
-        order_by: str | None = None,
+        where: tuple[str, tuple[Any, ...]] | None = None,
+        order_by: tuple[str, str] | None = None,
         limit: int | None = None,
     ) -> pl.DataFrame:
         """Read a SQLite table into a Polars DataFrame.
 
         Args:
-            table_name: Name of the table to read
-            where_clause: Optional WHERE clause (without the WHERE keyword)
-            order_by: Optional ORDER BY clause (without the ORDER BY keyword)
-            limit: Optional LIMIT value
-
-        Returns:
-            Polars DataFrame with the table data
+            table_name: Name of the table to read (validated as an identifier).
+            where: Optional ``(sql, params)`` pair. ``sql`` is a WHERE clause
+                body using ``?`` placeholders; ``params`` are bound safely.
+                Example: ``("id > ?", (last_id,))``.
+            order_by: Optional ``(column, direction)`` tuple. Column is validated
+                as an identifier; direction must be ``"ASC"`` or ``"DESC"``.
+            limit: Optional LIMIT value (must be a positive int).
         """
+        _validate_identifier(table_name, "table name")
         query_parts = [f"SELECT * FROM {table_name}"]
+        params: tuple[Any, ...] = ()
 
-        if where_clause:
-            query_parts.append(f"WHERE {where_clause}")
+        if where is not None:
+            where_sql, where_params = where
+            query_parts.append(f"WHERE {where_sql}")
+            params = params + tuple(where_params)
 
-        if order_by:
-            query_parts.append(f"ORDER BY {order_by}")
+        if order_by is not None:
+            column, direction = order_by
+            _validate_identifier(column, "order_by column")
+            direction_upper = direction.upper()
+            if direction_upper not in {"ASC", "DESC"}:
+                raise ValueError(f"Invalid order_by direction: {direction!r}")
+            query_parts.append(f"ORDER BY {column} {direction_upper}")
 
-        if limit:
+        if limit is not None:
+            if not isinstance(limit, int) or limit <= 0:
+                raise ValueError(f"Invalid limit: {limit!r}")
             query_parts.append(f"LIMIT {limit}")
 
         query = " ".join(query_parts)
 
         with self.get_connection() as conn:
-            # Use Polars' read_database method which is efficient
-            df = pl.read_database(query, conn)
+            df = pl.read_database(query, conn, execute_options={"parameters": params})
 
         return df
 
     def get_last_replicated_id(
         self, tracking_table: str, source_table: str
     ) -> int | None:
-        """Get the last replicated ID from a tracking table.
-
-        Args:
-            tracking_table: Name of the table that tracks replication state
-            source_table: Name of the source table being replicated
-
-        Returns:
-            Last replicated ID, or None if no records exist
-        """
+        """Get the last replicated ID from a tracking table."""
+        _validate_identifier(tracking_table, "tracking_table")
         query = f"""
             SELECT last_replicated_id
             FROM {tracking_table}
@@ -134,6 +151,7 @@ class SQLiteResource(dg.ConfigurableResource):
 
     def get_table_info(self, table_name: str) -> list[dict[str, Any]]:
         """Get schema information for a table."""
+        _validate_identifier(table_name, "table name")
         query = f"PRAGMA table_info({table_name})"
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -151,15 +169,26 @@ class SQLiteResource(dg.ConfigurableResource):
                 for col in columns
             ]
 
-    def get_row_count(self, table_name: str, where_clause: str | None = None) -> int:
-        """Get the number of rows in a table."""
+    def get_row_count(
+        self,
+        table_name: str,
+        where: tuple[str, tuple[Any, ...]] | None = None,
+    ) -> int:
+        """Get the number of rows in a table.
+
+        ``where`` is an optional ``(sql, params)`` pair with ``?`` placeholders.
+        """
+        _validate_identifier(table_name, "table name")
         query = f"SELECT COUNT(*) FROM {table_name}"
-        if where_clause:
-            query += f" WHERE {where_clause}"
+        params: tuple[Any, ...] = ()
+        if where is not None:
+            where_sql, where_params = where
+            query += f" WHERE {where_sql}"
+            params = tuple(where_params)
 
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(query)
+            cursor.execute(query, params)
             result = cursor.fetchone()
             return result[0] if result else 0
 

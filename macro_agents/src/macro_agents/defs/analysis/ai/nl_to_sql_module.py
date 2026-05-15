@@ -1,6 +1,8 @@
 """Natural Language to SQL Module - Converts user questions to SQL queries using DSPy."""
 
 import dspy
+import sqlglot
+from sqlglot import exp
 
 
 class NaturalLanguageToSQLSignature(dspy.Signature):
@@ -92,77 +94,67 @@ class NaturalLanguageToSQLModule(dspy.Module):
 
 
 class SQLValidator:
-    """Validates SQL queries for safety and correctness."""
+    """Validates SQL queries for safety and correctness.
 
-    # Keywords that are forbidden in user-generated SQL
-    FORBIDDEN_KEYWORDS = [
-        "DROP",
-        "DELETE",
-        "UPDATE",
-        "INSERT",
-        "ALTER",
-        "CREATE",
-        "TRUNCATE",
-        "GRANT",
-        "REVOKE",
-        "EXEC",
-        "EXECUTE",
-    ]
+    Uses sqlglot to parse the query into an AST and verify it is a single
+    read-only SELECT. The prior implementation matched forbidden keywords
+    as substrings of the raw string, which was bypassable by comments,
+    mixed case, and embedded newlines.
+    """
+
+    # AST node types that mutate or escape data — reject if present anywhere.
+    FORBIDDEN_NODES: tuple[type[exp.Expression], ...] = (
+        exp.Insert,
+        exp.Update,
+        exp.Delete,
+        exp.Drop,
+        exp.Create,
+        exp.Alter,
+        exp.TruncateTable,
+        exp.Grant,
+        exp.Command,  # Generic fallback (e.g. REVOKE, EXECUTE) that sqlglot doesn't model explicitly.
+        exp.Transaction,
+        exp.Rollback,
+        exp.Commit,
+    )
+
+    MAX_QUERY_LENGTH = 10000
 
     @staticmethod
     def validate_query(sql: str) -> tuple[bool, str]:
-        """
-        Validate SQL query for safety and correctness.
+        """Validate SQL query for safety and correctness.
 
-        Args:
-            sql: SQL query string to validate
-
-        Returns:
-            Tuple of (is_valid, error_message)
-            - is_valid: True if query passes all checks, False otherwise
-            - error_message: Empty string if valid, error description if invalid
+        Returns ``(is_valid, error_message)``. Parses to AST and rejects any
+        statement that isn't a single SELECT — bypass attempts via comments,
+        case mixing, or whitespace tricks cannot succeed because the parser
+        normalizes them before validation runs.
         """
         if not sql or not sql.strip():
             return False, "SQL query is empty"
 
-        sql_stripped = sql.strip()
-        sql_upper = sql_stripped.upper()
+        if len(sql) > SQLValidator.MAX_QUERY_LENGTH:
+            return False, f"Query is too long (max {SQLValidator.MAX_QUERY_LENGTH} characters)"
 
-        # Must start with SELECT
-        if not sql_upper.startswith("SELECT"):
-            return (
-                False,
-                "Only SELECT queries are allowed. Query must start with SELECT.",
-            )
+        try:
+            statements = sqlglot.parse(sql, dialect="duckdb")
+        except sqlglot.errors.ParseError as e:
+            return False, f"SQL parse error: {e}"
 
-        # Check for forbidden keywords
-        for keyword in SQLValidator.FORBIDDEN_KEYWORDS:
-            # Use word boundaries to avoid false positives (e.g., "SELECT" contains "ELECT")
-            if f" {keyword} " in f" {sql_upper} " or sql_upper.startswith(
-                f"{keyword} "
-            ):
-                return (
-                    False,
-                    f"Forbidden keyword detected: {keyword}. Only SELECT queries are allowed.",
-                )
+        non_empty = [s for s in statements if s is not None]
+        if len(non_empty) == 0:
+            return False, "SQL query is empty"
+        if len(non_empty) > 1:
+            return False, "Multiple SQL statements detected. Only single SELECT queries allowed."
 
-        # Check for semicolons (could indicate SQL injection attempt)
-        semicolon_count = sql_stripped.count(";")
-        if semicolon_count > 1:
-            return (
-                False,
-                "Multiple SQL statements detected (multiple semicolons). Only single SELECT queries allowed.",
-            )
+        root = non_empty[0]
+        if not isinstance(root, exp.Select) and not (
+            isinstance(root, (exp.Union, exp.Subquery)) and root.find(exp.Select) is not None
+        ):
+            return False, "Only SELECT queries are allowed."
 
-        # Remove trailing semicolon for validation if present
-        if sql_stripped.endswith(";"):
-            sql_for_validation = sql_stripped[:-1].strip()
-        else:
-            sql_for_validation = sql_stripped
-
-        # Basic length check (prevent extremely long queries)
-        if len(sql_for_validation) > 10000:
-            return False, "Query is too long (max 10,000 characters)"
+        for node in root.walk():
+            if isinstance(node, SQLValidator.FORBIDDEN_NODES):
+                return False, f"Forbidden statement type: {type(node).__name__}"
 
         return True, ""
 
