@@ -8,6 +8,13 @@ econ_database:
       threads: 1
     
     prod:  # Keep prod target for backwards compatibility
+      # SECURITY: dbt-duckdb requires the MotherDuck token inside the path
+      # string. dbt may emit this value in DEBUG-level logs and write it
+      # into target/ artifacts (run_results.json, manifest.json).
+      # Mitigations:
+      #   1. Never raise log level above INFO in production runs.
+      #   2. Never publish dbt_project/target/ or logs/ as build artifacts.
+      #   3. Rotate MOTHERDUCK_TOKEN if a log or artifact is ever exfiltrated.
       type: duckdb
       schema: "{{ env_var('MOTHERDUCK_PROD_SCHEMA') }}"
       path: "md:{{ env_var('MOTHERDUCK_DATABASE') }}?motherduck_token={{ env_var('MOTHERDUCK_TOKEN') }}"

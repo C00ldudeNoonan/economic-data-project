@@ -67,6 +67,13 @@ class SQLiteResource(dg.ConfigurableResource):
         try:
             conn = sqlite3.connect(str(db_path))
             conn.row_factory = sqlite3.Row
+            # Restrict the DB file to the owning user. The default umask can
+            # leave 0644 on shared hosts, which would expose telemetry/user
+            # rows to any local user. chmod is a no-op on Windows.
+            try:
+                os.chmod(db_path, 0o600)
+            except OSError:
+                pass
             yield conn
         finally:
             if conn:

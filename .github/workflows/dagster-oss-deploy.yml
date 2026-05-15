@@ -28,17 +28,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
         with:
           fetch-depth: 1
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed  # v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f  # v2
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
@@ -109,37 +109,28 @@ jobs:
           echo "Deployment completed"
 
       - name: Health check
+        # Probe the Dagster webserver from inside the VM via SSH rather than
+        # hitting an external IP over plain HTTP. The Terraform firewall
+        # rejects external traffic on port 3000 (access is via IAP), so the
+        # old external-IP curl was both insecure and bypassed that intent.
         run: |
-          echo "Performing health check..."
-
-          # Get VM external IP
-          EXTERNAL_IP=$(gcloud compute instances describe $VM_NAME --zone=$GCP_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-          echo "VM External IP: $EXTERNAL_IP"
-
-          # Wait for Dagster UI to be ready
-          echo "Waiting for Dagster UI to be accessible..."
-          sleep 30
-
-          # Try to access Dagster UI
+          echo "Performing health check via SSH..."
           MAX_RETRIES=10
           RETRY_COUNT=0
+          sleep 30
 
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -f -s -o /dev/null http://$EXTERNAL_IP:3000; then
-              echo "✅ Dagster UI is accessible at http://$EXTERNAL_IP:3000"
+            if gcloud compute ssh "$VM_NAME" --zone="$GCP_ZONE" --command='curl -f -s -o /dev/null http://localhost:3000'; then
+              echo "Dagster UI is healthy (responding on localhost:3000 inside VM)"
               exit 0
-            else
-              echo "Attempt $((RETRY_COUNT + 1))/$MAX_RETRIES: Dagster UI not ready yet..."
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              sleep 10
             fi
+            echo "Attempt $((RETRY_COUNT + 1))/$MAX_RETRIES: Dagster UI not ready yet..."
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            sleep 10
           done
 
-          echo "❌ Health check failed - Dagster UI not accessible after $MAX_RETRIES attempts"
-
-          # Collect logs for debugging
-          gcloud compute ssh $VM_NAME --zone=$GCP_ZONE --command='docker compose logs --tail=100'
-
+          echo "Health check failed - Dagster UI not accessible after $MAX_RETRIES attempts"
+          gcloud compute ssh "$VM_NAME" --zone="$GCP_ZONE" --command='docker compose logs --tail=100'
           exit 1
 
       - name: Verify deployment
@@ -168,15 +159,12 @@ jobs:
       - name: Notify on failure
         if: failure()
         run: |
-          echo "⚠️ Deployment failed! Check the logs above for details."
-          EXTERNAL_IP=$(gcloud compute instances describe $VM_NAME --zone=$GCP_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-          echo "You can manually check the VM at: $EXTERNAL_IP"
+          echo "Deployment failed! Check the logs above for details."
           echo "SSH command: gcloud compute ssh $VM_NAME --zone=$GCP_ZONE"
 
       - name: Notify on success
         if: success()
         run: |
-          EXTERNAL_IP=$(gcloud compute instances describe $VM_NAME --zone=$GCP_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-          echo "✅ Deployment successful!"
-          echo "Dagster UI: http://$EXTERNAL_IP:3000"
+          echo "Deployment successful."
+          echo "Dagster UI is exposed via IAP (not direct external IP)."
           echo "To view logs: gcloud compute ssh $VM_NAME --zone=$GCP_ZONE --command='cd ~/dagster && docker compose logs -f'"

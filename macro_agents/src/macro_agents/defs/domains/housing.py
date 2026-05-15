@@ -54,7 +54,7 @@ def housing_inventory_raw(
         context.log.error(
             f"Failed to fetch housing inventory data: {response.status_code}"
         )
-        context.log.error(f"Response: {response.text}")
+        context.log.error(f"Response: {response.text[:200]}")
         raise Exception(
             f"Failed to fetch housing inventory data: {response.status_code}"
         )
