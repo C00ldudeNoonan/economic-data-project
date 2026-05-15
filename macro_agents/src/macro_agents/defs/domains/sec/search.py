@@ -10,7 +10,10 @@ import re
 
 import dagster as dg
 import polars as pl
+from metaxy.ext.dagster import metaxify
+from metaxy.metadata_store.base import MetadataStore
 
+from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register features
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_chunks_table
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
 from macro_agents.defs.resources.gcs import GCSResource
@@ -115,6 +118,7 @@ def _split_text_into_chunks(
     return chunks
 
 
+@metaxify(key="sec_filing_search_index")
 @dg.asset(
     group_name="transformation",
     kinds={"llm", "duckdb", "ollama"},
@@ -123,12 +127,14 @@ def _split_text_into_chunks(
         "Generate chunked embeddings from SEC filing text for semantic search. "
         "Splits content into ~500-token chunks and embeds via Ollama."
     ),
+    metadata={"metaxy/feature": "sec/embeddings"},
 )
 def sec_filing_search_index(
     context: dg.AssetExecutionContext,
     md: MotherDuckResource,
     gcs: GCSResource,
     ollama: OllamaResource,
+    metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """
     Build chunked vector search index from SEC filing content.
@@ -141,6 +147,9 @@ def sec_filing_search_index(
     5. Store chunk text + embedding in sec_filing_chunks
     """
     conn = None
+    metaxy_stale_count: int | None = None
+    metaxy_divergence_count: int | None = None
+    metaxy_shadow_error: str | None = None
     try:
         conn = md.get_connection()
         ensure_sec_filing_chunks_table(conn)
@@ -177,10 +186,41 @@ def sec_filing_search_index(
             connection=conn,
         )
 
+        # Shadow mode (issue #46 Phase 2): expansion lineage. Roll Metaxy's
+        # chunk-level new+stale rows up to filing_ids and compare to the
+        # filing_ids surfaced by the section-level boolean query above.
+        try:
+            boolean_stale_filing_ids = set(
+                sections_to_process["filing_id"].unique().to_list()
+            )
+            with metaxy_store:
+                increment = metaxy_store.resolve_update("sec/embeddings").to_polars()
+                metaxy_stale_filing_ids: set[str] = set()
+                for frame in (increment.new, increment.stale):
+                    if "filing_id" in frame.columns:
+                        metaxy_stale_filing_ids.update(
+                            frame["filing_id"].unique().to_list()
+                        )
+            metaxy_stale_count = len(metaxy_stale_filing_ids)
+            metaxy_divergence_count = len(
+                metaxy_stale_filing_ids.symmetric_difference(boolean_stale_filing_ids)
+            )
+        except Exception as e:  # noqa: BLE001 — shadow mode must never fail the asset
+            metaxy_shadow_error = f"{type(e).__name__}: {e}"
+            context.log.warning(
+                f"Metaxy shadow comparison failed: {metaxy_shadow_error}"
+            )
+
         if sections_to_process.is_empty():
             context.log.debug("No sections pending chunk embedding")
             return dg.MaterializeResult(
-                metadata={"status": "up_to_date", "chunks_created": 0}
+                metadata={
+                    "status": "up_to_date",
+                    "chunks_created": 0,
+                    "metaxy_stale_count": metaxy_stale_count,
+                    "metaxy_divergence_count": metaxy_divergence_count,
+                    "metaxy_shadow_error": metaxy_shadow_error,
+                }
             )
 
         total_chunks = 0
@@ -292,6 +332,9 @@ def sec_filing_search_index(
                 "chunks_created": total_chunks,
                 "errors": len(errors),
                 "error_details": errors[:MAX_ERROR_DETAILS] if errors else [],
+                "metaxy_stale_count": metaxy_stale_count,
+                "metaxy_divergence_count": metaxy_divergence_count,
+                "metaxy_shadow_error": metaxy_shadow_error,
             }
         )
 

@@ -7,7 +7,10 @@ Complements the vector/semantic search in search.py.
 
 import dagster as dg
 import polars as pl
+from metaxy.ext.dagster import metaxify
+from metaxy.metadata_store.base import MetadataStore
 
+from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register features
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_content_table
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
 from macro_agents.defs.resources.gcs import GCSResource
@@ -38,6 +41,7 @@ def _ensure_fts_content_table(conn) -> None:
     """)
 
 
+@metaxify(key="sec_filing_fts_index")
 @dg.asset(
     group_name="transformation",
     kinds={"duckdb", "search"},
@@ -46,11 +50,13 @@ def _ensure_fts_content_table(conn) -> None:
         "Build DuckDB full-text search index over SEC filing content. "
         "Enables keyword queries across filing sections with metadata filtering."
     ),
+    metadata={"metaxy/feature": "sec/fts_index"},
 )
 def sec_filing_fts_index(
     context: dg.AssetExecutionContext,
     md: MotherDuckResource,
     gcs: GCSResource,
+    metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """
     Build and refresh the full-text search index.
@@ -61,6 +67,9 @@ def sec_filing_fts_index(
     3. Create/recreate the DuckDB FTS index using PRAGMA create_fts_index
     """
     conn = None
+    metaxy_stale_count: int | None = None
+    metaxy_divergence_count: int | None = None
+    metaxy_shadow_error: str | None = None
     try:
         conn = md.get_connection()
         ensure_sec_filing_content_table(conn)
@@ -84,6 +93,33 @@ def sec_filing_fts_index(
             """,
             connection=conn,
         )
+
+        # Shadow mode (issue #46): expansion lineage. Roll content-level
+        # new+stale rows up to filing_ids for comparison with the
+        # content-level boolean query above (collapsed via unique filing_id).
+        try:
+            boolean_stale_filing_ids = (
+                set(new_content["filing_id"].unique().to_list())
+                if not new_content.is_empty()
+                else set()
+            )
+            with metaxy_store:
+                increment = metaxy_store.resolve_update("sec/fts_index").to_polars()
+                metaxy_stale_filing_ids: set[str] = set()
+                for frame in (increment.new, increment.stale):
+                    if "filing_id" in frame.columns:
+                        metaxy_stale_filing_ids.update(
+                            frame["filing_id"].unique().to_list()
+                        )
+            metaxy_stale_count = len(metaxy_stale_filing_ids)
+            metaxy_divergence_count = len(
+                metaxy_stale_filing_ids.symmetric_difference(boolean_stale_filing_ids)
+            )
+        except Exception as e:  # noqa: BLE001 — shadow mode must never fail the asset
+            metaxy_shadow_error = f"{type(e).__name__}: {e}"
+            context.log.warning(
+                f"Metaxy shadow comparison failed: {metaxy_shadow_error}"
+            )
 
         if new_content.is_empty():
             context.log.debug("FTS table already up to date")
@@ -158,6 +194,9 @@ def sec_filing_fts_index(
                 "status": "completed",
                 "total_indexed_sections": total_indexed,
                 "new_sections_added": len(new_content),
+                "metaxy_stale_count": metaxy_stale_count,
+                "metaxy_divergence_count": metaxy_divergence_count,
+                "metaxy_shadow_error": metaxy_shadow_error,
             }
         )
 

@@ -1,4 +1,5 @@
 import dagster as dg
+from metaxy.ext.dagster import MetaxyStoreFromConfigResource
 
 from macro_agents.defs.resources.federal_reserve import FederalReserveResource
 from macro_agents.defs.resources.gcs import GCSResource
@@ -12,6 +13,7 @@ from macro_agents.defs.resources.sqlite_resource import sqlite_resource
 defs = dg.Definitions(
     resources={
         "md": motherduck_resource,
+        "metaxy_store": MetaxyStoreFromConfigResource(name="prod"),
         "sqlite": sqlite_resource,
         "gcs": GCSResource(
             bucket_name=dg.EnvVar("GCS_BUCKET_NAME"),
