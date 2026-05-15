@@ -292,7 +292,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                     )
                     if serialization_method == "dspy.save" and hasattr(dspy, "load"):
                         buffer = io.BytesIO(module_bytes)
-                        module = dspy.load(buffer)  # type: ignore[arg-type]
+                        module = dspy.load(buffer)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                     else:
                         module = pickle.loads(module_bytes)
 

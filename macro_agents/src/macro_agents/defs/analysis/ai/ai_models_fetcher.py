@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from types import ModuleType
 from typing import Any
 
 import dagster as dg
@@ -7,20 +8,32 @@ import polars as pl
 
 from macro_agents.defs.resources.motherduck import MotherDuckResource
 
-try:
-    import openai
-except ImportError:
-    openai = None  # type: ignore[assignment]
+# Optional dependencies — keep imports lazy-safe so this module can be loaded
+# without each provider SDK installed.
+openai: ModuleType | None = None
+anthropic: ModuleType | None = None
+genai: ModuleType | None = None
 
 try:
-    import anthropic
+    import openai as _openai_mod
+
+    openai = _openai_mod
 except ImportError:
-    anthropic = None  # type: ignore[assignment]
+    pass
 
 try:
-    import google.generativeai as genai
+    import anthropic as _anthropic_mod
+
+    anthropic = _anthropic_mod
 except ImportError:
-    genai = None  # type: ignore[assignment]
+    pass
+
+try:
+    import google.generativeai as _genai_mod
+
+    genai = _genai_mod
+except ImportError:
+    pass
 
 
 def _get_openai_models(api_key: str | None = None) -> list[str]:
@@ -337,4 +350,4 @@ def fetch_available_ai_models(
         f"Anthropic={len(results['anthropic'])}, Gemini={len(results['gemini'])}"
     )
 
-    return dg.MaterializeResult(metadata=metadata)  # type: ignore[arg-type]
+    return dg.MaterializeResult(metadata=metadata)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

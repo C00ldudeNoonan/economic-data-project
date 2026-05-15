@@ -28,8 +28,16 @@ class GoogleDriveResource(dg.ConfigurableResource):
         description="Google Drive folder ID to monitor. Can be set via REALTOR_GDRIVE_FOLDER_ID env var.",
     )
 
-    def setup_for_execution(self, context: dg.InitResourceContext) -> None:
-        """Initialize Google Drive API client."""
+    def setup_for_execution(
+        self,
+        context: "dg.InitResourceContext | dg.SensorEvaluationContext | dg.AssetExecutionContext",
+    ) -> None:
+        """Initialize Google Drive API client.
+
+        Accepts any Dagster context exposing ``.log`` — the housing sensor
+        calls this method manually with its SensorEvaluationContext to lazy-
+        initialize the API client outside the normal resource lifecycle.
+        """
         if build is None:
             raise ImportError(
                 "google-api-python-client is not installed. Install it with: pip install google-api-python-client google-auth-httplib2"
@@ -87,7 +95,7 @@ class GoogleDriveResource(dg.ConfigurableResource):
         self,
         folder_id: str | None = None,
         file_extension: str | None = None,
-        context: dg.AssetExecutionContext | None = None,
+        context: "dg.AssetExecutionContext | dg.SensorEvaluationContext | None" = None,
     ) -> list[dict[str, Any]]:
         """
         List all files in a Google Drive folder.
