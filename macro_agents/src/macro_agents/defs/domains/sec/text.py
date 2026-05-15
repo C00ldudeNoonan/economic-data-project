@@ -4,6 +4,9 @@ import dagster as dg
 import polars as pl
 from metaxy.ext.dagster import MetaxyStoreFromConfigResource, metaxify
 
+# Importing the lineage module registers SEC FeatureSpecs in Metaxy's global
+# feature graph before @metaxify below tries to look them up.
+from macro_agents.defs.domains.sec import lineage  # noqa: F401
 from macro_agents.defs.domains.sec.metadata import sec_filing_metadata
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_content_table
 from macro_agents.defs.resources.gcs import GCSResource

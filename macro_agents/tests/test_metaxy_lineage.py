@@ -1,35 +1,38 @@
-"""Tests for Metaxy FeatureSpec declarations (issue #46, Phase 1).
+"""Tests for Metaxy feature declarations (issue #46, Phase 1).
 
-These are pure validation tests on the FeatureSpec module — they don't touch a
-metadata store. The integration test that materializes the wrapped asset twice
-lives separately (gated by MotherDuck credentials) so it can be skipped in CI.
+Pure validation tests on the feature module — they don't touch a metadata
+store. The integration test that materializes the wrapped asset twice lives
+separately so it can be skipped in CI.
 """
 
 import pytest
 
 pytest.importorskip("metaxy")
 
-from metaxy import FeatureSpec  # noqa: E402
-
 from macro_agents.defs.domains.sec import lineage  # noqa: E402
 
 
+def _spec(cls):
+    """Return the FeatureSpec attached to a BaseFeature subclass.
+
+    Metaxy 0.1.x stores it on `_feature_spec`; fall back to `spec` if that
+    moves in a future release.
+    """
+    return getattr(cls, "_feature_spec", None) or cls.spec
+
+
 def test_raw_html_is_source_feature():
-    spec = lineage.raw_html
-    assert isinstance(spec, FeatureSpec)
+    spec = _spec(lineage.RawHtml)
     assert str(spec.key) == "sec/raw_html"
     assert spec.id_columns == ("filing_id",)
     assert spec.deps == []
 
 
 def test_extracted_text_has_identity_lineage_from_raw_html():
-    spec = lineage.extracted_text
-    assert isinstance(spec, FeatureSpec)
+    spec = _spec(lineage.ExtractedText)
     assert str(spec.key) == "sec/extracted_text"
     assert spec.id_columns == ("filing_id",)
     assert len(spec.deps) == 1
     parent = spec.deps[0]
     assert str(parent.feature) == "sec/raw_html"
-    # Identity is the default relationship; the type name is the cheapest
-    # cross-version check.
     assert type(parent.lineage.relationship).__name__ == "IdentityRelationship"
