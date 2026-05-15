@@ -7,7 +7,10 @@ DuckDB full-text search for AI agent workflows.
 
 import dagster as dg
 import polars as pl
+from metaxy.ext.dagster import metaxify
+from metaxy.metadata_store.base import MetadataStore
 
+from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register features
 from macro_agents.defs.domains.sec.fts import FTS_TABLE, sec_filing_fts_index
 from macro_agents.defs.domains.sec.search import sec_filing_search_index
 from macro_agents.defs.resources.motherduck import MotherDuckResource
@@ -209,6 +212,7 @@ def hybrid_search(
     return pl.DataFrame(ranked[:top_k])
 
 
+@metaxify(key="sec_filing_hybrid_search_ready")
 @dg.asset(
     group_name="transformation",
     kinds={"duckdb", "search"},
@@ -217,13 +221,31 @@ def hybrid_search(
         "Validate hybrid search readiness by checking vector embeddings "
         "and FTS index coverage. Materializes search coverage stats."
     ),
+    metadata={"metaxy/feature": "sec/search_index"},
 )
 def sec_filing_hybrid_search_ready(
     context: dg.AssetExecutionContext,
     md: MotherDuckResource,
+    metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """Check that both vector and FTS indexes are populated and queryable."""
     conn = None
+    metaxy_stale_count: int | None = None
+    metaxy_shadow_error: str | None = None
+
+    # Shadow mode (issue #46): aggregation lineage. No boolean staleness
+    # check exists for this validator asset, so we only probe that the
+    # aggregation lookup works and record the stale count.
+    try:
+        with metaxy_store:
+            increment = metaxy_store.resolve_update("sec/search_index").to_polars()
+        metaxy_stale_count = sum(
+            len(frame) for frame in (increment.new, increment.stale)
+        )
+    except Exception as e:  # noqa: BLE001 — shadow mode must never fail the asset
+        metaxy_shadow_error = f"{type(e).__name__}: {e}"
+        context.log.warning(f"Metaxy shadow probe failed: {metaxy_shadow_error}")
+
     try:
         conn = md.get_connection()
 
@@ -267,6 +289,8 @@ def sec_filing_hybrid_search_ready(
                 "fts_filings": fts_stats[1],
                 "fts_symbols": fts_stats[0],
                 "search_ready": vec_stats[2] > 0 or fts_stats[2] > 0,
+                "metaxy_stale_count": metaxy_stale_count,
+                "metaxy_shadow_error": metaxy_shadow_error,
             }
         )
 

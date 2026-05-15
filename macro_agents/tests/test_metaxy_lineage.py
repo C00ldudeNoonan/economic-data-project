@@ -44,3 +44,39 @@ def test_bi_signals_has_expansion_lineage_from_extracted_text():
     rel = parent.lineage.relationship
     assert type(rel).__name__ == "ExpansionRelationship"
     assert list(rel.on) == ["filing_id"]
+
+
+def test_embeddings_has_expansion_lineage_from_extracted_text():
+    spec = _spec(lineage.Embeddings)
+    assert str(spec.key) == "sec/embeddings"
+    assert spec.id_columns == ("chunk_id",)
+    assert len(spec.deps) == 1
+    parent = spec.deps[0]
+    assert str(parent.feature) == "sec/extracted_text"
+    rel = parent.lineage.relationship
+    assert type(rel).__name__ == "ExpansionRelationship"
+    assert list(rel.on) == ["filing_id"]
+
+
+def test_fts_index_has_expansion_lineage_from_extracted_text():
+    spec = _spec(lineage.FtsIndex)
+    assert str(spec.key) == "sec/fts_index"
+    assert spec.id_columns == ("content_id",)
+    assert len(spec.deps) == 1
+    parent = spec.deps[0]
+    assert str(parent.feature) == "sec/extracted_text"
+    rel = parent.lineage.relationship
+    assert type(rel).__name__ == "ExpansionRelationship"
+    assert list(rel.on) == ["filing_id"]
+
+
+def test_search_index_aggregates_embeddings_and_fts_index():
+    spec = _spec(lineage.SearchIndex)
+    assert str(spec.key) == "sec/search_index"
+    assert spec.id_columns == ("filing_id",)
+    parents = {str(d.feature): d for d in spec.deps}
+    assert set(parents) == {"sec/embeddings", "sec/fts_index"}
+    for parent in parents.values():
+        rel = parent.lineage.relationship
+        assert type(rel).__name__ == "AggregationRelationship"
+        assert list(rel.on) == ["filing_id"]
