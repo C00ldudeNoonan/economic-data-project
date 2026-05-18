@@ -58,9 +58,9 @@ def housing_pulse_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
         f"""
         SELECT
             COUNT(*) AS row_count,
-            MAX(week_ending) AS max_week
+            MAX(time) AS max_week
         FROM housing_pulse_raw
-        WHERE CAST(week_ending AS VARCHAR) LIKE '{current_year}%'
+        WHERE CAST(time AS VARCHAR) LIKE '{current_year}%'
         """,
         read_only=True,
     )
