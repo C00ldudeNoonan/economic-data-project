@@ -1,264 +1,167 @@
 # Economic Data Project
 
-An end-to-end data application that ingests, transforms, and analyzes economic and financial market data using modern open-source tools. The application combines traditional data engineering workflows with AI-powered analysis agents to provide insights into economic cycles, market trends, and asset allocation strategies.
+An end-to-end data platform that ingests, transforms, and analyzes economic and financial market data. Pipelines run on self-hosted Dagster OSS (Docker) and store everything in MotherDuck (DuckDB cloud). Data is queried and explored via AI agents using the MotherDuck MCP server.
 
-## Documentation
+## Architecture
 
-For detailed documentation, see the [docs/](./docs/README.md) directory:
-
-| Documentation | Description |
-|--------------|-------------|
-| [Data Platform Overview](./docs/architecture/data-platform-overview.md) | High-level architecture |
-| [Dagster Pipeline](./docs/macro_agents/README.md) | Data orchestration documentation |
-| [dbt Models](./docs/dbt_project/README.md) | SQL transformation documentation |
-| [GCP Deployment](./docs/GCP_DEPLOYMENT_GUIDE.md) | Cloud deployment guide |
-
-## Tools and Technologies
-
-### Core Frameworks
-- **Dagster**: Orchestration framework for data pipelines, asset management, schedules, and sensors
-  - [Dagster Documentation](https://docs.dagster.io)
-- **dbt**: SQL-based transformation framework for data modeling and analytics
-  - [dbt Documentation](https://docs.getdbt.com)
-- **DSPy**: Framework for building and optimizing AI agents with LLMs
-  - [DSPy Documentation](https://dspy-docs.vercel.app)
-- **DuckDB/MotherDuck**: Embedded analytical database with cloud sync capabilities
-  - [DuckDB Documentation](https://duckdb.org/docs)
-  - [MotherDuck Documentation](https://motherduck.com/docs)
-
-### Supporting Technologies
-- **Polars**: High-performance dataframe library
-  - [Polars Documentation](https://docs.pola.rs)
-- **Sling**: Data replication tool for syncing between databases
-  - [Sling Documentation](https://docs.slingdata.io)
-- **BigQuery**: Cloud data warehouse for replication target
-  - [BigQuery Documentation](https://cloud.google.com/bigquery/docs)
-- **Python**: Primary programming language (3.10-3.13)
-
-## Data Sources
-
-All data is sourced from publicly available APIs:
-
-### Economic Data
-- **Federal Reserve Economic Data (FRED)**: Comprehensive economic indicators including GDP, inflation, employment, housing, trade, and financial conditions
-  - [FRED API Documentation](https://fred.stlouisfed.org/docs/api/fred/)
-- **Bureau of Labor Statistics (BLS)**: Employment and labor market data
-  - [BLS API Documentation](https://www.bls.gov/developers/api_signature.htm)
-- **Census Bureau**: Population and demographic data
-  - [Census Bureau API Documentation](https://www.census.gov/data/developers/data-sets.html)
-
-### Market Data
-- **Market Stack API**: Stock market data for major indices, sectors, global markets, currencies, fixed income, and commodities
-  - [Market Stack API Documentation](https://marketstack.com/documentation)
-- **Treasury Yields**: U.S. Treasury bond yield curve data
-- **Realtor.com**: Housing market inventory and pricing data
-  - [Realtor.com Research Data](https://www.realtor.com/research/data/)
+```
+External APIs → Dagster (ingestion) → MotherDuck/DuckDB
+                                          ↓
+                              dbt (SQL transformations)
+                                          ↓
+                         DSPy AI agents (analysis & signals)
+                                          ↓
+                         Claude + MotherDuck MCP (query interface)
+```
 
 ## Project Structure
 
 ```
 economic-data-project/
-├── macro_agents/                    # Main Dagster project
-│   ├── src/macro_agents/
-│   │   ├── definitions.py            # Central Dagster definitions
-│   │   └── defs/
-│   │       ├── domains/              # Domain assets + automation
-│   │       │   ├── markets.py        # MarketStack ETFs/commodities/company prices
-│   │       │   ├── calendars.py      # Economic/earnings calendars
-│   │       │   ├── macro.py          # FRED + Treasury + FOMC minutes
-│   │       │   ├── housing.py        # Realtor/housing data
-│   │       │   ├── social.py         # Reddit ingestion
-│   │       │   ├── sec.py            # SEC filings
-│   │       │   └── fomc_transcripts.py
-│   │       ├── transformation/       # Data transformation
-│   │       │   └── financial_condition_index.py
-│   │       ├── agents/               # AI analysis agents (DSPy)
-│   │       ├── resources/            # Dagster resources
-│   │       ├── replication/          # Data replication
-│   │       ├── telemetry/            # Monitoring assets
-│   │       ├── sensors/              # Event-driven triggers
-│   │       ├── shared_resources.py   # Common resources
-│   │       └── asset_failure_sensor.py
-│   └── tests/                       # Test suite
-├── dbt_project/                     # dbt transformation project
-│   ├── dbt_project.yml              # dbt configuration
-│   ├── profiles.yml                 # Connection profiles
+├── macro_agents/                    # Dagster project
+│   ├── src/macro_agents/defs/
+│   │   ├── domains/                 # Ingestion assets by domain
+│   │   │   ├── macro.py             # FRED, Treasury yields, FOMC minutes
+│   │   │   ├── markets/             # MarketStack — indices, sectors, ETFs, commodities
+│   │   │   ├── housing.py           # Realtor.com + housing pulse data
+│   │   │   ├── social.py            # Reddit ingestion
+│   │   │   ├── fomc_transcripts.py  # FOMC transcript PDFs
+│   │   │   └── sec/                 # SEC 10-K/10-Q filings
+│   │   ├── signals/                 # Computed market signals
+│   │   │   ├── turbulence_index.py  # Mahalanobis market turbulence
+│   │   │   ├── absorption_ratio.py  # PCA systemic risk signal
+│   │   │   ├── fear_greed_composite.py
+│   │   │   ├── entropy_complexity.py
+│   │   │   └── network_correlation.py
+│   │   ├── analysis/                # AI analysis pipelines
+│   │   │   ├── economy_state/       # Economic cycle classification
+│   │   │   ├── investments/         # Investment recommendations + charts
+│   │   │   ├── narratives/          # Plain-English economic narratives
+│   │   │   └── news/                # Reddit + FOMC weekly summaries
+│   │   ├── transformation/          # dbt orchestration + FCI
+│   │   ├── backtesting/             # Strategy backtesting
+│   │   ├── resources/               # Shared resources (MotherDuck, GCS, etc.)
+│   │   └── telemetry/               # Pipeline monitoring assets
+│   └── tests/                       # 440+ test suite
+├── dbt_project/                     # SQL transformations
 │   └── models/
-│       ├── staging/                 # Staging layer models
-│       ├── government/              # Government data models
-│       ├── markets/                 # Market data models
-│       ├── commodities/             # Commodity data models
-│       └── analysis/                # Analysis layer models
-├── dagster_cloud.yaml               # Dagster Cloud deployment config
-└── makefile                         # Build and automation commands
+│       ├── staging/                 # Raw → clean
+│       ├── markets/                 # Returns, summaries
+│       ├── government/              # FRED, housing, yields
+│       ├── commodities/             # Commodity analysis
+│       └── analysis/                # Cross-domain analytics
+├── docker-compose.yml               # Local/production deployment
+├── dagster.yaml                     # Dagster OSS config
+└── makefile                         # Common commands
 ```
 
-## Data Flow
+## Quick Start (Local)
 
-### 1. Ingestion Layer (Dagster Assets)
-Raw data assets pull from external APIs and store in DuckDB/MotherDuck:
-- **FRED Data**: Partitioned by 70+ economic series codes, scheduled weekly
-- **Market Data**: Partitioned by ticker and month for indices, sectors, commodities, currencies
-- **Treasury Yields**: Daily yield curve data
-- **Housing Data**: Inventory and pricing data from BLS and Realtor.com
+### Prerequisites
+- Docker Desktop
+- API keys (see `.env.example`)
+- MotherDuck account
 
-### 2. Transformation Layer (dbt Models)
-SQL-based transformations organized in layers:
-- **Staging**: Standardizes and cleans raw data (`stg_*` models)
-- **Government**: Aggregates economic indicators (`fred_*`, `housing_*` models)
-- **Markets**: Analyzes market returns and summaries (`*_summary`, `*_analysis_return` models)
-- **Commodities**: Commodity-specific analysis
-- **Analysis**: Combines economic and market data for advanced analytics (`base_historical_analysis`, `leading_econ_return_indicator`)
+### Setup
 
-### 3. AI Analysis Layer (DSPy Agents)
-AI-powered analysis agents that operate on transformed data:
-- **Economic Cycle Analysis**: Identifies economic phases (expansion, peak, contraction, trough)
-- **Asset Allocation**: Generates portfolio recommendations based on economic conditions
-- **Backtesting**: Tests investment strategies against historical data
-- **Model Evaluation**: Continuous improvement of AI models using DSPy metrics
+```bash
+# 1. Clone and configure
+git clone https://github.com/C00ldudeNoonan/economic-data-project.git
+cd economic-data-project
+cp .env.example .env
+# Fill in your API keys in .env
 
-### 4. Replication Layer (Sling)
-Replicates transformed data from MotherDuck to BigQuery for downstream consumption.
+# 2. Build and start
+docker compose --env-file .env build
+docker compose --env-file .env up
+```
+
+Dagster UI: `http://localhost:3000`
+
+### Development (without Docker)
+
+```bash
+cd macro_agents
+uv sync --extra dev
+
+# Validate definitions
+uv run dg check defs
+
+# Run tests
+uv run pytest tests/ -v
+
+# Lint
+uv run ruff check .
+uv run ruff format .
+```
+
+## Data Sources
+
+| Source | Data |
+|--------|------|
+| FRED | 70+ economic series — GDP, inflation, employment, yield curve |
+| MarketStack | S&P 500 / NASDAQ prices, ETFs, indices, commodities, currencies |
+| Treasury / FRED | Yield curve (1m → 30yr) |
+| SEC EDGAR | 10-K / 10-Q filings for S&P 500 companies |
+| Federal Reserve | FOMC minutes and transcripts |
+| Reddit | r/investing, r/stocks, r/economics, r/wallstreetbets |
+| Realtor.com | Housing inventory by geography |
+| BLS / Census | Labor market and population data |
+
+## Querying the Data
+
+The platform is designed to be queried via AI agents using the MotherDuck MCP server. Configure Claude Code with your MotherDuck token (see `.mcp.json`) to query any table directly in conversation.
+
+```bash
+# Example: ask Claude about the data
+# "What's the current turbulence index reading?"
+# "Show me the latest FOMC sentiment scores"
+# "Which S&P 500 sectors had the best returns this month?"
+```
+
+## Deployment (GCP)
+
+See [DAGSTER_OSS_QUICKSTART.md](./DAGSTER_OSS_QUICKSTART.md) for full GCP VM deployment instructions.
+
+The production setup runs the same `docker-compose.yml` on a GCP VM with a persistent PostgreSQL disk for the Dagster event log.
 
 ## Environment Variables
 
-Create a `.env` file in the `macro_agents` directory with the following variables:
+Copy `.env.example` to `.env`. Required keys:
 
-### Required
-- `MODEL_NAME`: OpenAI model to use (e.g., `gpt-4-turbo-preview`, `gpt-3.5-turbo`)
-- `OPENAI_API_KEY`: OpenAI API authentication key
-- `FRED_API_KEY`: Federal Reserve Economic Data API key
-- `MARKETSTACK_API_KEY`: Market Stack API key
-- `MOTHERDUCK_TOKEN`: MotherDuck authentication token (for cloud sync)
+| Variable | Description |
+|----------|-------------|
+| `MOTHERDUCK_TOKEN` | MotherDuck auth token |
+| `MOTHERDUCK_DATABASE` | Target database name |
+| `FRED_API_KEY` | FRED API key |
+| `MARKETSTACK_API_KEY` | MarketStack API key |
+| `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | LLM provider for AI agents |
+| `GITHUB_TOKEN` | For asset failure issue creation |
+| `GITHUB_REPO_OWNER` | GitHub username |
+| `GITHUB_REPO_NAME` | GitHub repo name |
 
-### Optional (Development)
-- `ENVIRONMENT`: Environment setting (`dev` or `prod`, defaults to `dev`)
-- `DBT_TARGET`: dbt target environment (`local`, `dev`, or `prod`, defaults to `local`)
-- `DBT_PROJECT_DIR`: Path to dbt project directory (auto-detected if not set)
+Optional: `GCS_BUCKET_NAME`, `GOOGLE_APPLICATION_CREDENTIALS`, `SEC_EDGAR_CONTACT_EMAIL`, `CENSUS_API_KEY`
 
-### Optional (Production/Replication)
-- `MOTHERDUCK_DATABASE`: MotherDuck database name
-- `MOTHERDUCK_PROD_SCHEMA`: MotherDuck production schema
-- `BIGQUERY_PROJECT_ID`: Google Cloud project ID for BigQuery
-- `BIGQUERY_LOCATION`: BigQuery dataset location
-- `BIGQUERY_DATASET`: BigQuery dataset name
-- `GOOGLE_APPLICATION_CREDENTIALS`: Path to Google Cloud service account credentials JSON file
-- `CENSUS_API_KEY`: Census Bureau API key (if using Census data)
-
-## Quick Start
-
-### Prerequisites
-- Python 3.11
-- uv (recommended) or pip for package management
-- DuckDB and MotherDuck account (for cloud sync)
-- API keys for data sources
-- OpenAI API key for AI agents
-
-### Installation
-
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd economic-data-project
-```
-
-2. **Install dependencies**
-```bash
-cd macro_agents
-uv sync  # or pip install -e .[dev]
-```
-
-3. **Install dbt packages**
-```bash
-cd ../dbt_project
-dbt deps
-```
-
-4. **Set up environment variables**
-Create a `.env` file in the `macro_agents` directory with required variables (see Environment Variables section above).
-
-5. **Validate setup**
-```bash
-# Test Dagster definitions
-cd macro_agents
-dg check defs
-
-# Test dbt models
-cd ../dbt_project
-dbt compile
-dbt parse
-```
-
-### Running Locally
-
-**Start Dagster UI:**
-```bash
-cd macro_agents
-dagster dev
-```
-Navigate to `http://localhost:3000` to view and materialize assets.
-
-**Run dbt models manually:**
-```bash
-cd dbt_project
-dbt run          # Run all models
-dbt run --select staging.*  # Run specific layer
-```
-
-**Run tests:**
-```bash
-cd macro_agents
-pytest tests/ -v
-# Or use the makefile
-make test
-```
-
-## Deployment
-
-The project is configured for deployment on Dagster Cloud using the `dagster_cloud.yaml` configuration file. The deployment builds from the `macro_agents` directory and uses `macro_agents.definitions` as the entry point.
-
-## Development
-
-### Common Commands
+## Common Commands
 
 ```bash
-# Run tests
-make test
+# Docker
+docker compose --env-file .env up          # Start stack
+docker compose --env-file .env down        # Stop stack
+docker compose --env-file .env build       # Rebuild images
+docker compose logs -f dagster_user_code   # Tail user code logs
 
-# Lint Python code
-make ruff
-
-# Lint SQL code
-make lint
-
-# Fix SQL linting issues
-make fix
-
-# Run pre-PR checks (linting, type checking, tests, security scans)
-make pre-pr
+# Development
+uv run pytest tests/ -v                    # Run tests
+uv run ruff check . && ruff format .       # Lint + format
+uv run dg check defs                       # Validate Dagster definitions
 ```
 
-### First Run Workflow
+## Tech Stack
 
-1. **Materialize ingestion assets** - Start with FRED data or Market Stack data via Dagster UI
-2. **Run dbt transformations** - Transform raw data through staging → marts → analysis layers (automated via eager assets)
-3. **Run analysis agents** - Execute DSPy agents on transformed data via Dagster UI
-4. **View results** - Check DuckDB/MotherDuck for analysis outputs
-
-## Automation
-
-- **Ingestion Assets**: Scheduled weekly on Mondays at midnight (FRED data)
-- **dbt Models**: Eager automation (run automatically when upstream data changes)
-- **Analysis Agents**: On-demand or scheduled via Dagster jobs
-- **Replication**: Monthly partitioned replication to BigQuery via Sling
-
-## Testing
-
-Test suite located in `macro_agents/tests/`:
-- Unit tests for analysis agents
-- Integration tests for end-to-end workflows
-- Tests for Dagster asset descriptions
-- Tests for dbt model descriptions
-- Resource and schedule tests
-
-Run tests using `make test` or `pytest tests/ -v` from the `macro_agents` directory.
+- **[Dagster](https://docs.dagster.io)** — asset orchestration, schedules, sensors
+- **[dbt](https://docs.getdbt.com)** — SQL transformations
+- **[DuckDB](https://duckdb.org/docs) / [MotherDuck](https://motherduck.com/docs)** — analytical database + cloud sync
+- **[DSPy](https://dspy.ai)** — LLM pipeline framework for AI agents
+- **[Polars](https://docs.pola.rs)** — dataframe processing
+- **[uv](https://docs.astral.sh/uv/)** — Python package management
