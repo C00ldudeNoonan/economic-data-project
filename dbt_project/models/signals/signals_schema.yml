@@ -1,6 +1,27 @@
 version: 2
 
 models:
+  - name: economic_alert_inputs
+    description: >
+      Per-date computed values for indicators referenced by the economic
+      alerts engine in `macro_agents.defs.alerts`. The Dagster alert
+      evaluation asset selects the most recent non-null value per column.
+    columns:
+      - name: date
+        description: Observation date
+        tests:
+          - not_null
+      - name: cpi_yoy_pct
+        description: Headline CPI year-over-year change (CPIAUCSL), percent
+      - name: t10y2y_spread
+        description: 10Y - 2Y Treasury yield spread (T10Y2Y), percentage points
+      - name: unrate_change_3mo
+        description: Unemployment rate delta vs 3 months ago (UNRATE), pp
+      - name: fedfunds_change_1mo
+        description: Effective Fed Funds delta vs prior month (FEDFUNDS), pp
+      - name: hy_oas_pct
+        description: ICE BofA US High Yield OAS (BAMLH0A0HYM2), percent
+
   - name: inflation_signals
     description: >
       Inflation signals derived from FRED data: CPI momentum (3mo annualized vs 12mo YoY),

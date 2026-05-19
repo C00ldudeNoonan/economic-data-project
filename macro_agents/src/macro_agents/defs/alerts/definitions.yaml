@@ -1,0 +1,79 @@
+# Economic indicator alert definitions.
+#
+# Each alert references a computed column emitted by the
+# `economic_alert_inputs` dbt model. The evaluator compares the latest
+# observed value against `threshold` using `comparator`, and fires a
+# breach event when the condition holds.
+#
+# Fields:
+#   alert_id        Stable identifier used as a dedup key.
+#   indicator       Column name from economic_alert_inputs.
+#   series_code     FRED code used by the dbt model (informational).
+#   comparator      One of: gt, lt, gte, lte.
+#   threshold       Numeric trigger value.
+#   severity        info | warning | critical (shown in email + log).
+#   cooldown_hours  Minimum gap between repeat notifications while a
+#                   breach remains open.
+#   title           Email subject template (plain text).
+#   description     Human-readable context shown in the alert body.
+
+alerts:
+  - alert_id: cpi_yoy_above_3pct
+    indicator: cpi_yoy_pct
+    series_code: CPIAUCSL
+    comparator: gt
+    threshold: 3.0
+    severity: warning
+    cooldown_hours: 168
+    title: "CPI YoY above 3%"
+    description: >
+      Headline CPI year-over-year change has exceeded 3%, indicating
+      persistent inflation pressure relative to the Fed's 2% target.
+
+  - alert_id: yield_curve_inversion_10y2y
+    indicator: t10y2y_spread
+    series_code: T10Y2Y
+    comparator: lt
+    threshold: 0.0
+    severity: critical
+    cooldown_hours: 720
+    title: "Yield curve inversion: 10Y < 2Y"
+    description: >
+      The 10-year Treasury yield has fallen below the 2-year. Sustained
+      inversions have historically preceded U.S. recessions by 6-18 months.
+
+  - alert_id: unemployment_3mo_rise
+    indicator: unrate_change_3mo
+    series_code: UNRATE
+    comparator: gte
+    threshold: 0.5
+    severity: warning
+    cooldown_hours: 168
+    title: "Unemployment up 0.5pp over 3 months"
+    description: >
+      The unemployment rate has risen 0.5 percentage points or more from
+      its level three months ago — a Sahm-Rule-adjacent recession signal.
+
+  - alert_id: fed_funds_step_change
+    indicator: fedfunds_change_1mo
+    series_code: FEDFUNDS
+    comparator: gte
+    threshold: 0.25
+    severity: info
+    cooldown_hours: 24
+    title: "Fed Funds Rate moved >= 25bps"
+    description: >
+      The effective federal funds rate changed by 25 basis points or
+      more month-over-month.
+
+  - alert_id: hy_oas_stress
+    indicator: hy_oas_pct
+    series_code: BAMLH0A0HYM2
+    comparator: gt
+    threshold: 6.0
+    severity: critical
+    cooldown_hours: 168
+    title: "High-yield OAS above 6%"
+    description: >
+      ICE BofA US High Yield Option-Adjusted Spread has crossed 6%,
+      signaling elevated credit stress.

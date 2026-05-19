@@ -1,6 +1,7 @@
 import dagster as dg
 
 from macro_agents.defs import (
+    alerts,
     analysis,
     asset_failure_sensor,
     backtesting,
@@ -41,4 +42,5 @@ defs = dg.Definitions.merge(
     backtesting.defs,
     signals.defs,
     asset_failure_sensor.defs,
+    alerts.defs,
 )
