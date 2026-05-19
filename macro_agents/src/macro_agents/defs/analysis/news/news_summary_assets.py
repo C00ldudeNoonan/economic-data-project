@@ -165,6 +165,18 @@ def news_weekly_summary(
 
     context.log.info(f"Generating weekly summary for {week_start} to {week_end}")
 
+    if not md.table_exists("reddit_summaries"):
+        context.log.warning(
+            "reddit_summaries table does not exist — skipping weekly summary"
+        )
+        return dg.MaterializeResult(
+            metadata={
+                "week_start": week_start,
+                "week_end": week_end,
+                "skipped": "reddit_summaries table not yet materialized",
+            }
+        )
+
     # Fetch daily summaries from both sources for this week
     query = f"""
         SELECT

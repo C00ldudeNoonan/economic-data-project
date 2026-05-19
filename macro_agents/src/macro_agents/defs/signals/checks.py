@@ -19,6 +19,20 @@ def _check_signal_table(
             metadata={"error": f"{table_name} table does not exist"},
         )
 
+    cols_df = md.execute_query(
+        f"SELECT column_name FROM (DESCRIBE {table_name})", read_only=True
+    )
+    actual_columns = cols_df["column_name"].to_list()
+    if value_column not in actual_columns:
+        return dg.AssetCheckResult(
+            passed=False,
+            severity=dg.AssetCheckSeverity.ERROR,
+            metadata={
+                "error": f"Column '{value_column}' not found in {table_name}",
+                "available_columns": ", ".join(actual_columns),
+            },
+        )
+
     cutoff = date.today() - timedelta(days=freshness_days)
     df = md.execute_query(
         f"""
@@ -72,7 +86,7 @@ def absorption_ratio_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 def turbulence_index_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
     """Validate turbulence index signal has recent, valid values."""
     return _check_signal_table(
-        "turbulence_index_signals", "turbulence_index", md, freshness_days=7
+        "turbulence_index_signals", "turbulence_raw", md, freshness_days=7
     )
 
 

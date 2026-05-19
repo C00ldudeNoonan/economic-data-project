@@ -457,8 +457,7 @@ def _fetch_recommendations_row(
         analysis_time,
         model_name,
         personality,
-        recommendations_content,
-        chart_manifest
+        recommendations_content
     FROM investment_recommendations
     WHERE dagster_run_id = ?
     ORDER BY analysis_timestamp DESC
@@ -572,6 +571,10 @@ def generate_investment_recommendation_charts(
     updated_content = _inject_chart_tokens(recommendations_content, manifest)
 
     if manifest:
+        md.execute_query(
+            "ALTER TABLE investment_recommendations ADD COLUMN IF NOT EXISTS chart_manifest JSON",
+            read_only=False,
+        )
         update_query = """
         UPDATE investment_recommendations
         SET chart_manifest = CAST(? AS JSON),

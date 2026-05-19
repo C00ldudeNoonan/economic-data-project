@@ -70,9 +70,13 @@ def treasury_yields_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
         SELECT
             COUNT(*) AS row_count,
             MAX(date) AS max_date,
-            COUNT(DISTINCT maturity) AS maturity_count
+            (CASE WHEN bc_10year IS NOT NULL THEN 1 ELSE 0 END
+             + CASE WHEN bc_2year IS NOT NULL THEN 1 ELSE 0 END
+             + CASE WHEN bc_5year IS NOT NULL THEN 1 ELSE 0 END
+             + CASE WHEN bc_30year IS NOT NULL THEN 1 ELSE 0 END) AS key_series_populated
         FROM treasury_yields_raw
         WHERE CAST(date AS DATE) >= '{cutoff}'
+        LIMIT 1
         """,
         read_only=True,
     )
@@ -92,7 +96,7 @@ def treasury_yields_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
         metadata={
             "recent_row_count": int(df["row_count"][0]),
             "max_date": str(df["max_date"][0]),
-            "maturity_count": int(df["maturity_count"][0]),
+            "key_series_populated": int(df["key_series_populated"][0]),
         },
     )
 
