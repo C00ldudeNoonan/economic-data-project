@@ -21,10 +21,10 @@
 WITH cpi AS (
     SELECT
         date,
-        value AS cpi_level,
-        LAG(value, 12) OVER (ORDER BY date) AS cpi_12m_ago
+        literal AS cpi_level,
+        LAG(literal, 12) OVER (ORDER BY date) AS cpi_12m_ago
     FROM {{ ref('stg_fred_series') }}
-    WHERE series_code = 'CPIAUCSL' AND value IS NOT NULL
+    WHERE series_code = 'CPIAUCSL' AND literal IS NOT NULL
 ),
 
 cpi_yoy AS (
@@ -38,18 +38,18 @@ cpi_yoy AS (
 t10y2y AS (
     SELECT
         date,
-        ROUND(value, 3) AS t10y2y_spread
+        ROUND(literal, 3) AS t10y2y_spread
     FROM {{ ref('stg_fred_series') }}
-    WHERE series_code = 'T10Y2Y' AND value IS NOT NULL
+    WHERE series_code = 'T10Y2Y' AND literal IS NOT NULL
 ),
 
 unrate AS (
     SELECT
         date,
-        value AS unrate_level,
-        LAG(value, 3) OVER (ORDER BY date) AS unrate_3mo_ago
+        literal AS unrate_level,
+        LAG(literal, 3) OVER (ORDER BY date) AS unrate_3mo_ago
     FROM {{ ref('stg_fred_series') }}
-    WHERE series_code = 'UNRATE' AND value IS NOT NULL
+    WHERE series_code = 'UNRATE' AND literal IS NOT NULL
 ),
 
 unrate_delta AS (
@@ -63,10 +63,10 @@ unrate_delta AS (
 fedfunds AS (
     SELECT
         date,
-        value AS fedfunds_level,
-        LAG(value, 1) OVER (ORDER BY date) AS fedfunds_1mo_ago
+        literal AS fedfunds_level,
+        LAG(literal, 1) OVER (ORDER BY date) AS fedfunds_1mo_ago
     FROM {{ ref('stg_fred_series') }}
-    WHERE series_code = 'FEDFUNDS' AND value IS NOT NULL
+    WHERE series_code = 'FEDFUNDS' AND literal IS NOT NULL
 ),
 
 fedfunds_delta AS (
@@ -80,9 +80,9 @@ fedfunds_delta AS (
 hy_oas AS (
     SELECT
         date,
-        ROUND(value, 3) AS hy_oas_pct
+        ROUND(literal, 3) AS hy_oas_pct
     FROM {{ ref('stg_fred_series') }}
-    WHERE series_code = 'BAMLH0A0HYM2' AND value IS NOT NULL
+    WHERE series_code = 'BAMLH0A0HYM2' AND literal IS NOT NULL
 ),
 
 all_dates AS (
