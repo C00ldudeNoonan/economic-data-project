@@ -10,6 +10,10 @@
 creds.json
 gcp-service-account.json
 *-service-account.json
+# Gmail OAuth bootstrap artifacts (issue #61) — covered by *.json below,
+# listed explicitly to make intent obvious.
+client_secret*.json
+gmail_token*.json
 .ruff_cache
 
 # Database files

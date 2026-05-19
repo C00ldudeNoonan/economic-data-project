@@ -1,19 +1,26 @@
-"""Gmail notifier resource using a GCP service account.
+"""Gmail notifier resource using OAuth user credentials.
 
-Sends transactional alerts via the Gmail API. The service account must
-have domain-wide delegation enabled with the `gmail.send` scope, and
-must be authorized to impersonate `delegated_user` (typically the same
-mailbox that owns the alerts inbox).
+Sends transactional alerts via the Gmail API as a single human user
+(no domain-wide delegation, no service account). This is the right
+path for personal `@gmail.com` accounts, which Google does not allow
+service accounts to impersonate.
 
-GCP setup (one-time):
-  1. Enable the Gmail API in the GCP project.
-  2. Create/reuse a service account; download its key file and point
-     GOOGLE_APPLICATION_CREDENTIALS at it.
-  3. In Google Workspace admin > Security > API controls > Domain-wide
-     delegation, add the service account's client ID with scope
-     `https://www.googleapis.com/auth/gmail.send`.
-  4. Set GMAIL_DELEGATED_USER to the mailbox the service account will
-     impersonate (e.g. "alerts@example.com").
+One-time bootstrap (see `scripts/gmail_oauth_bootstrap.py`):
+  1. In GCP, create an **OAuth 2.0 Client ID** of type "Desktop app".
+     Download the client secrets JSON.
+  2. Add yourself as a test user under "OAuth consent screen".
+  3. Run the bootstrap script — it opens a browser, you click
+     "Allow gmail.send", and the script writes a refresh token to
+     `GMAIL_OAUTH_TOKEN_PATH`.
+  4. The sensor exchanges that refresh token for short-lived access
+     tokens at send time. The refresh token never expires unless you
+     revoke it or change your Google password.
+
+Env vars:
+  GMAIL_SENDER                 The Gmail address that owns the token.
+  GMAIL_OAUTH_TOKEN_PATH       Path to the JSON refresh-token file.
+  GMAIL_OAUTH_CLIENT_SECRETS   Path to client_secret.json (only used
+                               by the bootstrap script, not at runtime).
 """
 
 import base64
@@ -22,7 +29,8 @@ import os
 from email.message import EmailMessage
 
 import dagster as dg
-from google.oauth2 import service_account
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from pydantic import Field
 
@@ -30,49 +38,56 @@ GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
 
 class GmailNotifierResource(dg.ConfigurableResource):
-    """Send email via Gmail API using a delegated service account."""
+    """Send email via Gmail API using a stored OAuth refresh token."""
 
-    credentials_json: str | None = Field(
-        default=None,
+    token_path: str = Field(
         description=(
-            "Service account credentials as JSON string or file path. "
-            "Falls back to GOOGLE_APPLICATION_CREDENTIALS."
+            "Path to a JSON file produced by the OAuth bootstrap script. "
+            "Must contain at minimum: refresh_token, client_id, client_secret."
         ),
     )
-    delegated_user: str = Field(
-        description="Mailbox the service account impersonates via DWD.",
-    )
     sender: str = Field(
-        description="From address shown on outgoing alert emails.",
+        description="Gmail address that owns the refresh token (also From:).",
     )
+
+    def _load_credentials(self) -> Credentials:
+        if not os.path.exists(self.token_path):
+            raise FileNotFoundError(
+                f"Gmail OAuth token file not found at {self.token_path}. "
+                "Run scripts/gmail_oauth_bootstrap.py to generate it."
+            )
+
+        with open(self.token_path) as f:
+            data = json.load(f)
+
+        missing = [
+            k
+            for k in ("refresh_token", "client_id", "client_secret")
+            if not data.get(k)
+        ]
+        if missing:
+            raise ValueError(
+                f"Token file {self.token_path} is missing required fields: {missing}. "
+                "Re-run scripts/gmail_oauth_bootstrap.py."
+            )
+
+        credentials = Credentials(
+            token=data.get("token"),
+            refresh_token=data["refresh_token"],
+            token_uri=data.get("token_uri", "https://oauth2.googleapis.com/token"),
+            client_id=data["client_id"],
+            client_secret=data["client_secret"],
+            scopes=data.get("scopes", GMAIL_SCOPES),
+        )
+
+        if not credentials.valid:
+            credentials.refresh(Request())
+
+        return credentials
 
     def _build_service(self):
-        creds_raw = self.credentials_json or os.getenv(
-            "GOOGLE_APPLICATION_CREDENTIALS", ""
-        )
-        if not creds_raw:
-            raise ValueError(
-                "credentials_json must be set or GOOGLE_APPLICATION_CREDENTIALS "
-                "environment variable must be provided"
-            )
-
-        if creds_raw.strip().startswith("{"):
-            info = json.loads(creds_raw)
-            credentials = service_account.Credentials.from_service_account_info(
-                info, scopes=GMAIL_SCOPES
-            )
-        elif os.path.exists(creds_raw):
-            credentials = service_account.Credentials.from_service_account_file(
-                creds_raw, scopes=GMAIL_SCOPES
-            )
-        else:
-            raise ValueError(
-                f"Credentials not found: '{creds_raw[:50]}...' is neither valid JSON "
-                "nor an existing file path"
-            )
-
-        delegated = credentials.with_subject(self.delegated_user)
-        return build("gmail", "v1", credentials=delegated, cache_discovery=False)
+        credentials = self._load_credentials()
+        return build("gmail", "v1", credentials=credentials, cache_discovery=False)
 
     def send_alert(
         self,
@@ -97,6 +112,6 @@ class GmailNotifierResource(dg.ConfigurableResource):
 
 
 gmail_notifier_resource = GmailNotifierResource(
-    delegated_user=dg.EnvVar("GMAIL_DELEGATED_USER"),
+    token_path=dg.EnvVar("GMAIL_OAUTH_TOKEN_PATH"),
     sender=dg.EnvVar("GMAIL_SENDER"),
 )
