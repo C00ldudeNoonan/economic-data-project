@@ -16,7 +16,7 @@ import networkx as nx
 import numpy as np
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -30,10 +30,10 @@ SIGNALS_GROUP = "computed_signals"
 )
 def network_correlation_signals(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching S&P 500 prices for network analysis...")
-    prices_df = md.execute_query(
+    prices_df = bq.execute_query(
         """
         SELECT date, symbol, adj_close
         FROM sp500_companies_prices_raw
@@ -201,7 +201,7 @@ def network_correlation_signals(
     )
 
     context.log.info(f"Writing {len(df)} network correlation rows to MotherDuck")
-    md.upsert_data("network_correlation_signals", df, ["date"], context=context)
+    bq.upsert_data("network_correlation_signals", df, ["date"], context=context)
 
     return dg.MaterializeResult(
         metadata={

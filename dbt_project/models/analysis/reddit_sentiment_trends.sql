@@ -32,9 +32,9 @@ daily_sentiment as (
         avg(compound_score) as avg_compound,
         avg(case when content_type like 'post%' then compound_score end) as avg_post_sentiment,
         avg(case when content_type = 'comment' then compound_score end) as avg_comment_sentiment,
-        sum(case when sentiment_label = 'positive' then 1 else 0 end)::float
+        sum(case when sentiment_label = 'positive' then 1 else 0 end) / 1.0
             / nullif(count(*), 0) * 100 as pct_positive,
-        sum(case when sentiment_label = 'negative' then 1 else 0 end)::float
+        sum(case when sentiment_label = 'negative' then 1 else 0 end) / 1.0
             / nullif(count(*), 0) * 100 as pct_negative,
         avg(sentiment_intensity) as avg_intensity,
         sum(case when sentiment_strength = 'very_positive' then 1 else 0 end) as very_positive_count,

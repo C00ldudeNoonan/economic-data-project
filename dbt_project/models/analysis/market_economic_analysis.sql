@@ -17,9 +17,9 @@ WITH economic_data AS (
         CASE
             WHEN year_month ~ '^\d{4}-\d{1,2}$'
                 THEN
-                    MAKE_DATE(
-                        CAST(SPLIT_PART(year_month, '-', 1) AS INTEGER),
-                        CAST(SPLIT_PART(year_month, '-', 2) AS INTEGER),
+                    DATE(
+                        CAST(SPLIT(year_month, '-')[OFFSET(0)] AS INT64),
+                        CAST(SPLIT(year_month, '-')[OFFSET(1)] AS INT64),
                         1
                     )
         END AS month_date

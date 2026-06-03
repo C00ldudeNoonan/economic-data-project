@@ -14,21 +14,21 @@ WITH raw_series AS (
 rate AS (
     SELECT
         series_name,
-        strftime(date, '%Y-%m-01') AS date,
-        avg(value::DOUBLE) AS mortgage_rate
+        DATE_TRUNC(date, MONTH) AS date,
+        AVG(CAST(value AS FLOAT64)) AS mortgage_rate
     FROM raw_series
     WHERE series_name = '30 year Mortgage Rate'
     GROUP BY
         series_name,
-        strftime(date, '%Y-%m-01')
+        DATE_TRUNC(date, MONTH)
 ),
 
 price AS (
     SELECT
         series_name,
         date,
-        value::DOUBLE AS median_price_no_down_payment,
-        value::DOUBLE * 0.8 AS median_price_20_pct_down_payment
+        CAST(value AS FLOAT64) AS median_price_no_down_payment,
+        CAST(value AS FLOAT64) * 0.8 AS median_price_20_pct_down_payment
     FROM raw_series
     WHERE
         series_name = 'Median Sales Price of Houses Sold for the United States'

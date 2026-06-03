@@ -6,7 +6,7 @@ import polars as pl
 from macro_agents.defs.domains.sec.config import BATCH_SIZE_STANDARD
 from macro_agents.defs.domains.sec.helpers import build_filing_gcs_path
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 # Old path format: sec_filings/{form_type}/{year}/{cik}/{accession}/...
 # New path format: sec_filings/{symbol}/{form_type}/{year}/{cik}/{accession}/...
@@ -32,7 +32,7 @@ def _is_old_format(gcs_path: str | None, symbol: str) -> bool:
 def sec_filing_gcs_migration(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Migrate GCS objects and DB paths from old to new format.
 
@@ -43,18 +43,15 @@ def sec_filing_gcs_migration(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
-        filings_df = pl.read_database(
-            """
+        filings_df = bq.execute_query("""
             SELECT filing_id, cik, symbol, accession_number, form_type,
                    filing_date, primary_document, gcs_path
             FROM sec_filings
             WHERE gcs_path IS NOT NULL
             AND processed = TRUE
-            """,
-            connection=conn,
-        )
+            """)
 
         if filings_df.is_empty():
             context.log.info("No processed filings to check for migration")
@@ -110,24 +107,23 @@ def sec_filing_gcs_migration(
                             gcs.upload_json(new_gcs_path, data, context=context)
 
                     # Update sec_filings row
-                    conn.execute(
+                    conn.query(
                         """
                         UPDATE sec_filings
                         SET gcs_path = ?
                         WHERE symbol = ? AND filing_id = ?
                         """,
                         [new_gcs_path, symbol, filing_id],
-                    )
+                    ).result()
 
                     # Migrate extracted content paths
-                    content_df = pl.read_database(
+                    content_df = bq.execute_query(
                         """
                         SELECT content_id, gcs_path
                         FROM sec_filing_content
                         WHERE filing_id = ? AND gcs_path IS NOT NULL
                         """,
-                        connection=conn,
-                        execute_options={"parameters": [filing_id]},
+                        execute_options={"parameters": [filing_id]}
                     )
 
                     for content_row in content_df.iter_rows(named=True):
@@ -161,16 +157,14 @@ def sec_filing_gcs_migration(
                                     new_content_path, content_data, context=context
                                 )
 
-                        conn.execute(
+                        conn.query(
                             """
                             UPDATE sec_filing_content
                             SET gcs_path = ?
                             WHERE content_id = ?
                             """,
                             [new_content_path, content_row["content_id"]],
-                        )
-
-                    conn.commit()
+                        ).result()
                     total_migrated += 1
                     context.log.debug(f"Migrated {symbol}/{filing_id}")
 

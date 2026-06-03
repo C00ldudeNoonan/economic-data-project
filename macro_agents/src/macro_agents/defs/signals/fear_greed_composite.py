@@ -18,7 +18,7 @@ import dagster as dg
 import numpy as np
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -50,13 +50,13 @@ def _percentile_rank(arr: np.ndarray, window: int = 252) -> np.ndarray:
 )
 def fear_greed_signals(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     lookback = "3 years"
 
     # 1. Market Momentum: SPY vs 125-day MA
     context.log.info("Computing market momentum component...")
-    spy_df = md.execute_query(
+    spy_df = bq.execute_query(
         f"""
         SELECT date, adj_close,
                AVG(adj_close) OVER (ORDER BY date ROWS BETWEEN 124 PRECEDING AND CURRENT ROW) AS sma_125
@@ -70,7 +70,7 @@ def fear_greed_signals(
 
     # 2. Stock Price Strength: net 52-week highs/lows
     context.log.info("Computing stock price strength component...")
-    strength_df = md.execute_query(
+    strength_df = bq.execute_query(
         f"""
         WITH per_symbol AS (
             SELECT
@@ -101,7 +101,7 @@ def fear_greed_signals(
 
     # 3. VIX vs 50-day MA (inverted: low VIX = greed)
     context.log.info("Computing VIX component...")
-    vix_df = md.execute_query(
+    vix_df = bq.execute_query(
         f"""
         SELECT date, literal AS vix,
                AVG(literal) OVER (ORDER BY date ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) AS vix_sma_50
@@ -115,7 +115,7 @@ def fear_greed_signals(
 
     # 4. Safe Haven Demand: 20-day stock vs bond return differential
     context.log.info("Computing safe haven demand component...")
-    safe_haven_df = md.execute_query(
+    safe_haven_df = bq.execute_query(
         f"""
         WITH spy_ret AS (
             SELECT date, adj_close / LAG(adj_close, 20) OVER (ORDER BY date) - 1 AS spy_20d_ret
@@ -138,7 +138,7 @@ def fear_greed_signals(
 
     # 5. Junk Bond Demand: HY-IG spread (inverted: tight spread = greed)
     context.log.info("Computing junk bond demand component...")
-    credit_df = md.execute_query(
+    credit_df = bq.execute_query(
         f"""
         WITH hy AS (
             SELECT date, literal AS hy_spread FROM stg_fred_series
@@ -268,7 +268,7 @@ def fear_greed_signals(
     )
 
     context.log.info(f"Writing {len(result_df)} fear/greed rows to MotherDuck")
-    md.upsert_data("fear_greed_signals", result_df, ["date"], context=context)
+    bq.upsert_data("fear_greed_signals", result_df, ["date"], context=context)
 
     return dg.MaterializeResult(
         metadata={

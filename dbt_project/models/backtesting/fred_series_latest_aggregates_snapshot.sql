@@ -12,7 +12,7 @@ WITH snapshot_dates AS (
     AND DATE_TRUNC('month', date) >= COALESCE(
         (SELECT MAX(snapshot_date) FROM {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '1 month'
+    ) - INTERVAL 1 MONTH
     {% endif %}
 ),
 
@@ -20,7 +20,7 @@ date_bounds AS (
     SELECT
         snapshot_date AS end_date,
         snapshot_date,
-        snapshot_date - INTERVAL '12 months' AS start_date
+        snapshot_date - INTERVAL 12 MONTH AS start_date
     FROM snapshot_dates
 ),
 

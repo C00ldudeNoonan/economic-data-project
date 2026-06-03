@@ -14,7 +14,7 @@ from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     analyze_economy_state,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class InvestmentRecommendationsSignature(dspy.Signature):
@@ -106,7 +106,7 @@ class InvestmentRecommendationsModule(dspy.Module):
 
 
 def get_latest_economy_state_analysis(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
 ) -> str | None:
     """Get the latest economy state analysis from the database."""
     query = """
@@ -125,7 +125,7 @@ def get_latest_economy_state_analysis(
 
 
 def get_latest_relationship_analysis(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
 ) -> str | None:
     """Get the latest asset class relationship analysis from the database."""
     query = """
@@ -231,7 +231,7 @@ def extract_recommendations_summary(recommendations_content: str) -> dict[str, A
 def generate_investment_recommendations(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -385,7 +385,7 @@ def generate_investment_recommendations(
     }
 
     context.log.info("Writing investment recommendations to database...")
-    md.write_results_to_table(
+    bq.write_results_to_table(
         [json_result],
         output_table="investment_recommendations",
         if_exists="append",

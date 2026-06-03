@@ -18,15 +18,15 @@ from macro_agents.defs.analysis.data_points.data_point_finder import (
 from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     EconomicAnalysisResource,
 )
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
-def get_latest_economic_context(md: MotherDuckResource) -> str:
+def get_latest_economic_context(bq: BigQueryWarehouseResource) -> str:
     """
     Get latest economic analysis summary for context.
 
     Args:
-        md: MotherDuckResource for database queries
+        bq: BigQueryWarehouseResource for database queries
 
     Returns:
         String summary of latest economic analysis or default message
@@ -41,7 +41,7 @@ def get_latest_economic_context(md: MotherDuckResource) -> str:
     """
 
     try:
-        df = md.execute_query(query, read_only=True)
+        df = bq.execute_query(query, read_only=True)
         if df.is_empty():
             return "No recent economic analysis available. Assume current conditions."
 
@@ -75,7 +75,7 @@ def get_latest_economic_context(md: MotherDuckResource) -> str:
 def detect_interesting_data_points_weekly(
     context: dg.AssetExecutionContext,
     economic_analysis: EconomicAnalysisResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Weekly scan for interesting data points using statistical detection + AI analysis.
@@ -136,7 +136,7 @@ def detect_interesting_data_points_weekly(
     # 3. Query data sources
     context.log.info("Querying data sources for statistical analysis")
     try:
-        data = query_data_for_findings(md, week_start, week_end)
+        data = query_data_for_findings(bq, week_start, week_end)
     except Exception as e:
         context.log.error(f"Failed to query data: {e}")
         return dg.MaterializeResult(
@@ -308,7 +308,7 @@ def detect_interesting_data_points_weekly(
     findings_df = pl.DataFrame(analyzed_findings)
 
     try:
-        md.upsert_data(
+        bq.upsert_data(
             "interesting_data_points_weekly",
             findings_df,
             ["week_start", "data_point"],

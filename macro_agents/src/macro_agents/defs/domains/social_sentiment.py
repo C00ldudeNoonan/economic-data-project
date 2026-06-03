@@ -7,7 +7,7 @@ import polars as pl
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from macro_agents.defs.domains.social import reddit_partitions
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 SENTIMENT_GROUP = "social_sentiment"
 
@@ -49,7 +49,7 @@ def _score_texts(texts: list[str]) -> list[dict]:
 )
 def reddit_sentiment_scored(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Score post titles, selftext, and comments with VADER sentiment."""
 
@@ -62,7 +62,7 @@ def reddit_sentiment_scored(
 
     # Score post titles + selftext
     try:
-        posts_df = md.execute_query(
+        posts_df = bq.execute_query(
             f"SELECT post_id, title, selftext FROM reddit_post_content_raw "
             f"WHERE subreddit = '{subreddit}' AND partition_date = '{partition_date}'"
         )
@@ -105,7 +105,7 @@ def reddit_sentiment_scored(
 
     # Score comments
     try:
-        comments_df = md.execute_query(
+        comments_df = bq.execute_query(
             f"SELECT comment_id, body FROM reddit_comments_raw "
             f"WHERE subreddit = '{subreddit}' AND partition_date = '{partition_date}' "
             f"AND body IS NOT NULL AND length(body) > 0"
@@ -133,7 +133,7 @@ def reddit_sentiment_scored(
 
     if scored_rows:
         df = pl.DataFrame(scored_rows)
-        md.upsert_data(
+        bq.upsert_data(
             "reddit_sentiment_scored",
             df,
             ["content_id", "content_type"],

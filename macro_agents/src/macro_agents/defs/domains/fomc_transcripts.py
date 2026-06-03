@@ -10,7 +10,7 @@ import dagster as dg
 from macro_agents.defs.analysis.fed_sentiment.resource import FedSentimentResource
 from macro_agents.defs.resources.federal_reserve import FederalReserveResource
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.pdf import PDFResource
 
 
@@ -28,7 +28,7 @@ fomc_transcript_years_partition = dg.StaticPartitionsDefinition(
 )
 def fomc_transcript_schema(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Create database tables for FOMC transcripts, summaries, and related data.
@@ -43,10 +43,10 @@ def fomc_transcript_schema(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         # 1. FOMC Transcripts Table
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS fomc_transcripts (
                 transcript_id VARCHAR PRIMARY KEY,
                 meeting_date DATE NOT NULL,
@@ -58,10 +58,10 @@ def fomc_transcript_schema(
                 processed_date TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """).result()
 
         # 2. Transcript Sections Table
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS transcript_sections (
                 section_id VARCHAR PRIMARY KEY,
                 transcript_id VARCHAR NOT NULL,
@@ -74,10 +74,10 @@ def fomc_transcript_schema(
                 end_page INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """).result()
 
         # 3. FOMC Meeting Summaries Table
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS fomc_meeting_summaries (
                 summary_id VARCHAR PRIMARY KEY,
                 meeting_date DATE NOT NULL,
@@ -92,10 +92,10 @@ def fomc_transcript_schema(
                 generation_date TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """).result()
 
         # 4. Transcript Topics Table
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS transcript_topics (
                 topic_id VARCHAR PRIMARY KEY,
                 transcript_id VARCHAR NOT NULL,
@@ -107,10 +107,10 @@ def fomc_transcript_schema(
                 sentiment VARCHAR,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """).result()
 
         # 5. Transcript Search Index Table
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS transcript_search_index (
                 search_id VARCHAR PRIMARY KEY,
                 transcript_id VARCHAR NOT NULL,
@@ -118,10 +118,10 @@ def fomc_transcript_schema(
                 searchable_text TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """).result()
 
         # 6. Member Voting History Table
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS member_voting_history (
                 vote_id VARCHAR PRIMARY KEY,
                 meeting_date DATE NOT NULL,
@@ -132,10 +132,10 @@ def fomc_transcript_schema(
                 stance VARCHAR,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """).result()
 
         # 7. Enhanced FOMC Meetings Table (extend existing or create)
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS fomc_meetings_enhanced (
                 meeting_date DATE PRIMARY KEY,
                 action VARCHAR,
@@ -150,10 +150,10 @@ def fomc_transcript_schema(
                 meeting_type VARCHAR,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """).result()
 
         # 8. Fed Sentiment Scores Table
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS fomc_sentiment_scores (
                 score_id VARCHAR PRIMARY KEY,
                 transcript_id VARCHAR NOT NULL,
@@ -175,10 +175,7 @@ def fomc_transcript_schema(
                 model_name VARCHAR,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
-
-        conn.commit()
-
+        """).result()
         # Get table counts
         tables = [
             "fomc_transcripts",
@@ -194,9 +191,8 @@ def fomc_transcript_schema(
         table_info = {}
         for table in tables:
             try:
-                result = conn.execute(
-                    f"SELECT COUNT(*) as count FROM {table}"
-                ).fetchone()
+                result = bq.fetchone(
+                    f"SELECT COUNT(*) as count FROM {table}")
                 table_info[table] = result[0] if result else 0
             except Exception:
                 table_info[table] = 0
@@ -226,7 +222,7 @@ def fomc_transcripts_raw(
     context: dg.AssetExecutionContext,
     fed: FederalReserveResource,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Download FOMC transcript PDFs for a given year and store in GCS.
@@ -249,11 +245,10 @@ def fomc_transcripts_raw(
     conn = None
     existing_by_id: dict[str, dict] = {}
     try:
-        conn = md.get_connection()
-        rows = conn.execute(
+        conn = bq.get_connection()
+        rows = bq.fetchall(
             "SELECT transcript_id, full_text, word_count, page_count "
-            "FROM fomc_transcripts WHERE transcript_id IS NOT NULL"
-        ).fetchall()
+            "FROM fomc_transcripts WHERE transcript_id IS NOT NULL")
         for row in rows:
             existing_by_id[row[0]] = {
                 "full_text": row[1],
@@ -319,7 +314,7 @@ def fomc_transcripts_raw(
         )
 
     df = pl.DataFrame(metadata_records)
-    md.upsert_data("fomc_transcripts", df, ["transcript_id"], context=context)
+    bq.upsert_data("fomc_transcripts", df, ["transcript_id"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -346,7 +341,7 @@ def generate_id(prefix: str, *components: str) -> str:
 )
 def process_fomc_transcripts(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     gcs: GCSResource,
     pdf: PDFResource,
 ) -> dg.MaterializeResult:
@@ -364,14 +359,14 @@ def process_fomc_transcripts(
 
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         # Find transcripts that haven't been text-extracted yet
-        unprocessed = conn.execute("""
+        unprocessed = bq.fetchall("""
             SELECT transcript_id, meeting_date, source_pdf_path
             FROM fomc_transcripts
             WHERE full_text IS NULL AND source_pdf_path IS NOT NULL
-        """).fetchall()
+        """)
 
         if not unprocessed:
             context.log.info("No unprocessed transcripts found")
@@ -403,7 +398,7 @@ def process_fomc_transcripts(
                 page_count = meta["page_count"]
 
                 # Update fomc_transcripts with extracted text
-                conn.execute(
+                conn.query(
                     """
                     UPDATE fomc_transcripts
                     SET full_text = $1, word_count = $2, page_count = $3,
@@ -411,12 +406,12 @@ def process_fomc_transcripts(
                     WHERE transcript_id = $4
                     """,
                     [full_text, word_count, page_count, transcript_id],
-                )
+                ).result()
 
                 # Parse into speaker sections
                 sections = _parse_transcript_sections(full_text, transcript_id)
                 for section in sections:
-                    conn.execute(
+                    conn.query(
                         """
                         INSERT OR REPLACE INTO transcript_sections
                         (section_id, transcript_id, section_order, section_type,
@@ -432,7 +427,7 @@ def process_fomc_transcripts(
                             section.get("speaker_role"),
                             section["content"],
                         ],
-                    )
+                    ).result()
 
                 total_sections += len(sections)
                 context.log.info(
@@ -445,9 +440,6 @@ def process_fomc_transcripts(
                     f"Failed to process transcript {transcript_id}: {exc}"
                 )
                 continue
-
-        conn.commit()
-
         context.log.info(
             f"Processed {len(unprocessed)} transcripts, {total_sections} total sections"
         )
@@ -471,7 +463,7 @@ def process_fomc_transcripts(
 )
 def generate_transcript_summaries(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Generate AI summaries using Claude API.
@@ -504,7 +496,7 @@ def generate_transcript_summaries(
 def extract_transcript_topics(
     context: dg.AssetExecutionContext,
     fed_sentiment: FedSentimentResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Extract economic topics from transcript sections using LLM.
 
@@ -533,7 +525,7 @@ def extract_transcript_topics(
         ORDER BY ts.transcript_id, ts.section_order
     """
 
-    sections_df = md.execute_query(query, read_only=True)
+    sections_df = bq.execute_query(query, read_only=True)
 
     if sections_df.is_empty():
         context.log.info("No sections need topic extraction")
@@ -585,7 +577,7 @@ def extract_transcript_topics(
         import polars as _pl
 
         df = _pl.DataFrame(topic_records)
-        md.upsert_data("transcript_topics", df, ["topic_id"], context=context)
+        bq.upsert_data("transcript_topics", df, ["topic_id"], context=context)
 
     context.log.info(
         f"Extracted {len(topic_records)} topics from {len(sections_df)} sections "
@@ -609,7 +601,7 @@ def extract_transcript_topics(
 )
 def build_transcript_search_index(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Create searchable index for full-text search.
@@ -640,7 +632,7 @@ def build_transcript_search_index(
 )
 def analyze_member_voting_patterns(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Correlate voting with transcript content.

@@ -14,7 +14,7 @@ from pydantic import Field
 
 from macro_agents.defs.resources._url_secrets import get_safe
 from macro_agents.defs.resources.google_drive import GoogleDriveResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.domains.housing_checks import housing_checks
 
 HOUSING_GROUP = "housing_ingestion"
@@ -36,7 +36,7 @@ class HousingInventoryConfig(dg.Config):
 )
 def housing_inventory_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     config: HousingInventoryConfig,
 ) -> dg.MaterializeResult:
     year = config.year
@@ -88,7 +88,7 @@ def housing_inventory_raw(
     df = df.with_columns(pl.lit(year).alias("year"))
     context.log.info(f"Columns: {df.columns}")
 
-    md.upsert_data("housing_inventory_raw", df, ["year"])
+    bq.upsert_data("housing_inventory_raw", df, ["year"])
 
     return dg.MaterializeResult(
         metadata={
@@ -106,7 +106,7 @@ def housing_inventory_raw(
     description="Raw data from BLS API for housing pulse - runs weekly on Sundays at 4 AM EST",
 )
 def housing_pulse_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource
+    context: dg.AssetExecutionContext, bq: BigQueryWarehouseResource
 ) -> dg.MaterializeResult:
     current_year = datetime.now().year
     main_df = pl.DataFrame()
@@ -157,7 +157,7 @@ def housing_pulse_raw(
             metadata={"num_records": 0, "skipped": "No data from Census API"}
         )
 
-    md.upsert_data("housing_pulse_raw", main_df, ["COL_START_DATE"])
+    bq.upsert_data("housing_pulse_raw", main_df, ["COL_START_DATE"])
 
     return dg.MaterializeResult(
         metadata={
@@ -185,7 +185,7 @@ realtor_partition = dg.StaticPartitionsDefinition(
 def realtor_raw(
     context: dg.AssetExecutionContext,
     gdrive: GoogleDriveResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Ingest Realtor.com housing data from Google Drive CSV files.
@@ -220,7 +220,7 @@ def realtor_raw(
 
             table_name = Path(file_name).stem
             context.log.info(f"Writing {len(df)} rows to table: {table_name}")
-            md.upsert_data(table_name, df, ["month_date_yyyymm"], context=context)
+            bq.upsert_data(table_name, df, ["month_date_yyyymm"], context=context)
             total_files_processed += 1
 
     return dg.MaterializeResult(

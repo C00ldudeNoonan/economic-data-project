@@ -27,3 +27,23 @@ output "service_account_email" {
   description = "Service account email for the VM"
   value       = google_service_account.dagster_vm.email
 }
+
+output "iceberg_bucket_name" {
+  description = "GCS bucket for Iceberg table storage"
+  value       = google_storage_bucket.iceberg_data.name
+}
+
+output "biglake_connection_id" {
+  description = "BigLake connection ID for Iceberg"
+  value       = google_bigquery_connection.biglake.connection_id
+}
+
+output "biglake_service_account" {
+  description = "Service account email used by BigLake connection"
+  value       = google_bigquery_connection.biglake.cloud_resource[0].service_account_id
+}
+
+output "bigquery_datasets" {
+  description = "BigQuery dataset IDs created for the warehouse"
+  value       = [for ds in google_bigquery_dataset.economics : ds.dataset_id]
+}

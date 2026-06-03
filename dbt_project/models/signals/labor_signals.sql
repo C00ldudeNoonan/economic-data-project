@@ -182,5 +182,5 @@ SELECT
     END AS quits_trend_status
 
 FROM with_trends
-WHERE date >= CURRENT_DATE - INTERVAL '3 years'
+WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
 ORDER BY date DESC

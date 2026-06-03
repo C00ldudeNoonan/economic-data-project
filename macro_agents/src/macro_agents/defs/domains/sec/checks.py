@@ -2,20 +2,20 @@ from datetime import date, timedelta
 
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="sp500_cik_enriched")
-def sec_cik_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_cik_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC CIK mapping has companies with valid CIK codes."""
-    if not md.table_exists("sec_company_cik"):
+    if not bq.table_exists("sec_company_cik"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "sec_company_cik table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         """
         SELECT
             COUNT(*) AS row_count,
@@ -49,9 +49,9 @@ def sec_cik_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="sec_filing_metadata")
-def sec_filing_metadata_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_filing_metadata_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC filing metadata has recent filings."""
-    if not md.table_exists("sec_filings"):
+    if not bq.table_exists("sec_filings"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
@@ -59,7 +59,7 @@ def sec_filing_metadata_check(md: MotherDuckResource) -> dg.AssetCheckResult:
         )
 
     cutoff = date.today() - timedelta(days=180)
-    df = md.execute_query(
+    df = bq.execute_query(
         f"""
         SELECT
             COUNT(*) AS total_filings,
@@ -91,16 +91,16 @@ def sec_filing_metadata_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="sec_filing_text_extracted")
-def sec_text_extracted_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_text_extracted_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC filing text extraction has content."""
-    if not md.table_exists("sec_filing_content"):
+    if not bq.table_exists("sec_filing_content"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "sec_filing_content table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         """
         SELECT
             COUNT(*) AS row_count,
@@ -131,16 +131,16 @@ def sec_text_extracted_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="sec_filing_business_intelligence")
-def sec_bi_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_bi_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC business intelligence search terms table."""
-    if not md.table_exists("sec_filing_search_terms"):
+    if not bq.table_exists("sec_filing_search_terms"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "sec_filing_search_terms table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         "SELECT COUNT(*) AS row_count FROM sec_filing_search_terms",
         read_only=True,
     )
@@ -154,16 +154,16 @@ def sec_bi_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="sec_filing_gcs_catalog")
-def sec_gcs_catalog_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_gcs_catalog_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC GCS catalog is populated."""
-    if not md.table_exists("sec_filing_gcs_catalog"):
+    if not bq.table_exists("sec_filing_gcs_catalog"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "sec_filing_gcs_catalog table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         """
         SELECT
             COUNT(*) AS row_count,

@@ -8,8 +8,7 @@ dependencies = [
     "psycopg2-binary>=2.9.0,<3.0.0",
     "dagster-postgres>=0.28.18,<1.0.0",
     "dagster-docker>=0.28.18,<1.0.0",
-    "dagster-duckdb",
-    "duckdb>=1.4.0,<1.5.0",
+    "db-dtypes>=1.0.0,<2.0.0",
     "polars>=1.0.0,<2.0.0",
     "dagster-dbt>=0.28.18,<1.0.0",
     "requests>=2.31.0,<3.0.0",
@@ -17,7 +16,7 @@ dependencies = [
     "google-api-core>=2.0.0,<3.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "google-cloud-bigquery>=3.0.0,<4.0.0",
-    "dbt-duckdb>=1.10.0,<2.0.0",
+    "dbt-bigquery>=1.11.0,<2.0.0",
     "dagster-shared>=1.12.18,<2.0.0",
     "dagster-pipes>=1.12.18,<2.0.0",
     "dagster-dg-cli>=1.12.18,<2.0.0",
@@ -47,7 +46,7 @@ dependencies = [
     "pdfplumber>=0.11.0,<1.0.0",
     "vadersentiment>=3.3.2",
     "sqlglot>=28.1.0,<29.0.0",
-    "metaxy[duckdb,dagster]>=0.1.10,<0.2.0",
+    "metaxy[dagster]>=0.1.10,<0.2.0",
 ]
 
 [project.optional-dependencies]

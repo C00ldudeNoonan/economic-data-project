@@ -104,9 +104,9 @@ with_context as (
         end as attention_level,
         -- Track which subreddit combinations are common
         case
-            when list_contains(subreddits, 'wallstreetbets')
-                and (list_contains(subreddits, 'economics')
-                     or list_contains(subreddits, 'economy'))
+            when 'wallstreetbets' in unnest(subreddits)
+                and ('economics' in unnest(subreddits)
+                     or 'economy' in unnest(subreddits))
             then true
             else false
         end as retail_to_academic_crossover

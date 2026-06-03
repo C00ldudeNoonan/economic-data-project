@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import Field
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class SECEdgarResource(dg.ConfigurableResource):
@@ -474,26 +474,23 @@ class SECEdgarResource(dg.ConfigurableResource):
     def sync_filing_partitions_from_database(
         self,
         context: dg.AssetExecutionContext,
-        md: MotherDuckResource,
+        bq: BigQueryWarehouseResource,
         get_company_partition_name_fn: Callable[[str], str],
     ) -> None:
         """Sync dynamic partitions for companies and filings from sec_filings table."""
         conn = None
         try:
-            conn = md.get_connection()
+            conn = bq.get_connection()
 
             # Get all filings with primary_document
-            filings_df = pl.read_database(
-                """
+            filings_df = bq.execute_query("""
                 SELECT DISTINCT symbol, filing_id
                 FROM sec_filings
                 WHERE primary_document IS NOT NULL
                 AND primary_document != ''
                 AND symbol IS NOT NULL
                 AND filing_id IS NOT NULL
-                """,
-                connection=conn,
-            )
+                """)
 
             if filings_df.is_empty():
                 context.log.debug("No filings to create partitions for")

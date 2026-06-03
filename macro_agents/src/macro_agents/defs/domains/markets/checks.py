@@ -14,14 +14,14 @@ from macro_agents.defs.domains.markets.assets import (
     sp500_companies_prices_raw,
     us_sector_etfs_raw,
 )
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def check_weekly_data_coverage(
     table_name: str,
     partition_column: str,
     date_column: str,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """
     Check if every partition has at least one value per week in the last year.
@@ -32,7 +32,7 @@ def check_weekly_data_coverage(
     today = date.today()
     one_year_ago = today - timedelta(days=365)
 
-    if not md.table_exists(table_name):
+    if not bq.table_exists(table_name):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
@@ -85,7 +85,7 @@ def check_weekly_data_coverage(
     """
 
     try:
-        result_df = md.execute_query(query)
+        result_df = bq.execute_query(query)
 
         if result_df.shape[0] == 0:
             return dg.AssetCheckResult(
@@ -144,7 +144,7 @@ def check_weekly_data_coverage(
 
 @dg.asset_check(asset=us_sector_etfs_raw)
 def us_sector_etfs_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every ticker has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -157,7 +157,7 @@ def us_sector_etfs_weekly_coverage_check(
 
 @dg.asset_check(asset=currency_etfs_raw)
 def currency_etfs_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every ticker has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -170,7 +170,7 @@ def currency_etfs_weekly_coverage_check(
 
 @dg.asset_check(asset=major_indices_raw)
 def major_indices_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every ticker has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -183,7 +183,7 @@ def major_indices_weekly_coverage_check(
 
 @dg.asset_check(asset=fixed_income_etfs_raw)
 def fixed_income_etfs_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every ticker has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -196,7 +196,7 @@ def fixed_income_etfs_weekly_coverage_check(
 
 @dg.asset_check(asset=global_markets_raw)
 def global_markets_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every ticker has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -209,7 +209,7 @@ def global_markets_weekly_coverage_check(
 
 @dg.asset_check(asset=energy_commodities_raw)
 def energy_commodities_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every commodity has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -222,7 +222,7 @@ def energy_commodities_weekly_coverage_check(
 
 @dg.asset_check(asset=input_commodities_raw)
 def input_commodities_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every commodity has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -235,7 +235,7 @@ def input_commodities_weekly_coverage_check(
 
 @dg.asset_check(asset=agriculture_commodities_raw)
 def agriculture_commodities_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every commodity has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -248,7 +248,7 @@ def agriculture_commodities_weekly_coverage_check(
 
 @dg.asset_check(asset=sp500_companies_prices_raw)
 def sp500_companies_prices_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every ticker has at least one value per week in the last year."""
     return check_weekly_data_coverage(
@@ -261,7 +261,7 @@ def sp500_companies_prices_weekly_coverage_check(
 
 @dg.asset_check(asset=nasdaq_companies_prices_raw)
 def nasdaq_companies_prices_weekly_coverage_check(
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Check if every ticker has at least one value per week in the last year."""
     return check_weekly_data_coverage(

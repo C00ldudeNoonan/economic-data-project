@@ -12,7 +12,7 @@ WITH quarterly_data AS (
             AS year_month,
         EXTRACT(YEAR FROM date) AS year_val,
         EXTRACT(MONTH FROM date) AS month_val,
-        MAKE_DATE(EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date), 1)
+        DATE(EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date), 1)
             AS month_date,
         AVG(literal) AS avg_value
     FROM {{ ref('stg_fred_series') }}
@@ -37,23 +37,21 @@ all_months AS (
     SELECT
         db.series_code,
         db.series_name,
-        months.month_date,
+        months AS month_date,
         CONCAT(
-            EXTRACT(YEAR FROM months.month_date),
+            EXTRACT(YEAR FROM months),
             '-',
-            EXTRACT(MONTH FROM months.month_date)
+            EXTRACT(MONTH FROM months)
         ) AS year_month
     FROM date_bounds AS db
-    CROSS JOIN (
-        SELECT UNNEST(
-            GENERATE_SERIES(
-                (SELECT MIN(min_date) FROM date_bounds),
-                (SELECT MAX(max_date) FROM date_bounds),
-                INTERVAL '1 month'
-            )
-        ) AS month_date
+    CROSS JOIN UNNEST(
+        GENERATE_DATE_ARRAY(
+            (SELECT MIN(min_date) FROM date_bounds),
+            (SELECT MAX(max_date) FROM date_bounds),
+            INTERVAL 1 MONTH
+        )
     ) AS months
-    WHERE months.month_date >= db.min_date AND months.month_date <= db.max_date
+    WHERE months >= db.min_date AND months <= db.max_date
 ),
 
 data_with_gaps AS (

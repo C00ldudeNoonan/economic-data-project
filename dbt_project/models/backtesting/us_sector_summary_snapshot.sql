@@ -12,7 +12,7 @@ WITH snapshot_dates AS (
     AND DATE_TRUNC('month', date) >= COALESCE(
         (SELECT MAX(snapshot_date) FROM {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '1 month'
+    ) - INTERVAL 1 MONTH
     {% endif %}
 ),
 
@@ -46,7 +46,7 @@ base_data AS (
         AND close IS NOT NULL
         AND open > 0
         AND trade_date <= sd.snapshot_date
-        AND trade_date >= sd.snapshot_date - INTERVAL '5 years'
+        AND trade_date >= sd.snapshot_date - INTERVAL 5 YEAR
 ),
 
 -- Define date boundaries for different periods relative to snapshot_date
@@ -54,10 +54,10 @@ date_boundaries AS (
     SELECT
         snapshot_date AS today,
         snapshot_date,
-        snapshot_date - INTERVAL '12 weeks' AS twelve_weeks_ago,
-        snapshot_date - INTERVAL '6 months' AS six_months_ago,
-        snapshot_date - INTERVAL '1 year' AS one_year_ago,
-        snapshot_date - INTERVAL '5 years' AS five_years_ago
+        snapshot_date - INTERVAL 12 WEEK AS twelve_weeks_ago,
+        snapshot_date - INTERVAL 6 MONTH AS six_months_ago,
+        snapshot_date - INTERVAL 1 YEAR AS one_year_ago,
+        snapshot_date - INTERVAL 5 YEAR AS five_years_ago
     FROM snapshot_dates
 ),
 

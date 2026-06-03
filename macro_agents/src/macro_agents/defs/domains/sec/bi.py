@@ -7,7 +7,7 @@ from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register fea
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_search_terms_table
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 from macro_agents.defs.domains.sec.config import (
     BATCH_SIZE_STANDARD,
@@ -31,7 +31,7 @@ def sec_filing_business_intelligence(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """
@@ -58,12 +58,12 @@ def sec_filing_business_intelligence(
     metaxy_divergence_count: int | None = None
     metaxy_shadow_error: str | None = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_search_terms_table(conn)
 
         # Load filings with extracted content that haven't been BI-processed
         batch_size = BATCH_SIZE_STANDARD
-        filings_to_process = pl.read_database(
+        filings_to_process = bq.execute_query(
             f"""
             SELECT DISTINCT
                 c.filing_id,
@@ -82,8 +82,7 @@ def sec_filing_business_intelligence(
                 WHERE t.filing_id = c.filing_id
             )
             LIMIT {batch_size}
-            """,
-            connection=conn,
+            """
         )
 
         # Shadow mode (issue #46 Phase 2): expansion lineage, so Metaxy yields
@@ -174,7 +173,7 @@ def sec_filing_business_intelligence(
                         filing_id, signal.category, signal.position
                     )
 
-                    conn.execute(
+                    conn.query(
                         """
                         INSERT INTO sec_filing_search_terms
                         (term_id, filing_id, term_category, term_text,
@@ -193,15 +192,13 @@ def sec_filing_business_intelligence(
                             signal.section_name,
                             signal.confidence_score,
                         ],
-                    )
+                    ).result()
 
                     # Track category counts
                     category_counts[signal.category] = (
                         category_counts.get(signal.category, 0) + 1
                     )
                     total_signals += 1
-
-                conn.commit()
                 total_processed += 1
 
                 # Get summary stats for logging
@@ -226,7 +223,7 @@ def sec_filing_business_intelligence(
 
         # Get remaining count
         try:
-            remaining_row = conn.execute(
+            remaining_row = bq.fetchone(
                 """
                 SELECT COUNT(DISTINCT c.filing_id)
                 FROM sec_filing_content c
@@ -238,8 +235,7 @@ def sec_filing_business_intelligence(
                     SELECT 1 FROM sec_filing_search_terms t
                     WHERE t.filing_id = c.filing_id
                 )
-                """
-            ).fetchone()
+                """)
             remaining = remaining_row[0] if remaining_row else 0
         except Exception:
             # Table might not exist yet

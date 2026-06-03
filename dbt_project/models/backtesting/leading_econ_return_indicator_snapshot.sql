@@ -11,7 +11,7 @@ WITH snapshot_dates AS (
     AND DATE_TRUNC('month', month_date) >= COALESCE(
         (SELECT MAX(snapshot_date) FROM {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '1 month'
+    ) - INTERVAL 1 MONTH
     {% endif %}
 ),
 

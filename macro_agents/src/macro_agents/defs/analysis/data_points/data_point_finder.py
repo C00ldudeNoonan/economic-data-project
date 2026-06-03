@@ -9,17 +9,17 @@ This module provides functions to detect 4 types of interesting movements:
 
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def query_data_for_findings(
-    md: MotherDuckResource, week_start: str, week_end: str
+    bq: BigQueryWarehouseResource, week_start: str, week_end: str
 ) -> dict[str, pl.DataFrame]:
     """
     Query all relevant data sources for interesting data point detection.
 
     Args:
-        md: MotherDuckResource for database queries
+        bq: BigQueryWarehouseResource for database queries
         week_start: Week start date (YYYY-MM-DD)
         week_end: Week end date (YYYY-MM-DD)
 
@@ -105,11 +105,11 @@ def query_data_for_findings(
     """
 
     # Execute queries
-    economic_df = md.execute_query(economic_query, params=[week_start, week_end])
-    market_df = md.execute_query(market_query)
-    commodity_df = md.execute_query(commodity_query)
-    correlation_df = md.execute_query(correlation_query)
-    sentiment_df = md.execute_query(sentiment_query, params=[week_start, week_end])
+    economic_df = bq.execute_query(economic_query, params=[week_start, week_end])
+    market_df = bq.execute_query(market_query)
+    commodity_df = bq.execute_query(commodity_query)
+    correlation_df = bq.execute_query(correlation_query)
+    sentiment_df = bq.execute_query(sentiment_query, params=[week_start, week_end])
 
     return {
         "economic": economic_df,

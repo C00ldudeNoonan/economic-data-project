@@ -442,13 +442,13 @@ The asset `{asset_key}` continues to fail materialization. Please investigate ur
     name="asset_failure_monitor",
     description="Monitor asset and asset check failures and materializations, create GitHub issues after 3+ consecutive failures",
     automation_condition=dg.AutomationCondition.on_cron("0 */6 * * *"),
-    required_resource_keys={"md", "github"},
+    required_resource_keys={"bq", "github"},
 )
 def asset_failure_monitor(context):
     """
     Asset that:
     1. Queries all asset checks and assets for their latest execution status
-    2. Updates failure tracking in MotherDuck
+    2. Updates failure tracking in BigQuery
     3. Creates GitHub issues for asset checks/assets with 3+ consecutive failures
     4. Resets counters and closes issues when asset checks/assets pass
 

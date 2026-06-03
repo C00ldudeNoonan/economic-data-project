@@ -41,7 +41,7 @@ with sector_snapshot as (
     where snapshot_date >= COALESCE(
         (select max(snapshot_date) from {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '1 month'
+    ) - INTERVAL 1 MONTH
     {% endif %}
 ),
 
@@ -79,7 +79,7 @@ major_index_snapshot as (
     where DATE_TRUNC('month', period_end_date) >= COALESCE(
         (select max(snapshot_date) from {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '1 month'
+    ) - INTERVAL 1 MONTH
     {% endif %}
 )
 

@@ -7,7 +7,7 @@ import dagster as dg
 import polars as pl
 
 from macro_agents.defs.domains.social import reddit_partitions
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 TICKER_GROUP = "social_tickers"
 
@@ -81,7 +81,7 @@ def extract_tickers(text: str) -> list[str]:
 )
 def reddit_ticker_mentions(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Extract $TICKER mentions from post titles, selftext, and comments."""
 
@@ -94,7 +94,7 @@ def reddit_ticker_mentions(
 
     # Extract from posts
     try:
-        posts_df = md.execute_query(
+        posts_df = bq.execute_query(
             f"SELECT post_id, title, selftext FROM reddit_post_content_raw "
             f"WHERE subreddit = '{subreddit}' AND partition_date = '{partition_date}'"
         )
@@ -135,7 +135,7 @@ def reddit_ticker_mentions(
 
     # Extract from comments
     try:
-        comments_df = md.execute_query(
+        comments_df = bq.execute_query(
             f"SELECT comment_id, body FROM reddit_comments_raw "
             f"WHERE subreddit = '{subreddit}' AND partition_date = '{partition_date}' "
             f"AND body IS NOT NULL AND length(body) > 0"
@@ -161,7 +161,7 @@ def reddit_ticker_mentions(
 
     if mention_rows:
         df = pl.DataFrame(mention_rows)
-        md.upsert_data(
+        bq.upsert_data(
             "reddit_ticker_mentions",
             df,
             ["ticker", "content_id", "content_type"],

@@ -11,7 +11,7 @@ from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     analyze_economy_state,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class AssetClassRelationshipSignature(dspy.Signature):
@@ -106,7 +106,7 @@ class AssetClassRelationshipModule(dspy.Module):
 
 
 def get_latest_economy_state_analysis(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
 ) -> str | None:
     """Get the latest economy state analysis from the database."""
     query = """
@@ -188,7 +188,7 @@ def extract_relationship_summary(analysis_content: str) -> dict[str, Any]:
 def analyze_asset_class_relationships(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -363,7 +363,7 @@ def analyze_asset_class_relationships(
         "dagster_asset_key": str(context.asset_key),
     }
 
-    md.write_results_to_table(
+    bq.write_results_to_table(
         [json_result],
         output_table="asset_class_relationship_analysis",
         if_exists="append",

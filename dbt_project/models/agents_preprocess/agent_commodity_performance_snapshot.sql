@@ -39,7 +39,7 @@ with energy_snapshot as (
     where snapshot_date >= COALESCE(
         (select max(snapshot_date) from {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '1 month'
+    ) - INTERVAL 1 MONTH
     {% endif %}
 ),
 
@@ -75,7 +75,7 @@ input_snapshot as (
     where snapshot_date >= COALESCE(
         (select max(snapshot_date) from {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '1 month'
+    ) - INTERVAL 1 MONTH
     {% endif %}
 ),
 
@@ -111,7 +111,7 @@ agriculture_snapshot as (
     where snapshot_date >= COALESCE(
         (select max(snapshot_date) from {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '1 month'
+    ) - INTERVAL 1 MONTH
     {% endif %}
 )
 

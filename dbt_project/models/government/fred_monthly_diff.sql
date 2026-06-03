@@ -29,18 +29,16 @@ all_dates AS (
     SELECT
         db.series_code,
         db.series_name,
-        dates.date
+        dates AS date
     FROM date_bounds AS db
-    CROSS JOIN (
-        SELECT UNNEST(
-            GENERATE_SERIES(
-                (SELECT MIN(min_date) FROM date_bounds),
-                (SELECT MAX(max_date) FROM date_bounds),
-                INTERVAL '1 month'
-            )
-        ) AS date
+    CROSS JOIN UNNEST(
+        GENERATE_DATE_ARRAY(
+            (SELECT MIN(min_date) FROM date_bounds),
+            (SELECT MAX(max_date) FROM date_bounds),
+            INTERVAL 1 MONTH
+        )
     ) AS dates
-    WHERE dates.date >= db.min_date AND dates.date <= db.max_date
+    WHERE dates >= db.min_date AND dates <= db.max_date
 ),
 
 data_with_gaps AS (

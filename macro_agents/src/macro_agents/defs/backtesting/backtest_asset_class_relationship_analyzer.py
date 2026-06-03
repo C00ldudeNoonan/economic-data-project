@@ -19,11 +19,11 @@ from macro_agents.defs.backtesting.backtest_economy_state_analyzer import (
     get_backtest_dates,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def get_latest_backtest_economy_state_analysis(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     backtest_date: str,
     model_provider: str,
     model_name: str,
@@ -61,7 +61,7 @@ def get_latest_backtest_economy_state_analysis(
 def backtest_analyze_asset_class_relationships(
     context: dg.AssetExecutionContext,
     config: BacktestConfig,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -415,7 +415,7 @@ def backtest_analyze_asset_class_relationships(
             context.log.debug(
                 f"Successfully processed {backtest_date}, writing result to database..."
             )
-            md.write_results_to_table(
+            bq.write_results_to_table(
                 [json_result],
                 output_table="backtest_asset_class_relationship_analysis",
                 if_exists="append",

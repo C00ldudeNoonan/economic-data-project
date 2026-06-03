@@ -11,12 +11,10 @@ daily_error_summary as (
         coalesce(error_code, 'no_code') as error_code,
         coalesce(page_path, 'unknown_page') as page_path,
 
-        -- Error counts
         count(*) as error_count,
         count(distinct session_id) as affected_sessions,
-        count(distinct user_id) filter (where user_id is not null) as affected_users,
+        count(distinct if(user_id is not null, user_id, null)) as affected_users,
 
-        -- First and last occurrence
         min(event_timestamp) as first_occurrence,
         max(event_timestamp) as last_occurrence
 
@@ -30,7 +28,6 @@ daily_error_summary as (
 ),
 
 session_context as (
-    -- Get total sessions per day for error rate calculation
     select
         session_date as date,
         count(distinct session_id) as total_sessions
@@ -50,19 +47,19 @@ select
     es.first_occurrence,
     es.last_occurrence,
 
-    -- Calculate time span
-    extract(epoch from (es.last_occurrence - es.first_occurrence)) / 3600.0 as hours_between_first_and_last,
+    timestamp_diff(es.last_occurrence, es.first_occurrence, second) / 3600.0
+        as hours_between_first_and_last,
 
-    -- Calculate error rate
     round(
-        es.affected_sessions::float / nullif(sc.total_sessions, 0)::float * 100,
+        cast(es.affected_sessions as float64) / nullif(sc.total_sessions, 0) * 100,
         2
     ) as session_error_rate_pct,
 
-    -- Calculate average errors per affected session
-    round(es.error_count::float / nullif(es.affected_sessions, 0)::float, 2) as avg_errors_per_affected_session,
+    round(
+        cast(es.error_count as float64) / nullif(es.affected_sessions, 0),
+        2
+    ) as avg_errors_per_affected_session,
 
-    -- Severity indicator
     case
         when es.error_count > 100 then 'critical'
         when es.error_count > 50 then 'high'
@@ -70,7 +67,6 @@ select
         else 'low'
     end as severity,
 
-    -- Impact indicator (combination of frequency and user impact)
     case
         when es.error_count > 100 and es.affected_sessions > 20 then 'high_impact'
         when es.error_count > 50 or es.affected_sessions > 10 then 'medium_impact'

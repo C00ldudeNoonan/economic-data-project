@@ -164,5 +164,5 @@ SELECT
 FROM vix_stats v
 LEFT JOIN spy ON v.date = spy.date
 LEFT JOIN qqq ON v.date = qqq.date
-WHERE v.date >= CURRENT_DATE - INTERVAL '3 years'
+WHERE v.date >= CURRENT_DATE - INTERVAL 3 YEAR
 ORDER BY v.date DESC

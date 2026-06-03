@@ -163,5 +163,5 @@ SELECT
     END AS oil_trend_signal
 
 FROM with_calculations
-WHERE date >= CURRENT_DATE - INTERVAL '2 years'
+WHERE date >= CURRENT_DATE - INTERVAL 2 YEAR
 ORDER BY date DESC

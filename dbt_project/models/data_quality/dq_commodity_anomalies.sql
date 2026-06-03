@@ -14,16 +14,16 @@ with {{ table_name }}_enriched as (
     select
         commodity_name,
         cast(date as date) as date,
-        cast(commodity_price as double) as price,
-        lag(cast(commodity_price as double)) over (
+        CAST(commodity_price AS FLOAT64) as price,
+        lag(CAST(commodity_price AS FLOAT64)) over (
             partition by commodity_name order by date
         ) as prev_price,
-        avg(cast(commodity_price as double)) over (
+        avg(CAST(commodity_price AS FLOAT64)) over (
             partition by commodity_name
             order by date
             rows between 21 preceding and 1 preceding
         ) as rolling_avg,
-        stddev(cast(commodity_price as double)) over (
+        stddev(CAST(commodity_price AS FLOAT64)) over (
             partition by commodity_name
             order by date
             rows between 21 preceding and 1 preceding
@@ -38,12 +38,12 @@ select
     commodity_name as symbol,
     date,
     'invalid_price' as check_type,
-    coalesce('price=' || cast(price as varchar), 'invalid price') as failure_reason,
-    null::double as open,
-    null::double as high,
-    null::double as low,
+    coalesce('price=' || CAST(price AS STRING), 'invalid price') as failure_reason,
+    CAST(NULL AS FLOAT64) as open,
+    CAST(NULL AS FLOAT64) as high,
+    CAST(NULL AS FLOAT64) as low,
     price as close,
-    null::double as adj_close,
+    CAST(NULL AS FLOAT64) as adj_close,
     current_timestamp as detected_at
 from {{ table_name }}_enriched
 where price <= 0
@@ -60,11 +60,11 @@ select
         'price zscore=' || round(abs(price - rolling_avg) / nullif(rolling_std, 0), 2),
         'zscore anomaly'
     ) as failure_reason,
-    null::double as open,
-    null::double as high,
-    null::double as low,
+    CAST(NULL AS FLOAT64) as open,
+    CAST(NULL AS FLOAT64) as high,
+    CAST(NULL AS FLOAT64) as low,
     price as close,
-    null::double as adj_close,
+    CAST(NULL AS FLOAT64) as adj_close,
     current_timestamp as detected_at
 from {{ table_name }}_enriched
 where
@@ -84,11 +84,11 @@ select
         'daily return ' || round((price / nullif(prev_price, 0) - 1) * 100, 1) || '%',
         'return spike'
     ) as failure_reason,
-    null::double as open,
-    null::double as high,
-    null::double as low,
+    CAST(NULL AS FLOAT64) as open,
+    CAST(NULL AS FLOAT64) as high,
+    CAST(NULL AS FLOAT64) as low,
     price as close,
-    null::double as adj_close,
+    CAST(NULL AS FLOAT64) as adj_close,
     current_timestamp as detected_at
 from {{ table_name }}_enriched
 where
@@ -105,11 +105,11 @@ select
     date,
     'stale_price' as check_type,
     'price identical to previous day' as failure_reason,
-    null::double as open,
-    null::double as high,
-    null::double as low,
+    CAST(NULL AS FLOAT64) as open,
+    CAST(NULL AS FLOAT64) as high,
+    CAST(NULL AS FLOAT64) as low,
     price as close,
-    null::double as adj_close,
+    CAST(NULL AS FLOAT64) as adj_close,
     current_timestamp as detected_at
 from {{ table_name }}_enriched
 where

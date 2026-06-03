@@ -17,7 +17,7 @@ from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register fea
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_chunks_table
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.domains.sec.config import (
     BATCH_SIZE_EMBEDDINGS,
     MAX_ERROR_DETAILS,
@@ -131,7 +131,7 @@ def _split_text_into_chunks(
 )
 def sec_filing_search_index(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     gcs: GCSResource,
     ollama: OllamaResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
@@ -151,7 +151,7 @@ def sec_filing_search_index(
     metaxy_divergence_count: int | None = None
     metaxy_shadow_error: str | None = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_chunks_table(conn)
 
         batch_size = BATCH_SIZE_EMBEDDINGS
@@ -160,7 +160,7 @@ def sec_filing_search_index(
         # Query gcs_path and word_count, then download content from GCS.
         # Use LEFT JOIN to detect partially embedded sections: compare
         # expected chunk count (from word_count) against actual chunks stored.
-        sections_to_process = pl.read_database(
+        sections_to_process = bq.execute_query(
             f"""
             SELECT c.content_id, c.filing_id, c.section_name,
                    c.gcs_path, c.word_count, f.symbol,
@@ -182,8 +182,7 @@ def sec_filing_search_index(
             )
             ORDER BY f.filing_date DESC
             LIMIT {batch_size * 4}
-            """,
-            connection=conn,
+            """
         )
 
         # Shadow mode (issue #46 Phase 2): expansion lineage. Roll Metaxy's
@@ -262,11 +261,11 @@ def sec_filing_search_index(
 
                 # If partially embedded, delete existing chunks and re-embed
                 if existing_chunks > 0:
-                    conn.execute(
+                    conn.query(
                         "DELETE FROM sec_filing_chunks "
                         "WHERE filing_id = ? AND section_name = ?",
                         [filing_id, section_name],
-                    )
+                    ).result()
                     context.log.debug(
                         f"Cleared {existing_chunks} partial chunks for "
                         f"{symbol}/{section_name}, re-embedding {len(chunks)}"
@@ -280,7 +279,7 @@ def sec_filing_search_index(
                     embeddings = ollama.get_embeddings([chunk_text])
                     embedding = embeddings[0] if embeddings else None
 
-                    conn.execute(
+                    conn.query(
                         """
                         INSERT INTO sec_filing_chunks
                         (chunk_id, filing_id, symbol, section_name,
@@ -304,11 +303,9 @@ def sec_filing_search_index(
                             embedding,
                             ollama._embedding_model,
                         ],
-                    )
+                    ).result()
 
                     total_chunks += 1
-
-                conn.commit()
                 context.log.debug(
                     f"Embedded {len(chunks)} chunks for {symbol}/{section_name}"
                 )

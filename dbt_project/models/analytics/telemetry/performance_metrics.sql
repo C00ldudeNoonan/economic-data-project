@@ -21,24 +21,21 @@ daily_metrics as (
         metric_name,
         coalesce(page_path, 'unknown_page') as page,
 
-        -- Statistical aggregations
         count(*) as sample_size,
         avg(metric_value) as avg_value,
-        percentile_cont(0.50) within group (order by metric_value) as p50_value,
-        percentile_cont(0.75) within group (order by metric_value) as p75_value,
-        percentile_cont(0.95) within group (order by metric_value) as p95_value,
-        percentile_cont(0.99) within group (order by metric_value) as p99_value,
+        approx_quantiles(metric_value, 100)[offset(50)] as p50_value,
+        approx_quantiles(metric_value, 100)[offset(75)] as p75_value,
+        approx_quantiles(metric_value, 100)[offset(95)] as p95_value,
+        approx_quantiles(metric_value, 100)[offset(99)] as p99_value,
         min(metric_value) as min_value,
         max(metric_value) as max_value,
 
-        -- Rating distribution
-        count(*) filter (where metric_rating = 'good') as good_count,
-        count(*) filter (where metric_rating = 'needs-improvement') as needs_improvement_count,
-        count(*) filter (where metric_rating = 'poor') as poor_count,
+        countif(metric_rating = 'good') as good_count,
+        countif(metric_rating = 'needs-improvement') as needs_improvement_count,
+        countif(metric_rating = 'poor') as poor_count,
 
-        -- Unique sessions and users
         count(distinct session_id) as unique_sessions,
-        count(distinct user_id) filter (where user_id is not null) as unique_users
+        count(distinct if(user_id is not null, user_id, null)) as unique_users
 
     from web_vitals_events
     group by event_date, page, metric_name
@@ -50,7 +47,6 @@ select
     metric_name,
     sample_size,
 
-    -- Central tendency metrics
     good_count,
     needs_improvement_count,
     poor_count,
@@ -59,21 +55,20 @@ select
     round(avg_value, 2) as avg_value,
     round(p50_value, 2) as p50_value,
 
-    -- Rating distribution counts
     round(p75_value, 2) as p75_value,
     round(p95_value, 2) as p95_value,
     round(p99_value, 2) as p99_value,
 
-    -- Rating distribution percentages
     round(min_value, 2) as min_value,
     round(max_value, 2) as max_value,
-    round(good_count::float / nullif(sample_size, 0)::float * 100, 2) as good_pct,
+    round(cast(good_count as float64) / nullif(sample_size, 0) * 100, 2)
+        as good_pct,
 
-    -- User reach
-    round(needs_improvement_count::float / nullif(sample_size, 0)::float * 100, 2) as needs_improvement_pct,
-    round(poor_count::float / nullif(sample_size, 0)::float * 100, 2) as poor_pct,
+    round(cast(needs_improvement_count as float64) / nullif(sample_size, 0) * 100, 2)
+        as needs_improvement_pct,
+    round(cast(poor_count as float64) / nullif(sample_size, 0) * 100, 2)
+        as poor_pct,
 
-    -- Overall rating based on p75 value and Web Vitals thresholds
     case
         when metric_name = 'LCP'
             then
@@ -120,7 +115,6 @@ select
         else 'unknown'
     end as overall_rating,
 
-    -- Performance trend indicator (compare p95 vs avg)
     case
         when p95_value > (avg_value * 2) then 'high_variability'
         when p95_value > (avg_value * 1.5) then 'moderate_variability'
@@ -128,6 +122,6 @@ select
     end as variability_level
 
 from daily_metrics
-where sample_size >= 5  -- Filter out pages with too few samples
+where sample_size >= 5
 
 order by date desc, metric_name asc, page asc

@@ -2,13 +2,13 @@ from datetime import date
 
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="housing_inventory_raw")
-def housing_inventory_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def housing_inventory_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate housing inventory data is non-empty and has current year data."""
-    if not md.table_exists("housing_inventory_raw"):
+    if not bq.table_exists("housing_inventory_raw"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
@@ -16,7 +16,7 @@ def housing_inventory_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
         )
 
     current_year = str(date.today().year)
-    df = md.execute_query(
+    df = bq.execute_query(
         f"""
         SELECT
             COUNT(*) AS row_count,
@@ -44,9 +44,9 @@ def housing_inventory_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="housing_pulse_raw")
-def housing_pulse_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def housing_pulse_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate housing pulse data has current-year cycles."""
-    if not md.table_exists("housing_pulse_raw"):
+    if not bq.table_exists("housing_pulse_raw"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
@@ -54,7 +54,7 @@ def housing_pulse_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
         )
 
     current_year = str(date.today().year)
-    df = md.execute_query(
+    df = bq.execute_query(
         f"""
         SELECT
             COUNT(*) AS row_count,
@@ -83,7 +83,7 @@ def housing_pulse_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="realtor_raw")
-def realtor_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def realtor_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate realtor.com data exists across geographic levels."""
     expected_tables = [
         "RDC_Inventory_Core_Metrics_Country_History",
@@ -97,9 +97,9 @@ def realtor_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
     total_rows = 0
 
     for table_name in expected_tables:
-        if md.table_exists(table_name):
+        if bq.table_exists(table_name):
             found_tables.append(table_name)
-            df = md.execute_query(
+            df = bq.execute_query(
                 f'SELECT COUNT(*) AS row_count FROM "{table_name}"',
                 read_only=True,
             )

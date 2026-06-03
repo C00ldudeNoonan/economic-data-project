@@ -101,14 +101,14 @@ def _mark_notified(md, event_id: int, now: datetime) -> None:
 )
 def economic_alert_notification_sensor(context: dg.SensorEvaluationContext):
     from macro_agents.defs.resources.gmail import gmail_notifier_resource
-    from macro_agents.defs.resources.motherduck import motherduck_resource
+    from macro_agents.defs.resources.bigquery_warehouse import bigquery_warehouse_resource
 
     recipient = os.getenv("ALERT_RECIPIENT")
     if not recipient:
         context.log.warning("ALERT_RECIPIENT not set; skipping notification sweep")
         return
 
-    md = motherduck_resource
+    md = bigquery_warehouse_resource
     config = load_alert_config()
     alerts_by_id = {a.alert_id: a for a in config.alerts}
     alert_ids = list(alerts_by_id.keys())

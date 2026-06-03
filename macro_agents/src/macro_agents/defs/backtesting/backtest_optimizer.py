@@ -33,7 +33,7 @@ from macro_agents.defs.analysis.investments.investment_recommendations import (
     InvestmentRecommendationsModule,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class OptimizationConfig(dg.Config):
@@ -95,7 +95,7 @@ class PromotionConfig(dg.Config):
 
 
 def create_model_versions_table(
-    md: MotherDuckResource, context: dg.AssetExecutionContext
+    bq: BigQueryWarehouseResource, context: dg.AssetExecutionContext
 ) -> None:
     """Create the dspy_model_versions table if it doesn't exist."""
     create_table_query = """
@@ -115,7 +115,7 @@ def create_model_versions_table(
     )
     """
     try:
-        md.execute_query(create_table_query, read_only=False)
+        bq.execute_query(create_table_query, read_only=False)
         context.log.info("Created/verified dspy_model_versions table")
     except Exception as e:
         context.log.warning(f"Table may already exist: {e}")
@@ -135,7 +135,7 @@ def create_model_versions_table(
 def prepare_optimization_training_data(
     context: dg.AssetExecutionContext,
     config: OptimizationConfig,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Prepare training data from backtest evaluation results.
@@ -169,7 +169,7 @@ def prepare_optimization_training_data(
     ORDER BY backtest_date DESC
     """
 
-    df = md.execute_query(query, read_only=True)
+    df = bq.execute_query(query, read_only=True)
     context.log.info(f"Found {len(df)} backtest evaluation records")
 
     if df.is_empty():
@@ -206,7 +206,7 @@ def prepare_optimization_training_data(
         ORDER BY analysis_timestamp DESC
         LIMIT 1
         """
-        rec_df = md.execute_query(rec_query, read_only=True)
+        rec_df = bq.execute_query(rec_query, read_only=True)
 
         if rec_df.is_empty():
             continue
@@ -227,7 +227,7 @@ def prepare_optimization_training_data(
         ORDER BY analysis_timestamp DESC
         LIMIT 1
         """
-        economy_state_df = md.execute_query(economy_state_query, read_only=True)
+        economy_state_df = bq.execute_query(economy_state_query, read_only=True)
 
         asset_class_query = f"""
         SELECT analysis_content
@@ -239,10 +239,10 @@ def prepare_optimization_training_data(
         ORDER BY analysis_timestamp DESC
         LIMIT 1
         """
-        asset_class_df = md.execute_query(asset_class_query, read_only=True)
+        asset_class_df = bq.execute_query(asset_class_query, read_only=True)
 
         symbols = [rec["symbol"] for rec in recommendations]
-        returns_data = get_asset_returns(md, symbols, backtest_date, periods=[1, 3, 6])
+        returns_data = get_asset_returns(bq, symbols, backtest_date, periods=[1, 3, 6])
 
         for rec in recommendations:
             symbol = rec["symbol"]
@@ -316,7 +316,7 @@ def prepare_optimization_training_data(
 def optimize_dspy_modules(
     context: dg.AssetExecutionContext,
     config: OptimizationConfig,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     gcs: GCSResource,
     economic_analysis: EconomicAnalysisResource,
 ) -> dg.MaterializeResult:
@@ -333,7 +333,7 @@ def optimize_dspy_modules(
     """
     context.log.info("Starting DSPy module optimization...")
 
-    create_model_versions_table(md, context)
+    create_model_versions_table(bq, context)
 
     # Setup resource with overrides (respects frozen nature of resource)
     economic_analysis.setup_for_execution(
@@ -385,7 +385,7 @@ def optimize_dspy_modules(
         ORDER BY backtest_date DESC
         """
 
-        eval_df = md.execute_query(eval_query, read_only=True)
+        eval_df = bq.execute_query(eval_query, read_only=True)
         context.log.info(
             f"Found {len(eval_df)} evaluation records for personality {personality}"
         )
@@ -420,7 +420,7 @@ def optimize_dspy_modules(
                 ORDER BY analysis_timestamp DESC
                 LIMIT 1
                 """
-                rec_df = md.execute_query(rec_query, read_only=True)
+                rec_df = bq.execute_query(rec_query, read_only=True)
                 if rec_df.is_empty():
                     continue
 
@@ -437,7 +437,7 @@ def optimize_dspy_modules(
                 ORDER BY analysis_timestamp DESC
                 LIMIT 1
                 """
-                economy_state_df = md.execute_query(economy_state_query, read_only=True)
+                economy_state_df = bq.execute_query(economy_state_query, read_only=True)
 
                 asset_class_query = f"""
                 SELECT analysis_content
@@ -449,7 +449,7 @@ def optimize_dspy_modules(
                 ORDER BY analysis_timestamp DESC
                 LIMIT 1
                 """
-                asset_class_df = md.execute_query(asset_class_query, read_only=True)
+                asset_class_df = bq.execute_query(asset_class_query, read_only=True)
 
                 symbols = [rec["symbol"] for rec in recommendations]
                 returns_data = get_asset_returns(
@@ -667,7 +667,7 @@ def optimize_dspy_modules(
                             ),
                         }
 
-                        md.write_results_to_table(
+                        bq.write_results_to_table(
                             [version_record],
                             output_table="dspy_model_versions",
                             if_exists="append",
@@ -741,7 +741,7 @@ def optimize_dspy_modules(
 def promote_optimized_model_to_production(
     context: dg.AssetExecutionContext,
     config: PromotionConfig,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
@@ -772,7 +772,7 @@ def promote_optimized_model_to_production(
     LIMIT 1
     """
 
-    df = md.execute_query(query, read_only=True)
+    df = bq.execute_query(query, read_only=True)
     if df.is_empty():
         raise ValueError(
             f"Model version {config.module_name} v{config.version} not found in database"
@@ -796,25 +796,24 @@ def promote_optimized_model_to_production(
     except Exception as e:
         raise ValueError(f"Could not download model from GCS: {e}")
 
-    conn = md.get_connection()
+    conn = bq.get_connection()
     try:
-        conn.execute(
+        conn.query(
             f"""
             UPDATE dspy_model_versions
             SET is_production = FALSE
             WHERE module_name = '{config.module_name}'
             """
-        )
+        ).result()
 
-        conn.execute(
+        conn.query(
             f"""
             UPDATE dspy_model_versions
             SET is_production = TRUE
             WHERE module_name = '{config.module_name}'
                 AND version = '{config.version}'
             """
-        )
-        conn.commit()
+        ).result()
         context.log.info(
             f"Promoted {config.module_name} v{config.version} to production"
         )
@@ -839,7 +838,7 @@ def promote_optimized_model_to_production(
 )
 def auto_promote_best_models_to_production(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
@@ -854,7 +853,7 @@ def auto_promote_best_models_to_production(
     """
     context.log.info("Auto-promoting best models to production for each personality...")
 
-    create_model_versions_table(md, context)
+    create_model_versions_table(bq, context)
 
     modules_query = """
     SELECT DISTINCT module_name, personality
@@ -864,7 +863,7 @@ def auto_promote_best_models_to_production(
     ORDER BY module_name, personality
     """
 
-    modules_df = md.execute_query(modules_query, read_only=True)
+    modules_df = bq.execute_query(modules_query, read_only=True)
 
     if modules_df.is_empty():
         context.log.info("No optimized models available for promotion")
@@ -900,7 +899,7 @@ def auto_promote_best_models_to_production(
         LIMIT 1
         """
 
-        best_model_df = md.execute_query(best_model_query, read_only=True)
+        best_model_df = bq.execute_query(best_model_query, read_only=True)
 
         if best_model_df.is_empty():
             context.log.warning(f"No eligible models found for {module_name}")
@@ -941,18 +940,18 @@ def auto_promote_best_models_to_production(
             )
             continue
 
-        conn = md.get_connection()
+        conn = bq.get_connection()
         try:
-            conn.execute(
+            conn.query(
                 f"""
                 UPDATE dspy_model_versions
                 SET is_production = FALSE
                 WHERE module_name = '{module_name}'
                     AND personality = '{best_personality}'
                 """
-            )
+            ).result()
 
-            conn.execute(
+            conn.query(
                 f"""
                 UPDATE dspy_model_versions
                 SET is_production = TRUE
@@ -960,9 +959,7 @@ def auto_promote_best_models_to_production(
                     AND version = '{version}'
                     AND personality = '{best_personality}'
                 """
-            )
-            conn.commit()
-
+            ).result()
             context.log.info(
                 f"Promoted {module_name} v{version} (personality: {best_personality}) to production "
                 f"(accuracy: {best_model['optimized_accuracy']:.4f}, "

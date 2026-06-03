@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import dagster as dg
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.ollama import OllamaResource
 from macro_agents.defs.resources.reddit import RedditResource
 from macro_agents.defs.domains.social_checks import social_checks
@@ -33,7 +33,7 @@ reddit_partitions = dg.MultiPartitionsDefinition(
 def reddit_posts_raw(
     context: dg.AssetExecutionContext,
     reddit: RedditResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Scrape Reddit posts for a subreddit and date partition with rate limiting.
@@ -63,7 +63,7 @@ def reddit_posts_raw(
                 "fetched_at": pl.Datetime,
             }
         )
-        md.upsert_data("reddit_posts_raw", empty_df, ["post_id"], context=context)
+        bq.upsert_data("reddit_posts_raw", empty_df, ["post_id"], context=context)
 
     subreddit = context.partition_key.keys_by_dimension["subreddit"]
     partition_date = context.partition_key.keys_by_dimension["date"]
@@ -107,7 +107,7 @@ def reddit_posts_raw(
         f"Successfully scraped {len(df)} posts from r/{subreddit}, upserting to database"
     )
 
-    md.upsert_data("reddit_posts_raw", df, ["post_id"], context=context)
+    bq.upsert_data("reddit_posts_raw", df, ["post_id"], context=context)
 
     def _coerce_float(value: object) -> float:
         if isinstance(value, (int, float, Decimal)):
@@ -151,7 +151,7 @@ def reddit_posts_raw(
 def reddit_post_content_raw(
     context: dg.AssetExecutionContext,
     reddit: RedditResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Fetch full post content (selftext, links) for each post in a partition."""
 
@@ -166,7 +166,7 @@ def reddit_post_content_raw(
         f"WHERE subreddit = '{subreddit}' AND partition_date = '{partition_date}'"
     )
     try:
-        posts_df = md.execute_query(query)
+        posts_df = bq.execute_query(query)
     except Exception as e:
         context.log.error(f"Failed to query posts: {e}")
         return dg.MaterializeResult(metadata={"error": str(e), "num_posts": 0})
@@ -207,7 +207,7 @@ def reddit_post_content_raw(
 
     if content_rows:
         df = pl.DataFrame(content_rows)
-        md.upsert_data("reddit_post_content_raw", df, ["post_id"], context=context)
+        bq.upsert_data("reddit_post_content_raw", df, ["post_id"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -230,7 +230,7 @@ def reddit_post_content_raw(
 def reddit_comments_raw(
     context: dg.AssetExecutionContext,
     reddit: RedditResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Fetch comments for each post in a partition."""
 
@@ -244,7 +244,7 @@ def reddit_comments_raw(
         f"WHERE subreddit = '{subreddit}' AND partition_date = '{partition_date}'"
     )
     try:
-        posts_df = md.execute_query(query)
+        posts_df = bq.execute_query(query)
     except Exception as e:
         context.log.error(f"Failed to query posts: {e}")
         return dg.MaterializeResult(metadata={"error": str(e), "num_comments": 0})
@@ -289,7 +289,7 @@ def reddit_comments_raw(
 
     if all_comments:
         df = pl.DataFrame(all_comments)
-        md.upsert_data("reddit_comments_raw", df, ["comment_id"], context=context)
+        bq.upsert_data("reddit_comments_raw", df, ["comment_id"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -312,7 +312,7 @@ def reddit_comments_raw(
 def reddit_content_embeddings(
     context: dg.AssetExecutionContext,
     ollama: OllamaResource,
-    md: MotherDuckResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Build embeddings for post selftext and comment bodies in a partition."""
 
@@ -329,7 +329,7 @@ def reddit_content_embeddings(
     # Embed post selftext
     query_error = ""
     try:
-        posts_df = md.execute_query(
+        posts_df = bq.execute_query(
             f"SELECT post_id, title, selftext FROM reddit_post_content_raw "
             f"WHERE subreddit = '{subreddit}' AND partition_date = '{partition_date}'"
         )
@@ -363,7 +363,7 @@ def reddit_content_embeddings(
 
     # Embed comments
     try:
-        comments_df = md.execute_query(
+        comments_df = bq.execute_query(
             f"SELECT comment_id, body FROM reddit_comments_raw "
             f"WHERE subreddit = '{subreddit}' AND partition_date = '{partition_date}'"
         )
@@ -399,7 +399,7 @@ def reddit_content_embeddings(
 
     if embedding_rows:
         df = pl.DataFrame(embedding_rows)
-        md.upsert_data(
+        bq.upsert_data(
             "reddit_content_embeddings",
             df,
             ["content_id", "content_type"],

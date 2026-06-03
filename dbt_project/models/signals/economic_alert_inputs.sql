@@ -110,5 +110,5 @@ LEFT JOIN t10y2y AS t ON d.date = t.date
 LEFT JOIN unrate_delta AS u ON d.date = u.date
 LEFT JOIN fedfunds_delta AS f ON d.date = f.date
 LEFT JOIN hy_oas AS h ON d.date = h.date
-WHERE d.date >= CURRENT_DATE - INTERVAL '2 years'
+WHERE d.date >= CURRENT_DATE - INTERVAL 2 YEAR
 ORDER BY d.date DESC
