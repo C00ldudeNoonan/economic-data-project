@@ -15,7 +15,7 @@ import numpy as np
 import polars as pl
 from scipy.spatial.distance import mahalanobis
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -43,7 +43,7 @@ ASSET_QUERIES = {
 )
 def turbulence_index_signals(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching multi-asset prices...")
     asset_frames: dict[str, pl.DataFrame] = {}

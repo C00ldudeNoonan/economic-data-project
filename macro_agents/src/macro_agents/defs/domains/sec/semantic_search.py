@@ -13,7 +13,7 @@ from metaxy.metadata_store.base import MetadataStore
 from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register features
 from macro_agents.defs.domains.sec.fts import FTS_TABLE, sec_filing_fts_index
 from macro_agents.defs.domains.sec.search import sec_filing_search_index
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def vector_search(
@@ -61,8 +61,7 @@ def vector_search(
     """
     params_list = [query_embedding, *params]
 
-    return pl.read_database(
-        query, connection=conn, execute_options={"parameters": params_list}
+    return md.execute_query(
     )
 
 
@@ -114,8 +113,7 @@ def keyword_search(
     """
     params_list = [query_text, *params]
 
-    return pl.read_database(
-        query, connection=conn, execute_options={"parameters": params_list}
+    return md.execute_query(
     )
 
 
@@ -225,7 +223,7 @@ def hybrid_search(
 )
 def sec_filing_hybrid_search_ready(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """Check that both vector and FTS indexes are populated and queryable."""
@@ -250,25 +248,25 @@ def sec_filing_hybrid_search_ready(
         conn = md.get_connection()
 
         # Check vector index coverage
-        vec_row = conn.execute("""
+        vec_row = md.fetchone("""
             SELECT
                 COUNT(DISTINCT symbol) AS symbols_with_embeddings,
                 COUNT(DISTINCT filing_id) AS filings_with_embeddings,
                 COUNT(*) AS total_chunks
             FROM sec_filing_chunks
             WHERE embedding IS NOT NULL
-        """).fetchone()
+        """)
         vec_stats = vec_row if vec_row else (0, 0, 0)
 
         # Check FTS table coverage
         try:
-            fts_row = conn.execute(f"""
+            fts_row = md.fetchone(f"""
                 SELECT
                     COUNT(DISTINCT symbol) AS symbols_indexed,
                     COUNT(DISTINCT filing_id) AS filings_indexed,
                     COUNT(*) AS total_sections
                 FROM {FTS_TABLE}
-            """).fetchone()
+            """)
             fts_stats = fts_row if fts_row else (0, 0, 0)
         except Exception:
             fts_stats = (0, 0, 0)

@@ -18,15 +18,15 @@ from macro_agents.defs.analysis.data_points.data_point_finder import (
 from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     EconomicAnalysisResource,
 )
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
-def get_latest_economic_context(md: MotherDuckResource) -> str:
+def get_latest_economic_context(md: BigQueryWarehouseResource) -> str:
     """
     Get latest economic analysis summary for context.
 
     Args:
-        md: MotherDuckResource for database queries
+        md: BigQueryWarehouseResource for database queries
 
     Returns:
         String summary of latest economic analysis or default message
@@ -75,7 +75,7 @@ def get_latest_economic_context(md: MotherDuckResource) -> str:
 def detect_interesting_data_points_weekly(
     context: dg.AssetExecutionContext,
     economic_analysis: EconomicAnalysisResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Weekly scan for interesting data points using statistical detection + AI analysis.

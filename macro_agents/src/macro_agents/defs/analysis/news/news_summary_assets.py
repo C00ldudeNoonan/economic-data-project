@@ -9,7 +9,7 @@ import dagster as dg
 import polars as pl
 
 from macro_agents.defs.analysis.news.news_summarizer import NewsSummarizerResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset(
@@ -22,7 +22,7 @@ from macro_agents.defs.resources.motherduck import MotherDuckResource
 def reddit_daily_summary(
     context: dg.AssetExecutionContext,
     news_summarizer: NewsSummarizerResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Generate daily AI summary of Reddit posts across all financial/economic subreddits.
@@ -137,7 +137,7 @@ def reddit_daily_summary(
 def news_weekly_summary(
     context: dg.AssetExecutionContext,
     news_summarizer: NewsSummarizerResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Generate weekly AI summary combining Reddit posts and FOMC minutes.

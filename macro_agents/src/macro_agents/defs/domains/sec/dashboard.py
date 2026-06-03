@@ -1,7 +1,7 @@
 import dagster as dg
 
 from macro_agents.defs.domains.sec.metadata import sec_filing_metadata
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset(
@@ -12,7 +12,7 @@ from macro_agents.defs.resources.motherduck import MotherDuckResource
 )
 def sec_filing_dashboard_views(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Create database views for SEC filing analytics and dashboards.
@@ -30,7 +30,7 @@ def sec_filing_dashboard_views(
         conn = md.get_connection()
 
         # 1. Filing Overview View
-        conn.execute("""
+        conn.query("""
             CREATE OR REPLACE VIEW sec_filing_overview AS
             SELECT
                 f.filing_id,
@@ -51,11 +51,11 @@ def sec_filing_dashboard_views(
             FROM sec_filings f
             LEFT JOIN sec_company_cik c ON f.symbol = c.symbol
             ORDER BY f.filing_date DESC
-        """)
+        """).result()
         context.log.debug("Created view: sec_filing_overview")
 
         # 2. BI Signals by Category View
-        conn.execute("""
+        conn.query("""
             CREATE OR REPLACE VIEW sec_bi_signals_by_category AS
             SELECT
                 term_category,
@@ -66,11 +66,11 @@ def sec_filing_dashboard_views(
             FROM sec_filing_search_terms
             GROUP BY term_category
             ORDER BY signal_count DESC
-        """)
+        """).result()
         context.log.debug("Created view: sec_bi_signals_by_category")
 
         # 3. BI Signals by Company View
-        conn.execute("""
+        conn.query("""
             CREATE OR REPLACE VIEW sec_bi_signals_by_company AS
             SELECT
                 f.symbol,
@@ -83,11 +83,11 @@ def sec_filing_dashboard_views(
             LEFT JOIN sec_company_cik c ON f.symbol = c.symbol
             GROUP BY f.symbol, c.company_name, st.term_category
             ORDER BY f.symbol, signal_count DESC
-        """)
+        """).result()
         context.log.debug("Created view: sec_bi_signals_by_company")
 
         # 4. Filing Trends View (quarterly aggregation)
-        conn.execute("""
+        conn.query("""
             CREATE OR REPLACE VIEW sec_filing_trends AS
             SELECT
                 DATE_TRUNC('quarter', filing_date) as quarter,
@@ -99,11 +99,11 @@ def sec_filing_dashboard_views(
             WHERE filing_date IS NOT NULL
             GROUP BY DATE_TRUNC('quarter', filing_date), form_type
             ORDER BY quarter DESC, form_type
-        """)
+        """).result()
         context.log.debug("Created view: sec_filing_trends")
 
         # 5. Growth Indicators View
-        conn.execute("""
+        conn.query("""
             CREATE OR REPLACE VIEW sec_growth_indicators AS
             SELECT
                 f.symbol,
@@ -120,11 +120,11 @@ def sec_filing_dashboard_views(
             WHERE st.term_category IN ('growth_signals', 'hiring_plans', 'market_expansion')
             AND st.confidence_score >= 0.6
             ORDER BY f.filing_date DESC, st.confidence_score DESC
-        """)
+        """).result()
         context.log.debug("Created view: sec_growth_indicators")
 
         # 6. Risk Summary View
-        conn.execute("""
+        conn.query("""
             CREATE OR REPLACE VIEW sec_risk_summary AS
             SELECT
                 f.symbol,
@@ -140,11 +140,11 @@ def sec_filing_dashboard_views(
             WHERE st.term_category = 'risk_factors'
             AND st.confidence_score >= 0.5
             ORDER BY f.filing_date DESC, st.confidence_score DESC
-        """)
+        """).result()
         context.log.debug("Created view: sec_risk_summary")
 
         # 7. Company BI Profile View (latest signals per company)
-        conn.execute("""
+        conn.query("""
             CREATE OR REPLACE VIEW sec_company_bi_profile AS
             WITH latest_filings AS (
                 SELECT symbol, MAX(filing_date) as latest_filing_date
@@ -175,12 +175,12 @@ def sec_filing_dashboard_views(
             JOIN latest_filings lf ON cs.symbol = lf.symbol
             LEFT JOIN sec_company_cik c ON cs.symbol = c.symbol
             ORDER BY cs.symbol, cs.category_count DESC
-        """)
+        """).result()
         context.log.debug("Created view: sec_company_bi_profile")
 
         # Embedding coverage view (only if chunks table exists)
         try:
-            conn.execute("""
+            conn.query("""
                 CREATE OR REPLACE VIEW sec_embedding_coverage AS
                 SELECT
                     ch.symbol,
@@ -193,15 +193,12 @@ def sec_filing_dashboard_views(
                 LEFT JOIN sec_company_cik c ON ch.symbol = c.symbol
                 GROUP BY ch.symbol, c.company_name, ch.model_name
                 ORDER BY total_chunks DESC
-            """)
+            """).result()
             context.log.debug("Created view: sec_embedding_coverage")
         except Exception:
             context.log.debug(
                 "Skipped sec_embedding_coverage (sec_filing_chunks table not ready)"
             )
-
-        conn.commit()
-
         # Get view statistics
         views = [
             "sec_filing_overview",
@@ -216,7 +213,7 @@ def sec_filing_dashboard_views(
         view_stats = {}
         for view in views:
             try:
-                result = conn.execute(f"SELECT COUNT(*) FROM {view}").fetchone()
+                result = md.fetchone(f"SELECT COUNT(*) FROM {view}")
                 view_stats[view] = result[0] if result else 0
             except Exception as e:
                 view_stats[view] = f"Error: {e}"

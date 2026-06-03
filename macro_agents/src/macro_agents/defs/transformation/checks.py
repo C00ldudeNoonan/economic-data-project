@@ -1,10 +1,10 @@
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="financial_conditions_index")
-def fci_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def fci_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate financial conditions index has recent values in valid range."""
     if not md.table_exists("financial_conditions_index"):
         return dg.AssetCheckResult(
@@ -49,7 +49,7 @@ def fci_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="fci_weights_config")
-def fci_weights_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def fci_weights_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate FCI weights configuration table exists and has entries."""
     if not md.table_exists("fci_weights_config"):
         return dg.AssetCheckResult(

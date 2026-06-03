@@ -20,11 +20,11 @@ from macro_agents.defs.analysis.investments.investment_recommendations import (
     extract_recommendations_summary,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def get_latest_backtest_economy_state_analysis(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     backtest_date: str,
     model_provider: str,
     model_name: str,
@@ -49,7 +49,7 @@ def get_latest_backtest_economy_state_analysis(
 
 
 def get_latest_backtest_relationship_analysis(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     backtest_date: str,
     model_provider: str,
     model_name: str,
@@ -94,7 +94,7 @@ def get_latest_backtest_relationship_analysis(
 def backtest_generate_investment_recommendations(
     context: dg.AssetExecutionContext,
     config: BacktestConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:

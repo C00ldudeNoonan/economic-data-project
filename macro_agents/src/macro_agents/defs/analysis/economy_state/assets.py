@@ -16,7 +16,7 @@ from macro_agents.defs.analysis.economy_state.token_usage import (
     _get_token_usage,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset(
@@ -39,7 +39,7 @@ from macro_agents.defs.resources.motherduck import MotherDuckResource
 def analyze_economy_state(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -277,7 +277,7 @@ def analyze_economy_state(
 def analyze_economy_state_v2(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
 ) -> dg.MaterializeResult:
     """

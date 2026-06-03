@@ -4,7 +4,7 @@ import dagster as dg
 import polars as pl
 
 from macro_agents.defs.domains.sec.tables import ensure_sec_company_cik_table
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 
 
@@ -17,7 +17,7 @@ from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 def sp500_cik_enriched(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Validate and enrich S&P 500 CIK codes using SEC EDGAR's official ticker mapping.
@@ -39,10 +39,7 @@ def sp500_cik_enriched(
         ensure_sec_company_cik_table(conn)
 
         # Load S&P 500 companies
-        sp500_df = pl.read_database(
-            "SELECT symbol, company_name, cik FROM sp500_companies_raw WHERE date_ended IS NULL",
-            connection=conn,
-        )
+        sp500_df = md.execute_query("SELECT symbol, company_name, cik FROM sp500_companies_raw WHERE date_ended IS NULL")
 
         if sp500_df.is_empty():
             context.log.warning("No S&P 500 companies found in database")

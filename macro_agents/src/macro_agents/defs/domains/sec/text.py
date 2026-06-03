@@ -11,7 +11,7 @@ from macro_agents.defs.domains.sec import lineage  # noqa: F401
 from macro_agents.defs.domains.sec.metadata import sec_filing_metadata
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_content_table
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 from macro_agents.defs.domains.sec.config import BATCH_SIZE_STANDARD, MAX_ERROR_DETAILS
 from macro_agents.defs.utils.sec_text_extractor import SECTextExtractor
@@ -29,7 +29,7 @@ def sec_filing_text_extracted(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """
@@ -51,7 +51,7 @@ def sec_filing_text_extracted(
 
         # Load processed filings that haven't been text-extracted yet
         batch_size = BATCH_SIZE_STANDARD
-        filings_to_process = pl.read_database(
+        filings_to_process = md.execute_query(
             f"""
             SELECT f.filing_id, f.cik, f.symbol, f.form_type, f.gcs_path
             FROM sec_filings f
@@ -62,8 +62,7 @@ def sec_filing_text_extracted(
                 WHERE c.filing_id = f.filing_id
             )
             LIMIT {batch_size}
-            """,
-            connection=conn,
+            """
         )
 
         # Shadow mode (issue #46 Phase 1): compute Metaxy's stale set and log
@@ -240,7 +239,7 @@ def sec_filing_text_extracted(
         )
 
         # Get count of remaining filings to process
-        remaining_row = conn.execute(
+        remaining_row = md.fetchone(
             """
             SELECT COUNT(*)
             FROM sec_filings f
@@ -250,8 +249,7 @@ def sec_filing_text_extracted(
                 SELECT 1 FROM sec_filing_content c
                 WHERE c.filing_id = f.filing_id
             )
-            """
-        ).fetchone()
+            """)
         remaining = remaining_row[0] if remaining_row else 0
 
         return dg.MaterializeResult(

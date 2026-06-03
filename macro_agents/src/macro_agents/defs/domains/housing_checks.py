@@ -2,11 +2,11 @@ from datetime import date
 
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="housing_inventory_raw")
-def housing_inventory_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def housing_inventory_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate housing inventory data is non-empty and has current year data."""
     if not md.table_exists("housing_inventory_raw"):
         return dg.AssetCheckResult(
@@ -44,7 +44,7 @@ def housing_inventory_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="housing_pulse_raw")
-def housing_pulse_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def housing_pulse_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate housing pulse data has current-year cycles."""
     if not md.table_exists("housing_pulse_raw"):
         return dg.AssetCheckResult(
@@ -83,7 +83,7 @@ def housing_pulse_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="realtor_raw")
-def realtor_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def realtor_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate realtor.com data exists across geographic levels."""
     expected_tables = [
         "RDC_Inventory_Core_Metrics_Country_History",

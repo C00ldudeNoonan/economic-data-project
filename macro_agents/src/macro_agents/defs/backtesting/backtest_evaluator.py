@@ -15,7 +15,7 @@ from macro_agents.defs.backtesting.backtest_utils import (
     extract_recommendations,
     get_asset_returns,
 )
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class RecommendationPassThroughModule(dspy.Module):
@@ -114,7 +114,7 @@ def recommendation_accuracy_metric(example, prediction, trace=None):
 def evaluate_backtest_recommendations(
     context: dg.AssetExecutionContext,
     config: BacktestConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Asset that evaluates backtest investment recommendations using DSPy's evaluation framework.

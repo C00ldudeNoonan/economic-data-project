@@ -4,7 +4,7 @@ import dagster as dg
 import polars as pl
 
 from macro_agents.defs.resources.google_sheets import GoogleSheetsResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 DATA_QUALITY_GROUP = "data_quality"
 
@@ -20,7 +20,7 @@ DATA_QUALITY_GROUP = "data_quality"
 )
 def dq_anomalies_to_sheets(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     google_sheets: GoogleSheetsResource,
 ) -> dg.MaterializeResult:
     """Export anomalies from the dbt data_quality_anomalies table to Google Sheets.
@@ -71,7 +71,7 @@ def dq_anomalies_to_sheets(
 )
 def dq_apply_corrections(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     google_sheets: GoogleSheetsResource,
 ) -> dg.MaterializeResult:
     """Read back verified corrections from Google Sheets and update MotherDuck.

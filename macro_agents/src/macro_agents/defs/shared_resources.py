@@ -4,7 +4,7 @@ from metaxy.ext.dagster import MetaxyStoreFromConfigResource
 from macro_agents.defs.resources.federal_reserve import FederalReserveResource
 from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.resources.google_sheets import GoogleSheetsResource
-from macro_agents.defs.resources.motherduck import motherduck_resource
+from macro_agents.defs.resources.bigquery_warehouse import bigquery_warehouse_resource
 from macro_agents.defs.resources.nl_query_resource import nl_query_resource
 from macro_agents.defs.resources.pdf import PDFResource
 from macro_agents.defs.resources.sqlite_resource import sqlite_resource
@@ -12,7 +12,7 @@ from macro_agents.defs.resources.sqlite_resource import sqlite_resource
 
 defs = dg.Definitions(
     resources={
-        "md": motherduck_resource,
+        "md": bigquery_warehouse_resource,
         "metaxy_store": MetaxyStoreFromConfigResource(name="prod"),
         "sqlite": sqlite_resource,
         "gcs": GCSResource(

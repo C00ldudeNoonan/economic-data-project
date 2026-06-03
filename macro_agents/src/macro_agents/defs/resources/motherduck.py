@@ -23,7 +23,7 @@ def _validate_identifier(name: str, kind: str = "identifier") -> str:
     return name
 
 
-class MotherDuckResource(dg.ConfigurableResource):
+class BigQueryWarehouseResource(dg.ConfigurableResource):
     """Enhanced Dagster resource for managing MotherDuck database connections and operations."""
 
     md_token: str = Field(
@@ -784,7 +784,7 @@ environment = os.getenv("ENVIRONMENT", "dev")
 # Use os.getenv() instead of dg.EnvVar() to resolve values at import time
 # This is needed because some assets (e.g., SEC filings) query the database
 # at definition time to create dynamic assets
-motherduck_resource = MotherDuckResource(
+motherduck_resource = BigQueryWarehouseResource(
     environment=environment,
     md_token=os.getenv("MOTHERDUCK_TOKEN", "") if environment != "dev" else "",
     md_database=os.getenv("MOTHERDUCK_DATABASE", "local")

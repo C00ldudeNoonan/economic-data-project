@@ -2,11 +2,11 @@ from datetime import date, timedelta
 
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="reddit_posts_raw")
-def reddit_posts_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def reddit_posts_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate reddit posts data has recent entries with non-null text."""
     if not md.table_exists("reddit_posts_raw"):
         return dg.AssetCheckResult(
@@ -46,7 +46,7 @@ def reddit_posts_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="reddit_post_content_raw")
-def reddit_post_content_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def reddit_post_content_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate reddit post content exists and links back to posts."""
     if not md.table_exists("reddit_post_content_raw"):
         return dg.AssetCheckResult(
@@ -87,7 +87,7 @@ def reddit_post_content_data_check(md: MotherDuckResource) -> dg.AssetCheckResul
 
 
 @dg.asset_check(asset="reddit_comments_raw")
-def reddit_comments_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def reddit_comments_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate reddit comments exist with recent data."""
     if not md.table_exists("reddit_comments_raw"):
         return dg.AssetCheckResult(
@@ -122,7 +122,7 @@ def reddit_comments_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="reddit_content_embeddings")
-def reddit_embeddings_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def reddit_embeddings_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate embeddings exist and have correct dimensionality."""
     if not md.table_exists("reddit_content_embeddings"):
         return dg.AssetCheckResult(

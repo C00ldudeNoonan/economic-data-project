@@ -7,7 +7,7 @@ import dagster as dg
 import polars as pl
 
 from macro_agents.defs.domains.social import reddit_partitions
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 TICKER_GROUP = "social_tickers"
 
@@ -81,7 +81,7 @@ def extract_tickers(text: str) -> list[str]:
 )
 def reddit_ticker_mentions(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Extract $TICKER mentions from post titles, selftext, and comments."""
 

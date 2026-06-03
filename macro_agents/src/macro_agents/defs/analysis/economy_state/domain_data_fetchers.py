@@ -8,7 +8,7 @@ import io
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from macro_agents.defs.resources.motherduck import MotherDuckResource
+    from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 # Labor market FRED series codes
@@ -41,7 +41,7 @@ FINANCIAL_SERIES = [
 
 
 def get_labor_market_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     max_months: int = 3,
 ) -> str:
@@ -107,7 +107,7 @@ def get_labor_market_data(
 
 
 def get_labor_trends_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     max_months: int = 6,
 ) -> str:
@@ -149,7 +149,7 @@ def get_labor_trends_data(
 
 
 def get_financial_conditions_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     max_months: int = 12,
 ) -> str:
@@ -198,7 +198,7 @@ def get_financial_conditions_data(
 
 
 def get_yield_curve_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     max_months: int = 6,
 ) -> str:
@@ -240,7 +240,7 @@ def get_yield_curve_data(
 
 
 def get_credit_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     max_months: int = 3,
 ) -> str:
@@ -304,7 +304,7 @@ def get_credit_data(
 
 
 def get_energy_commodities_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     time_period: str = "6_months",
 ) -> str:
@@ -359,7 +359,7 @@ def get_energy_commodities_data(
 
 
 def get_input_commodities_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     time_period: str = "6_months",
 ) -> str:
@@ -414,7 +414,7 @@ def get_input_commodities_data(
 
 
 def get_agriculture_commodities_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     time_period: str = "6_months",
 ) -> str:
@@ -469,7 +469,7 @@ def get_agriculture_commodities_data(
 
 
 def get_sector_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     time_period: str = "6_months",
 ) -> str:
@@ -526,7 +526,7 @@ def get_sector_data(
 
 
 def get_sector_correlation_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     sample_size: int = 30,
 ) -> str:
@@ -582,7 +582,7 @@ def get_sector_correlation_data(
 
 
 def get_major_indices_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     time_period: str = "6_months",
 ) -> str:
@@ -639,7 +639,7 @@ def get_major_indices_data(
 
 
 def get_fixed_income_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     time_period: str = "6_months",
 ) -> str:
@@ -700,7 +700,7 @@ def get_fixed_income_data(
 
 
 def get_global_markets_data(
-    md_resource: "MotherDuckResource",
+    md_resource: "BigQueryWarehouseResource",
     cutoff_date: str | None = None,
     time_period: str = "6_months",
 ) -> str:

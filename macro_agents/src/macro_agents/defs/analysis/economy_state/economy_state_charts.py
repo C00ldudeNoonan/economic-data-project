@@ -15,7 +15,7 @@ from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     EconomicAnalysisResource,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 alt.data_transformers.disable_max_rows()
 
@@ -237,7 +237,7 @@ def _default_specs(max_charts: int) -> list[EconomyStateChartSpec]:
     return specs[:max_charts]
 
 
-def _fetch_fci_data(md: MotherDuckResource, months: int) -> pl.DataFrame:
+def _fetch_fci_data(md: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
     query = f"""
     SELECT date, FCI
     FROM agent_financial_conditions_index
@@ -248,7 +248,7 @@ def _fetch_fci_data(md: MotherDuckResource, months: int) -> pl.DataFrame:
     return md.execute_query(query, read_only=True)
 
 
-def _fetch_yield_curve_spreads(md: MotherDuckResource, months: int) -> pl.DataFrame:
+def _fetch_yield_curve_spreads(md: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
     query = f"""
     SELECT
         DATE_TRUNC('month', date) AS month,
@@ -264,7 +264,7 @@ def _fetch_yield_curve_spreads(md: MotherDuckResource, months: int) -> pl.DataFr
 
 
 def _fetch_fred_series(
-    md: MotherDuckResource, series_code: str, months: int
+    md: BigQueryWarehouseResource, series_code: str, months: int
 ) -> pl.DataFrame:
     query = f"""
     SELECT month AS date, current_value AS value
@@ -363,7 +363,7 @@ def _build_single_series_chart(
 
 
 def _chart_for_key(
-    chart_key: str, md: MotherDuckResource, months: int, theme: ThemeStyle
+    chart_key: str, md: BigQueryWarehouseResource, months: int, theme: ThemeStyle
 ) -> alt.Chart | None:
     if chart_key == "fci_trend":
         df = _fetch_fci_data(md, months)
@@ -431,7 +431,7 @@ def _inject_chart_tokens(analysis_content: str, manifest: list[dict[str, Any]]) 
     return analysis_content.strip() + "\n" + "\n".join(lines)
 
 
-def _fetch_analysis_row(md: MotherDuckResource, run_id: str) -> dict[str, Any] | None:
+def _fetch_analysis_row(md: BigQueryWarehouseResource, run_id: str) -> dict[str, Any] | None:
     query = """
     SELECT
         analysis_timestamp,
@@ -461,7 +461,7 @@ def _fetch_analysis_row(md: MotherDuckResource, run_id: str) -> dict[str, Any] |
 def generate_economy_state_charts(
     context: dg.AssetExecutionContext,
     config: EconomyStateChartConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:

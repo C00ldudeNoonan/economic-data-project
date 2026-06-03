@@ -7,7 +7,7 @@ import polars as pl
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from macro_agents.defs.domains.social import reddit_partitions
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 SENTIMENT_GROUP = "social_sentiment"
 
@@ -49,7 +49,7 @@ def _score_texts(texts: list[str]) -> list[dict]:
 )
 def reddit_sentiment_scored(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Score post titles, selftext, and comments with VADER sentiment."""
 

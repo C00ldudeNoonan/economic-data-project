@@ -2,13 +2,13 @@ from datetime import date, timedelta
 
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def _check_signal_table(
     table_name: str,
     value_column: str,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     freshness_days: int = 14,
 ) -> dg.AssetCheckResult:
     """Reusable check for signal tables: freshness, non-null values, valid range."""
@@ -75,7 +75,7 @@ def _check_signal_table(
 
 
 @dg.asset_check(asset="absorption_ratio_signals")
-def absorption_ratio_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def absorption_ratio_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate absorption ratio signal has recent, valid values."""
     return _check_signal_table(
         "absorption_ratio_signals", "absorption_ratio", md, freshness_days=14
@@ -83,7 +83,7 @@ def absorption_ratio_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="turbulence_index_signals")
-def turbulence_index_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def turbulence_index_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate turbulence index signal has recent, valid values."""
     return _check_signal_table(
         "turbulence_index_signals", "turbulence_raw", md, freshness_days=7
@@ -91,7 +91,7 @@ def turbulence_index_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="fear_greed_signals")
-def fear_greed_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def fear_greed_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate fear & greed signal has recent, valid values."""
     return _check_signal_table(
         "fear_greed_signals", "fear_greed_score", md, freshness_days=7
@@ -99,7 +99,7 @@ def fear_greed_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="entropy_complexity_signals")
-def entropy_complexity_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def entropy_complexity_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate entropy complexity signal has recent, valid values."""
     return _check_signal_table(
         "entropy_complexity_signals", "spy_perm_entropy", md, freshness_days=7
@@ -107,7 +107,7 @@ def entropy_complexity_data_check(md: MotherDuckResource) -> dg.AssetCheckResult
 
 
 @dg.asset_check(asset="network_correlation_signals")
-def network_correlation_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def network_correlation_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate network correlation signal has recent, valid values."""
     return _check_signal_table(
         "network_correlation_signals", "mst_total_length", md, freshness_days=14

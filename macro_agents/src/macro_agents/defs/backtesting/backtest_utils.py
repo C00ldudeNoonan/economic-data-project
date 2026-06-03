@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def extract_recommendations(recommendations_content: str) -> list[dict[str, Any]]:
@@ -154,7 +154,7 @@ def extract_recommendations(recommendations_content: str) -> list[dict[str, Any]
 
 
 def get_asset_returns(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     symbols: list[str],
     backtest_date: str,
     periods: list[int] = [1, 3, 6],  # months

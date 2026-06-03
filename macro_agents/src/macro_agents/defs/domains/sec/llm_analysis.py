@@ -15,7 +15,7 @@ from macro_agents.defs.domains.sec.tables import ensure_sec_filing_llm_metadata_
 from macro_agents.defs.domains.sec.config import MAX_ERROR_DETAILS
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.ollama import OllamaResource
 from macro_agents.defs.utils.sec_llm_analyzer import SECFilingAnalyzer
 
@@ -40,7 +40,7 @@ def _generate_metadata_id(filing_id: str, section_name: str) -> str:
 def sec_filing_llm_analysis(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     ollama: OllamaResource,
 ) -> dg.MaterializeResult:
     """
@@ -60,7 +60,7 @@ def sec_filing_llm_analysis(
         ensure_sec_filing_llm_metadata_table(conn)
 
         # Find filing sections for this ticker that don't have LLM metadata yet
-        sections_to_process = pl.read_database(
+        sections_to_process = md.execute_query(
             f"""
             SELECT c.content_id, c.filing_id, c.section_name, c.gcs_path,
                    f.symbol, f.form_type
@@ -74,8 +74,7 @@ def sec_filing_llm_analysis(
                 AND m.section_name = c.section_name
             )
             LIMIT 10
-            """,
-            connection=conn,
+            """
         )
 
         if sections_to_process.is_empty():
@@ -131,7 +130,7 @@ def sec_filing_llm_analysis(
                 # Build metadata record
                 metadata_id = _generate_metadata_id(filing_id, section_name)
 
-                conn.execute(
+                conn.query(
                     """
                     INSERT INTO sec_filing_llm_metadata
                     (metadata_id, filing_id, symbol, section_name,
@@ -166,9 +165,7 @@ def sec_filing_llm_analysis(
                         embedding,
                         ollama._model,
                     ],
-                )
-                conn.commit()
-
+                ).result()
                 total_analyzed += 1
                 context.log.debug(f"Analyzed {section_name} for {ticker} ({filing_id})")
 

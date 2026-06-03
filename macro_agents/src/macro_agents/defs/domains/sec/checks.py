@@ -2,11 +2,11 @@ from datetime import date, timedelta
 
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="sp500_cik_enriched")
-def sec_cik_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_cik_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC CIK mapping has companies with valid CIK codes."""
     if not md.table_exists("sec_company_cik"):
         return dg.AssetCheckResult(
@@ -49,7 +49,7 @@ def sec_cik_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="sec_filing_metadata")
-def sec_filing_metadata_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_filing_metadata_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC filing metadata has recent filings."""
     if not md.table_exists("sec_filings"):
         return dg.AssetCheckResult(
@@ -91,7 +91,7 @@ def sec_filing_metadata_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="sec_filing_text_extracted")
-def sec_text_extracted_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_text_extracted_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC filing text extraction has content."""
     if not md.table_exists("sec_filing_content"):
         return dg.AssetCheckResult(
@@ -131,7 +131,7 @@ def sec_text_extracted_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="sec_filing_business_intelligence")
-def sec_bi_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_bi_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC business intelligence search terms table."""
     if not md.table_exists("sec_filing_search_terms"):
         return dg.AssetCheckResult(
@@ -154,7 +154,7 @@ def sec_bi_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="sec_filing_gcs_catalog")
-def sec_gcs_catalog_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def sec_gcs_catalog_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate SEC GCS catalog is populated."""
     if not md.table_exists("sec_filing_gcs_catalog"):
         return dg.AssetCheckResult(

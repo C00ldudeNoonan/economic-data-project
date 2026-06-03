@@ -1,10 +1,10 @@
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="telemetry_events_raw")
-def telemetry_events_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def telemetry_events_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate telemetry events have been replicated."""
     if not md.table_exists("telemetry.telemetry_events_raw"):
         return dg.AssetCheckResult(
@@ -35,7 +35,7 @@ def telemetry_events_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="users_raw")
-def users_raw_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def users_raw_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate users table has been replicated."""
     table_name = "telemetry.users_raw"
     try:

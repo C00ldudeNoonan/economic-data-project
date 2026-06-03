@@ -8,7 +8,7 @@ from macro_agents.defs.domains.sec.helpers import PIPELINE_VERSION
 from macro_agents.defs.domains.sec.metadata import sec_filing_metadata
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_markdown_table
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def _derive_base_gcs_path(gcs_path: str | None) -> str | None:
@@ -61,7 +61,7 @@ def build_company_manifest(
 def sec_filing_gcs_manifest(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Build a manifest.json per company symbol under sec_filings/{symbol}/manifest.json."""
     conn = None
@@ -69,15 +69,12 @@ def sec_filing_gcs_manifest(
         conn = md.get_connection()
         ensure_sec_filing_markdown_table(conn)
 
-        companies_df = pl.read_database(
-            """
+        companies_df = md.execute_query("""
             SELECT c.symbol, c.company_name, c.cik
             FROM sec_company_cik c
             WHERE c.symbol IS NOT NULL
             ORDER BY c.symbol
-            """,
-            connection=conn,
-        )
+            """)
 
         if companies_df.is_empty():
             context.log.info("No companies found in sec_company_cik")
@@ -85,8 +82,7 @@ def sec_filing_gcs_manifest(
                 metadata={"status": "no_companies", "manifests_written": 0}
             )
 
-        filings_df = pl.read_database(
-            """
+        filings_df = md.execute_query("""
             SELECT f.symbol, f.filing_id, f.accession_number, f.cik,
                    f.form_type, f.filing_date,
                    f.gcs_path, f.processed,
@@ -97,9 +93,7 @@ def sec_filing_gcs_manifest(
             LEFT JOIN sec_filing_markdown m ON m.filing_id = f.filing_id
             WHERE f.symbol IS NOT NULL
             ORDER BY f.symbol, f.filing_date DESC
-            """,
-            connection=conn,
-        )
+            """)
 
         filings_by_symbol: dict[str, list[dict]] = {}
         for row in filings_df.iter_rows(named=True):
@@ -162,7 +156,7 @@ def sec_filing_gcs_manifest(
 def sec_filing_gcs_catalog(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Build a catalog.json at sec_filings/catalog.json for cross-system lookups.
 
@@ -175,28 +169,22 @@ def sec_filing_gcs_catalog(
     try:
         conn = md.get_connection()
 
-        companies_df = pl.read_database(
-            """
+        companies_df = md.execute_query("""
             SELECT c.symbol, c.company_name, c.cik,
                    (SELECT COUNT(*) FROM sec_filings f
                     WHERE f.symbol = c.symbol) AS filing_count
             FROM sec_company_cik c
             WHERE c.symbol IS NOT NULL
             ORDER BY c.symbol
-            """,
-            connection=conn,
-        )
+            """)
 
-        filings_df = pl.read_database(
-            """
+        filings_df = md.execute_query("""
             SELECT f.symbol, f.accession_number, f.cik,
                    f.form_type, f.filing_date, f.gcs_path
             FROM sec_filings f
             WHERE f.symbol IS NOT NULL
             AND f.gcs_path IS NOT NULL
-            """,
-            connection=conn,
-        )
+            """)
 
         # Build company directory
         companies: dict[str, dict] = {}

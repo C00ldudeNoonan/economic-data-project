@@ -14,7 +14,7 @@ from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register fea
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_content_table
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 FTS_TABLE = "sec_filing_fts_content"
 
@@ -26,7 +26,7 @@ def _ensure_fts_content_table(conn) -> None:
     We join filing metadata with content text so keyword searches
     return symbol, form_type, filing_date alongside matches.
     """
-    conn.execute(f"""
+    conn.query(f"""
         CREATE TABLE IF NOT EXISTS {FTS_TABLE} (
             content_id VARCHAR PRIMARY KEY,
             filing_id VARCHAR NOT NULL,
@@ -38,7 +38,7 @@ def _ensure_fts_content_table(conn) -> None:
             word_count INTEGER,
             indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """).result()
 
 
 @metaxify(key="sec_filing_fts_index")
@@ -54,7 +54,7 @@ def _ensure_fts_content_table(conn) -> None:
 )
 def sec_filing_fts_index(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     gcs: GCSResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
@@ -76,7 +76,7 @@ def sec_filing_fts_index(
         _ensure_fts_content_table(conn)
 
         # Find content rows not yet in the FTS table
-        new_content = pl.read_database(
+        new_content = md.execute_query(
             f"""
             SELECT c.content_id, c.filing_id, c.section_name,
                    c.word_count, c.gcs_path,
@@ -90,8 +90,7 @@ def sec_filing_fts_index(
             )
             ORDER BY f.filing_date DESC
             LIMIT 200
-            """,
-            connection=conn,
+            """
         )
 
         # Shadow mode (issue #46): expansion lineage. Roll content-level
@@ -135,7 +134,7 @@ def sec_filing_fts_index(
                     if not content_text:
                         continue
 
-                    conn.execute(
+                    conn.query(
                         f"""
                         INSERT INTO {FTS_TABLE}
                         (content_id, filing_id, symbol, form_type,
@@ -153,40 +152,38 @@ def sec_filing_fts_index(
                             content_text,
                             row["word_count"],
                         ],
-                    )
+                    ).result()
                     rows_inserted += 1
 
                 except Exception as e:
                     errors.append(f"{row['symbol']}/{row['section_name']}: {e}")
                     continue
-
-            conn.commit()
             context.log.info(
                 f"Inserted {rows_inserted} rows into FTS table, {len(errors)} errors"
             )
 
         # Install and load FTS extension, then create/recreate the index
-        conn.execute("INSTALL fts")
-        conn.execute("LOAD fts")
+        conn.query("INSTALL fts").result()
+        conn.query("LOAD fts").result()
 
         # Drop existing index before recreating
-        conn.execute(
+        conn.query(
             f"PRAGMA drop_fts_index('{FTS_TABLE}')",
-        )
+        ).result()
 
         # Create FTS index on content_text plus metadata fields
-        conn.execute(f"""
+        conn.query(f"""
             PRAGMA create_fts_index(
                 '{FTS_TABLE}',
                 'content_id',
                 'content_text', 'symbol', 'section_name',
                 overwrite=1
             )
-        """)
+        """).result()
         context.log.info("FTS index created successfully")
 
         # Get total indexed rows
-        total_row = conn.execute(f"SELECT COUNT(*) FROM {FTS_TABLE}").fetchone()
+        total_row = md.fetchone(f"SELECT COUNT(*) FROM {FTS_TABLE}")
         total_indexed = total_row[0] if total_row else 0
 
         return dg.MaterializeResult(

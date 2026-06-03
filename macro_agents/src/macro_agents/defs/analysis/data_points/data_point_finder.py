@@ -9,17 +9,17 @@ This module provides functions to detect 4 types of interesting movements:
 
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def query_data_for_findings(
-    md: MotherDuckResource, week_start: str, week_end: str
+    md: BigQueryWarehouseResource, week_start: str, week_end: str
 ) -> dict[str, pl.DataFrame]:
     """
     Query all relevant data sources for interesting data point detection.
 
     Args:
-        md: MotherDuckResource for database queries
+        md: BigQueryWarehouseResource for database queries
         week_start: Week start date (YYYY-MM-DD)
         week_end: Week end date (YYYY-MM-DD)
 

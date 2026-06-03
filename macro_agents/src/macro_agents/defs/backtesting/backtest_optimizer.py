@@ -33,7 +33,7 @@ from macro_agents.defs.analysis.investments.investment_recommendations import (
     InvestmentRecommendationsModule,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class OptimizationConfig(dg.Config):
@@ -95,7 +95,7 @@ class PromotionConfig(dg.Config):
 
 
 def create_model_versions_table(
-    md: MotherDuckResource, context: dg.AssetExecutionContext
+    md: BigQueryWarehouseResource, context: dg.AssetExecutionContext
 ) -> None:
     """Create the dspy_model_versions table if it doesn't exist."""
     create_table_query = """
@@ -135,7 +135,7 @@ def create_model_versions_table(
 def prepare_optimization_training_data(
     context: dg.AssetExecutionContext,
     config: OptimizationConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Prepare training data from backtest evaluation results.
@@ -316,7 +316,7 @@ def prepare_optimization_training_data(
 def optimize_dspy_modules(
     context: dg.AssetExecutionContext,
     config: OptimizationConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     gcs: GCSResource,
     economic_analysis: EconomicAnalysisResource,
 ) -> dg.MaterializeResult:
@@ -741,7 +741,7 @@ def optimize_dspy_modules(
 def promote_optimized_model_to_production(
     context: dg.AssetExecutionContext,
     config: PromotionConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
@@ -798,23 +798,22 @@ def promote_optimized_model_to_production(
 
     conn = md.get_connection()
     try:
-        conn.execute(
+        conn.query(
             f"""
             UPDATE dspy_model_versions
             SET is_production = FALSE
             WHERE module_name = '{config.module_name}'
             """
-        )
+        ).result()
 
-        conn.execute(
+        conn.query(
             f"""
             UPDATE dspy_model_versions
             SET is_production = TRUE
             WHERE module_name = '{config.module_name}'
                 AND version = '{config.version}'
             """
-        )
-        conn.commit()
+        ).result()
         context.log.info(
             f"Promoted {config.module_name} v{config.version} to production"
         )
@@ -839,7 +838,7 @@ def promote_optimized_model_to_production(
 )
 def auto_promote_best_models_to_production(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
     """
@@ -943,16 +942,16 @@ def auto_promote_best_models_to_production(
 
         conn = md.get_connection()
         try:
-            conn.execute(
+            conn.query(
                 f"""
                 UPDATE dspy_model_versions
                 SET is_production = FALSE
                 WHERE module_name = '{module_name}'
                     AND personality = '{best_personality}'
                 """
-            )
+            ).result()
 
-            conn.execute(
+            conn.query(
                 f"""
                 UPDATE dspy_model_versions
                 SET is_production = TRUE
@@ -960,9 +959,7 @@ def auto_promote_best_models_to_production(
                     AND version = '{version}'
                     AND personality = '{best_personality}'
                 """
-            )
-            conn.commit()
-
+            ).result()
             context.log.info(
                 f"Promoted {module_name} v{version} (personality: {best_personality}) to production "
                 f"(accuracy: {best_model['optimized_accuracy']:.4f}, "

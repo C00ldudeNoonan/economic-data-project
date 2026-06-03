@@ -7,7 +7,7 @@ import dagster as dg
 import httpx
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.yahoo_finance import (
     YahooFinanceResource,
     yahoo_finance_resource,
@@ -137,7 +137,7 @@ def _build_us_federal_holidays(
 )
 def calendar_dates(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Build a reusable calendar/date dimension table for analytics."""
     context.log.info(
@@ -344,7 +344,7 @@ def parse_numeric_value(value: str | None) -> float | None:
 )
 def economic_calendar(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Fetch the weekly economic calendar events and store them in DuckDB."""
     context.log.info("Fetching economic calendar data")
@@ -428,7 +428,7 @@ def economic_calendar(
 def earnings_calendar(
     context: dg.AssetExecutionContext,
     yahoo_finance: YahooFinanceResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Ingest earnings calendar data from Yahoo Finance.
@@ -504,7 +504,7 @@ def earnings_calendar(
 
 
 @dg.asset_check(asset=calendar_dates)
-def calendar_dates_quality_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def calendar_dates_quality_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate the calendar dimension table is populated and recent."""
     if not md.table_exists("calendar_dates"):
         return dg.AssetCheckResult(
@@ -539,7 +539,7 @@ def calendar_dates_quality_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 @dg.asset_check(asset=economic_calendar)
 def economic_calendar_quality_check(
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Ensure economic calendar has recent events."""
     if not md.table_exists("economic_calendar"):
@@ -577,7 +577,7 @@ def economic_calendar_quality_check(
 
 
 @dg.asset_check(asset=earnings_calendar)
-def earnings_calendar_quality_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def earnings_calendar_quality_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Ensure earnings calendar table is populated."""
     if not md.table_exists("earnings_calendar"):
         return dg.AssetCheckResult(

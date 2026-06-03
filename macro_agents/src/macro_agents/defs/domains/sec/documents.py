@@ -11,7 +11,7 @@ from macro_agents.defs.domains.sec.config import MAX_ERROR_DETAILS
 from macro_agents.defs.domains.sec.filing_downloader import FilingDownloader
 from macro_agents.defs.domains.sec.metadata import sec_filing_metadata
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 
 sec_filing_documents_partitions = dg.DynamicPartitionsDefinition(
@@ -31,7 +31,7 @@ def sec_filing_documents(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Download a single SEC filing document to GCS.
 
@@ -110,7 +110,7 @@ def sec_filing_documents_batch(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Download unprocessed SEC filing documents in batch mode.
 

@@ -23,7 +23,7 @@ from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     _estimate_tokens,
     _check_rate_limit,
 )
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class NarrativeGenerationConfig(dg.Config):
@@ -52,7 +52,7 @@ class NarrativeGenerationConfig(dg.Config):
 
 
 def get_indicator_data(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     series_code: str,
     max_periods: int = 24,
 ) -> dict[str, Any]:
@@ -157,7 +157,7 @@ def get_indicator_data(
     }
 
 
-def get_fed_policy_context(md_resource: MotherDuckResource) -> str:
+def get_fed_policy_context(md_resource: BigQueryWarehouseResource) -> str:
     """Get current Fed policy stance from recent FOMC data."""
     try:
         # Try to get recent FOMC summary if available
@@ -182,7 +182,7 @@ def get_fed_policy_context(md_resource: MotherDuckResource) -> str:
         return "Fed policy context not available"
 
 
-def create_narrative_table_if_not_exists(md_resource: MotherDuckResource) -> None:
+def create_narrative_table_if_not_exists(md_resource: BigQueryWarehouseResource) -> None:
     """Create the economic_indicator_narratives table if it doesn't exist."""
     create_table_query = """
     CREATE TABLE IF NOT EXISTS economic_indicator_narratives (
@@ -210,7 +210,7 @@ def create_narrative_table_if_not_exists(md_resource: MotherDuckResource) -> Non
 
 
 def create_indicator_forecast_table_if_not_exists(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
 ) -> None:
     """Create the economic_indicator_forecasts table if it doesn't exist."""
     create_table_query = """
@@ -243,7 +243,7 @@ def create_indicator_forecast_table_if_not_exists(
 def generate_economic_narratives(
     context: dg.AssetExecutionContext,
     config: NarrativeGenerationConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
 ) -> dg.MaterializeResult:
     """
@@ -433,7 +433,7 @@ def generate_economic_narratives(
 def generate_indicator_forecasts(
     context: dg.AssetExecutionContext,
     config: NarrativeGenerationConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
 ) -> dg.MaterializeResult:
     """

@@ -14,7 +14,7 @@ from pydantic import Field
 
 from macro_agents.defs.resources._url_secrets import get_safe
 from macro_agents.defs.resources.google_drive import GoogleDriveResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.domains.housing_checks import housing_checks
 
 HOUSING_GROUP = "housing_ingestion"
@@ -36,7 +36,7 @@ class HousingInventoryConfig(dg.Config):
 )
 def housing_inventory_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     config: HousingInventoryConfig,
 ) -> dg.MaterializeResult:
     year = config.year
@@ -106,7 +106,7 @@ def housing_inventory_raw(
     description="Raw data from BLS API for housing pulse - runs weekly on Sundays at 4 AM EST",
 )
 def housing_pulse_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource
+    context: dg.AssetExecutionContext, md: BigQueryWarehouseResource
 ) -> dg.MaterializeResult:
     current_year = datetime.now().year
     main_df = pl.DataFrame()
@@ -185,7 +185,7 @@ realtor_partition = dg.StaticPartitionsDefinition(
 def realtor_raw(
     context: dg.AssetExecutionContext,
     gdrive: GoogleDriveResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Ingest Realtor.com housing data from Google Drive CSV files.

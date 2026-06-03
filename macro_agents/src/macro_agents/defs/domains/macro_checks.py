@@ -2,11 +2,11 @@ from datetime import date, timedelta
 
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="fred_raw")
-def fred_raw_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def fred_raw_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate FRED data has recent observations and numeric values."""
     if not md.table_exists("fred_raw"):
         return dg.AssetCheckResult(
@@ -55,7 +55,7 @@ def fred_raw_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="treasury_yields_raw")
-def treasury_yields_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def treasury_yields_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate treasury yields data exists and has recent data."""
     if not md.table_exists("treasury_yields_raw"):
         return dg.AssetCheckResult(
@@ -102,7 +102,7 @@ def treasury_yields_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="fomc_minutes_raw")
-def fomc_minutes_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def fomc_minutes_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate FOMC minutes data exists with recent meeting dates."""
     if not md.table_exists("fomc_minutes_raw"):
         return dg.AssetCheckResult(

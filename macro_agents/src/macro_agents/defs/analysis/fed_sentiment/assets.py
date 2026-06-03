@@ -18,7 +18,7 @@ from macro_agents.defs.analysis.fed_sentiment.lexicon import (
     score_text,
 )
 from macro_agents.defs.analysis.fed_sentiment.resource import FedSentimentResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 VALID_SCORING_METHODS = {"dictionary", "llm"}
@@ -44,7 +44,7 @@ def _generate_id(prefix: str, *components: str) -> str:
 )
 def score_fed_sentiment_dictionary(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Score transcript sections using monetary policy keyword lexicon.
 
@@ -163,7 +163,7 @@ MAX_SECTION_CHARS = 12_000  # ~3K tokens — safe for most models
 def score_fed_sentiment_llm(
     context: dg.AssetExecutionContext,
     fed_sentiment: FedSentimentResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Score transcript sections using LLM-based sentiment analysis.
 
@@ -309,7 +309,7 @@ def score_fed_sentiment_llm(
 )
 def fed_sentiment_rate_correlation(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Join meeting-level sentiment with rate decisions from fomc_meetings_enhanced.
 
@@ -363,7 +363,7 @@ def fed_sentiment_rate_correlation(
 
 
 def _rebuild_meeting_aggregates(
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     meeting_dates: set[str],
     scoring_method: str,
 ) -> list[dict]:
@@ -437,7 +437,7 @@ def _rebuild_meeting_aggregates(
     return aggregates
 
 
-def _compute_score_deltas(records: list[dict], md: MotherDuckResource) -> None:
+def _compute_score_deltas(records: list[dict], md: BigQueryWarehouseResource) -> None:
     """Fill in prev_meeting_score and score_delta for meeting-level rows.
 
     Queries existing meeting-level scores to find the previous meeting's score.

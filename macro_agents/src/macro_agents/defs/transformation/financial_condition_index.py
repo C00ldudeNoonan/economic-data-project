@@ -3,10 +3,10 @@ from datetime import datetime
 import dagster as dg
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
-def fetch_financial_data(motherduck_resource: MotherDuckResource) -> pl.DataFrame:
+def fetch_financial_data(motherduck_resource: BigQueryWarehouseResource) -> pl.DataFrame:
     """
     Fetch financial data from dbt models and prepare it for FCI calculation.
     """
@@ -261,7 +261,7 @@ def fetch_financial_data(motherduck_resource: MotherDuckResource) -> pl.DataFram
     return merged_df
 
 
-def load_fci_weights(motherduck_resource: MotherDuckResource) -> dict[str, list[float]]:
+def load_fci_weights(motherduck_resource: BigQueryWarehouseResource) -> dict[str, list[float]]:
     """
     Load FCI weights from the fci_weights_config table.
 
@@ -389,7 +389,7 @@ def calculate_fci_scores(
 )
 def financial_conditions_index(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Dagster asset that creates the Financial Conditions Index (FCI).
@@ -539,7 +539,7 @@ def financial_conditions_index(
 )
 def fci_weights_config(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Dagster asset that creates a weights configuration table for the FCI calculation.

@@ -1,10 +1,10 @@
 import io
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def get_economic_data(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     cutoff_date: str | None = None,
     max_series: int | None = None,
     latest_month_only: bool = False,
@@ -71,7 +71,7 @@ def get_economic_data(
 
 
 def get_market_data(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     cutoff_date: str | None = None,
     max_assets: int | None = 20,
     time_periods: list[str] | None = None,
@@ -155,7 +155,7 @@ def get_market_data(
 
 
 def get_financial_conditions_index(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     cutoff_date: str | None = None,
     max_months: int | None = 12,
 ) -> str:
@@ -194,7 +194,7 @@ def get_financial_conditions_index(
 
 
 def get_commodity_data(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     cutoff_date: str | None = None,
     max_commodities: int | None = 15,
     time_periods: list[str] | None = None,
@@ -271,7 +271,7 @@ def get_commodity_data(
 
 
 def get_correlation_data(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     sample_size: int = 50,
     sampling_strategy: str = "top_correlations",
     cutoff_date: str | None = None,
@@ -359,7 +359,7 @@ def get_correlation_data(
 
 
 def get_housing_data(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     cutoff_date: str | None = None,
     latest_month_only: bool = False,
     max_months: int | None = 6,
@@ -463,7 +463,7 @@ def get_housing_data(
 
 
 def get_yield_curve_data(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     cutoff_date: str | None = None,
     max_months: int | None = 12,
 ) -> str:
@@ -510,7 +510,7 @@ def get_yield_curve_data(
 
 
 def get_economic_trends(
-    md_resource: MotherDuckResource,
+    md_resource: BigQueryWarehouseResource,
     cutoff_date: str | None = None,
     max_months: int | None = 12,
 ) -> str:

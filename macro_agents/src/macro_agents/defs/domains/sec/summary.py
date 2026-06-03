@@ -1,7 +1,7 @@
 import dagster as dg
 
 from macro_agents.defs.domains.sec.bi import sec_filing_business_intelligence
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset(
@@ -12,7 +12,7 @@ from macro_agents.defs.resources.motherduck import MotherDuckResource
 )
 def sec_company_bi_summary(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Create a summary table aggregating BI signals by company.
@@ -27,7 +27,7 @@ def sec_company_bi_summary(
         conn = md.get_connection()
 
         # Create summary table
-        conn.execute("""
+        conn.query("""
             CREATE TABLE IF NOT EXISTS sec_company_bi_summary (
                 symbol VARCHAR PRIMARY KEY,
                 company_name VARCHAR,
@@ -49,17 +49,17 @@ def sec_company_bi_summary(
                 risk_score DECIMAL(5,4),
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """).result()
 
         # Get all companies with filings
-        companies = conn.execute("""
+        companies = md.fetchall("""
             SELECT DISTINCT
                 f.symbol,
                 c.company_name
             FROM sec_filings f
             LEFT JOIN sec_company_cik c ON f.symbol = c.symbol
             WHERE f.symbol IS NOT NULL
-        """).fetchall()
+        """)
 
         context.log.debug(f"Calculating BI summary for {len(companies)} companies")
 
@@ -67,7 +67,7 @@ def sec_company_bi_summary(
 
         for symbol, company_name in companies:
             # Get filing dates
-            filing_dates = conn.execute(
+            filing_dates = md.fetchone(
                 """
                 SELECT
                     MAX(CASE WHEN form_type = '10-K' THEN filing_date END) as latest_10k,
@@ -76,8 +76,7 @@ def sec_company_bi_summary(
                 FROM sec_filings
                 WHERE symbol = ?
             """,
-                [symbol],
-            ).fetchone()
+                [symbol],)
             if filing_dates:
                 latest_10k, latest_10q, total_filings = filing_dates
             else:
@@ -86,7 +85,7 @@ def sec_company_bi_summary(
                 total_filings = 0
 
             # Get signal counts by category
-            signal_counts = conn.execute(
+            signal_counts = md.fetchall(
                 """
                 SELECT
                     st.term_category,
@@ -97,8 +96,7 @@ def sec_company_bi_summary(
                 WHERE f.symbol = ?
                 GROUP BY st.term_category
             """,
-                [symbol],
-            ).fetchall()
+                [symbol],)
 
             # Initialize counts
             category_counts = {
@@ -146,7 +144,7 @@ def sec_company_bi_summary(
             risk_score = min(1.0, category_counts["risk_factors"] / 20)
 
             # Upsert summary record
-            conn.execute(
+            conn.query(
                 """
                 INSERT INTO sec_company_bi_summary (
                     symbol, company_name, latest_10k_date, latest_10q_date,
@@ -198,14 +196,11 @@ def sec_company_bi_summary(
                     growth_score,
                     risk_score,
                 ],
-            )
+            ).result()
 
             total_updated += 1
-
-        conn.commit()
-
         # Get summary statistics
-        stats = conn.execute("""
+        stats = md.fetchone("""
             SELECT
                 COUNT(*) as total_companies,
                 AVG(total_signals) as avg_signals_per_company,
@@ -213,7 +208,7 @@ def sec_company_bi_summary(
                 AVG(risk_score) as avg_risk_score,
                 SUM(total_signals) as total_all_signals
             FROM sec_company_bi_summary
-        """).fetchone()
+        """)
         if stats is None:
             stats = (0, 0, 0, 0, 0)
 

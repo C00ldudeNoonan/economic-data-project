@@ -17,7 +17,7 @@ from macro_agents.defs.domains.sec.config import (
     NEW_COMPANIES_CHECK_SECONDS,
     UNPROCESSED_FILINGS_CHECK_SECONDS,
 )
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.sensor(
@@ -31,7 +31,7 @@ from macro_agents.defs.resources.motherduck import MotherDuckResource
 )
 def sec_unprocessed_filings_sensor(
     context: dg.SensorEvaluationContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ):
     """
     Check for unprocessed SEC filings and trigger processing.
@@ -57,15 +57,14 @@ def sec_unprocessed_filings_sensor(
     try:
         conn = md.get_connection()
 
-        result = conn.execute(
+        result = md.fetchone(
             """
             SELECT COUNT(*) as cnt
             FROM sec_filings
             WHERE processed = FALSE
             AND primary_document IS NOT NULL
             AND primary_document != ''
-            """
-        ).fetchone()
+            """)
         unprocessed_count = result[0] if result else 0
 
     except Exception as e:
@@ -132,7 +131,7 @@ def sec_unprocessed_filings_sensor(
 )
 def sec_new_companies_sensor(
     context: dg.SensorEvaluationContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ):
     """
     Detect new S&P 500 companies missing from sec_filings and trigger ingestion.
@@ -157,14 +156,13 @@ def sec_new_companies_sensor(
         conn = md.get_connection()
 
         # Check if sec_filings table exists; if not, all CIK companies need ingestion
-        tables = conn.execute(
+        tables = md.fetchall(
             "SELECT table_name FROM information_schema.tables "
-            "WHERE table_name = 'sec_filings'"
-        ).fetchall()
+            "WHERE table_name = 'sec_filings'")
 
         if not tables:
             # sec_filings doesn't exist yet — count all companies with CIKs
-            result = conn.execute("SELECT COUNT(*) FROM sec_company_cik").fetchone()
+            result = md.fetchone("SELECT COUNT(*) FROM sec_company_cik")
             new_company_count = result[0] if result else 0
             if new_company_count > 0:
                 context.log.info(
@@ -172,15 +170,14 @@ def sec_new_companies_sensor(
                     f"{new_company_count} CIK companies as new"
                 )
         else:
-            result = conn.execute(
+            result = md.fetchone(
                 """
                 SELECT COUNT(*) as cnt
                 FROM sec_company_cik c
                 WHERE NOT EXISTS (
                     SELECT 1 FROM sec_filings f WHERE f.symbol = c.symbol
                 )
-                """
-            ).fetchone()
+                """)
             new_company_count = result[0] if result else 0
 
     except Exception as e:

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import dagster as dg
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.ollama import OllamaResource
 from macro_agents.defs.resources.reddit import RedditResource
 from macro_agents.defs.domains.social_checks import social_checks
@@ -33,7 +33,7 @@ reddit_partitions = dg.MultiPartitionsDefinition(
 def reddit_posts_raw(
     context: dg.AssetExecutionContext,
     reddit: RedditResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Scrape Reddit posts for a subreddit and date partition with rate limiting.
@@ -151,7 +151,7 @@ def reddit_posts_raw(
 def reddit_post_content_raw(
     context: dg.AssetExecutionContext,
     reddit: RedditResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Fetch full post content (selftext, links) for each post in a partition."""
 
@@ -230,7 +230,7 @@ def reddit_post_content_raw(
 def reddit_comments_raw(
     context: dg.AssetExecutionContext,
     reddit: RedditResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Fetch comments for each post in a partition."""
 
@@ -312,7 +312,7 @@ def reddit_comments_raw(
 def reddit_content_embeddings(
     context: dg.AssetExecutionContext,
     ollama: OllamaResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Build embeddings for post selftext and comment bodies in a partition."""
 

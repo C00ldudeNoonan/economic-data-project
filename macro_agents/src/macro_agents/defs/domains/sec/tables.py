@@ -4,258 +4,218 @@ Each function creates a table if it doesn't exist. Called inline by the
 asset that writes to the table, so there's no separate schema asset.
 """
 
-import duckdb
+from google.cloud import bigquery
 
 
-def ensure_sec_company_cik_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_company_cik_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_company_cik table if it doesn't exist."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_company_cik (
-            symbol VARCHAR PRIMARY KEY,
-            cik VARCHAR NOT NULL,
-            cik_padded VARCHAR,
-            company_name VARCHAR,
-            source VARCHAR,
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_company_cik` (
+            symbol STRING,
+            cik STRING NOT NULL,
+            cik_padded STRING,
+            company_name STRING,
+            source STRING,
             validated_at TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP
         )
-    """)
+    """).result()
 
 
-def ensure_sec_filings_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_filings_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_filings table if it doesn't exist."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_filings (
-            filing_id VARCHAR NOT NULL,
-            cik VARCHAR NOT NULL,
-            symbol VARCHAR NOT NULL,
-            accession_number VARCHAR NOT NULL,
-            form_type VARCHAR NOT NULL,
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filings` (
+            filing_id STRING NOT NULL,
+            cik STRING NOT NULL,
+            symbol STRING NOT NULL,
+            accession_number STRING NOT NULL,
+            form_type STRING NOT NULL,
             filing_date DATE,
             accepted_datetime TIMESTAMP,
             report_date DATE,
-            file_number VARCHAR,
-            film_number VARCHAR,
-            items VARCHAR,
-            size_bytes INTEGER,
-            is_xbrl BOOLEAN DEFAULT FALSE,
-            is_inline_xbrl BOOLEAN DEFAULT FALSE,
-            primary_document VARCHAR,
-            primary_doc_description VARCHAR,
-            gcs_path VARCHAR,
-            processed BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (symbol, filing_id)
+            file_number STRING,
+            film_number STRING,
+            items STRING,
+            size_bytes INT64,
+            is_xbrl BOOL,
+            is_inline_xbrl BOOL,
+            primary_document STRING,
+            primary_doc_description STRING,
+            gcs_path STRING,
+            processed BOOL,
+            created_at TIMESTAMP
         )
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filings_cik
-        ON sec_filings(cik)
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filings_form_type
-        ON sec_filings(form_type)
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filings_filing_date
-        ON sec_filings(filing_date)
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filings_processed
-        ON sec_filings(processed)
-    """)
+    """).result()
 
 
-def ensure_sec_company_cik_history_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_company_cik_history_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_company_cik_history table for tracking historical CIK mappings."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_company_cik_history (
-            id VARCHAR PRIMARY KEY,
-            current_symbol VARCHAR NOT NULL,
-            cik VARCHAR NOT NULL,
-            cik_padded VARCHAR,
-            company_name VARCHAR,
-            former_names TEXT,
-            relationship_type VARCHAR,
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_company_cik_history` (
+            id STRING,
+            current_symbol STRING NOT NULL,
+            cik STRING NOT NULL,
+            cik_padded STRING,
+            company_name STRING,
+            former_names STRING,
+            relationship_type STRING,
             effective_from DATE,
             effective_to DATE,
-            source VARCHAR,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            source STRING,
+            created_at TIMESTAMP
         )
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_cik_history_symbol
-        ON sec_company_cik_history(current_symbol)
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_cik_history_cik
-        ON sec_company_cik_history(cik)
-    """)
+    """).result()
 
 
-def ensure_sec_filing_documents_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_filing_documents_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_filing_documents table if it doesn't exist."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_filing_documents (
-            document_id VARCHAR PRIMARY KEY,
-            filing_id VARCHAR NOT NULL,
-            sequence INTEGER,
-            document_name VARCHAR,
-            document_type VARCHAR,
-            description VARCHAR,
-            size_bytes INTEGER,
-            gcs_path VARCHAR,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_documents` (
+            document_id STRING,
+            filing_id STRING NOT NULL,
+            sequence INT64,
+            document_name STRING,
+            document_type STRING,
+            description STRING,
+            size_bytes INT64,
+            gcs_path STRING,
+            created_at TIMESTAMP
         )
-    """)
+    """).result()
 
 
-def ensure_sec_filing_content_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_filing_content_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_filing_content table if it doesn't exist.
 
-    Issue #70: this table used to have `content_text TEXT` and
-    `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`. Section text moved to
-    GCS (single source of truth), and `created_at` was never read. The
-    asset writes a 6-column DataFrame; `upsert_data` does strict schema
-    equality, so the legacy columns broke the bulk upsert.
-
-    DuckDB blocks ALTER TABLE on indexed tables, so the migration drops
-    indexes first, then columns, then recreates indexes. The whole dance
-    is gated on the presence of the legacy columns so it only fires once.
+    Issue #70: this table used to have `content_text` and `created_at`.
+    Section text moved to GCS; the legacy columns broke the bulk upsert.
+    This migration drops them if present using INFORMATION_SCHEMA.
     """
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_filing_content (
-            content_id VARCHAR PRIMARY KEY,
-            filing_id VARCHAR NOT NULL,
-            section_name VARCHAR,
-            section_order INTEGER,
-            word_count INTEGER,
-            gcs_path VARCHAR
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_content` (
+            content_id STRING,
+            filing_id STRING NOT NULL,
+            section_name STRING,
+            section_order INT64,
+            word_count INT64,
+            gcs_path STRING
         )
-    """)
+    """).result()
 
-    legacy_columns_row = conn.execute(
-        "SELECT COUNT(*) FROM duckdb_columns() "
-        "WHERE table_name = 'sec_filing_content' "
-        "AND database_name = current_database() "
-        "AND schema_name = current_schema() "
-        "AND column_name IN ('content_text', 'created_at')"
-    ).fetchone()
-    legacy_columns_present = (
-        (legacy_columns_row[0] or 0) > 0 if legacy_columns_row else False
+    legacy_row = (
+        conn.query(f"""
+            SELECT COUNT(*) AS cnt
+            FROM `{project}.{dataset}.INFORMATION_SCHEMA.COLUMNS`
+            WHERE table_name = 'sec_filing_content'
+            AND column_name IN ('content_text', 'created_at')
+        """)
+        .result()
+        .to_dataframe()
     )
+    legacy_columns_present = int(legacy_row["cnt"].iloc[0]) > 0 if len(legacy_row) else False
 
     if legacy_columns_present:
-        conn.execute("DROP INDEX IF EXISTS idx_sec_filing_content_filing_id")
-        conn.execute("DROP INDEX IF EXISTS idx_sec_filing_content_filing_section")
-        conn.execute(
-            "ALTER TABLE sec_filing_content DROP COLUMN IF EXISTS content_text"
-        )
-        conn.execute("ALTER TABLE sec_filing_content DROP COLUMN IF EXISTS created_at")
-
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_content_filing_id
-        ON sec_filing_content(filing_id)
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_content_filing_section
-        ON sec_filing_content(filing_id, section_name)
-    """)
+        conn.query(
+            f"ALTER TABLE `{project}.{dataset}.sec_filing_content` DROP COLUMN IF EXISTS content_text"
+        ).result()
+        conn.query(
+            f"ALTER TABLE `{project}.{dataset}.sec_filing_content` DROP COLUMN IF EXISTS created_at"
+        ).result()
 
 
-def ensure_sec_filing_llm_metadata_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_filing_llm_metadata_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_filing_llm_metadata table if it doesn't exist."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_filing_llm_metadata (
-            metadata_id VARCHAR PRIMARY KEY,
-            filing_id VARCHAR NOT NULL,
-            symbol VARCHAR NOT NULL,
-            section_name VARCHAR,
-            executive_summary TEXT,
-            key_topics TEXT,
-            sentiment VARCHAR,
-            named_entities TEXT,
-            financial_metrics TEXT,
-            forward_looking_statements TEXT,
-            risk_factors TEXT,
-            embedding FLOAT[768],
-            model_name VARCHAR,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_llm_metadata` (
+            metadata_id STRING,
+            filing_id STRING NOT NULL,
+            symbol STRING NOT NULL,
+            section_name STRING,
+            executive_summary STRING,
+            key_topics STRING,
+            sentiment STRING,
+            named_entities STRING,
+            financial_metrics STRING,
+            forward_looking_statements STRING,
+            risk_factors STRING,
+            embedding ARRAY<FLOAT64>,
+            model_name STRING,
+            created_at TIMESTAMP
         )
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_llm_metadata_filing
-        ON sec_filing_llm_metadata(filing_id)
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_llm_metadata_symbol
-        ON sec_filing_llm_metadata(symbol)
-    """)
+    """).result()
 
 
-def ensure_sec_filing_search_terms_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_filing_search_terms_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_filing_search_terms table if it doesn't exist."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_filing_search_terms (
-            term_id VARCHAR PRIMARY KEY,
-            filing_id VARCHAR NOT NULL,
-            term_category VARCHAR,
-            term_text VARCHAR,
-            context_text TEXT,
-            section_name VARCHAR,
-            confidence_score DECIMAL(3,2),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_search_terms` (
+            term_id STRING,
+            filing_id STRING NOT NULL,
+            term_category STRING,
+            term_text STRING,
+            context_text STRING,
+            section_name STRING,
+            confidence_score NUMERIC,
+            created_at TIMESTAMP
         )
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_search_terms_category
-        ON sec_filing_search_terms(term_category)
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_search_terms_filing_id
-        ON sec_filing_search_terms(filing_id)
-    """)
+    """).result()
 
 
-def ensure_sec_filing_markdown_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_filing_markdown_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_filing_markdown table for tracking markdown conversions."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_filing_markdown (
-            filing_id VARCHAR PRIMARY KEY,
-            symbol VARCHAR NOT NULL,
-            markdown_gcs_path VARCHAR,
-            section_count INTEGER DEFAULT 0,
-            word_count INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_markdown` (
+            filing_id STRING,
+            symbol STRING NOT NULL,
+            markdown_gcs_path STRING,
+            section_count INT64,
+            word_count INT64,
+            created_at TIMESTAMP
         )
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_markdown_symbol
-        ON sec_filing_markdown(symbol)
-    """)
+    """).result()
 
 
-def ensure_sec_filing_chunks_table(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_sec_filing_chunks_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
     """Create sec_filing_chunks table for chunked vector embeddings."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sec_filing_chunks (
-            chunk_id VARCHAR PRIMARY KEY,
-            filing_id VARCHAR NOT NULL,
-            symbol VARCHAR NOT NULL,
-            section_name VARCHAR,
-            chunk_index INTEGER,
-            chunk_text TEXT,
-            word_count INTEGER,
-            embedding FLOAT[768],
-            model_name VARCHAR,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_chunks` (
+            chunk_id STRING,
+            filing_id STRING NOT NULL,
+            symbol STRING NOT NULL,
+            section_name STRING,
+            chunk_index INT64,
+            chunk_text STRING,
+            word_count INT64,
+            embedding ARRAY<FLOAT64>,
+            model_name STRING,
+            created_at TIMESTAMP
         )
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_chunks_filing
-        ON sec_filing_chunks(filing_id)
-    """)
-    conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sec_filing_chunks_symbol
-        ON sec_filing_chunks(symbol)
-    """)
+    """).result()

@@ -1,10 +1,10 @@
 import dagster as dg
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 @dg.asset_check(asset="analyze_economy_state")
-def economy_state_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def economy_state_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate economy state analysis has recent outputs."""
     if not md.table_exists("economy_state_analysis"):
         return dg.AssetCheckResult(
@@ -37,7 +37,7 @@ def economy_state_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="generate_economic_narratives")
-def economic_narratives_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def economic_narratives_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate economic narratives table has content."""
     if not md.table_exists("economic_indicator_narratives"):
         return dg.AssetCheckResult(
@@ -69,7 +69,7 @@ def economic_narratives_data_check(md: MotherDuckResource) -> dg.AssetCheckResul
 
 @dg.asset_check(asset="generate_investment_recommendations")
 def investment_recommendations_data_check(
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Validate investment recommendations have been generated."""
     if not md.table_exists("investment_recommendations"):
@@ -103,7 +103,7 @@ def investment_recommendations_data_check(
 
 
 @dg.asset_check(asset="reddit_daily_summary")
-def reddit_summary_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def reddit_summary_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate Reddit daily summaries exist."""
     if not md.table_exists("reddit_summaries"):
         return dg.AssetCheckResult(
@@ -134,7 +134,7 @@ def reddit_summary_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="news_weekly_summary")
-def news_summary_data_check(md: MotherDuckResource) -> dg.AssetCheckResult:
+def news_summary_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate weekly news summaries exist."""
     if not md.table_exists("news_weekly_summaries"):
         return dg.AssetCheckResult(

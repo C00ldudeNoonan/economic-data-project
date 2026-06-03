@@ -7,7 +7,7 @@ import dagster as dg
 import polars as pl
 import yaml
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class DataDictionaryBuilder:
@@ -214,7 +214,7 @@ class DataDictionaryBuilder:
         return frequency_map.get(schema_category)
 
     def sample_column_values(
-        self, table_name: str, column_name: str, md_resource: MotherDuckResource
+        self, table_name: str, column_name: str, md_resource: BigQueryWarehouseResource
     ) -> list[Any]:
         """
         Sample 3-5 example values from a column.
@@ -244,7 +244,7 @@ class DataDictionaryBuilder:
             return []
 
     def build_dictionary(
-        self, dbt_project_path: Path, md_resource: MotherDuckResource | None = None
+        self, dbt_project_path: Path, md_resource: BigQueryWarehouseResource | None = None
     ) -> pl.DataFrame:
         """
         Build complete data dictionary by parsing all DBT schema files.
@@ -312,7 +312,7 @@ class DataDictionaryBuilder:
     description="Build data dictionary from DBT schema files",
 )
 def build_data_dictionary(
-    context: dg.AssetExecutionContext, md: MotherDuckResource
+    context: dg.AssetExecutionContext, md: BigQueryWarehouseResource
 ) -> dg.MaterializeResult:
     """
     Dagster asset that populates the data_dictionary table from DBT schema files.

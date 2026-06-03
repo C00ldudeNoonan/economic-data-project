@@ -12,7 +12,7 @@ from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     extract_economy_state_summary,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class BacktestConfig(dg.Config):
@@ -110,7 +110,7 @@ def get_backtest_dates(config: BacktestConfig) -> list[str]:
 def backtest_analyze_economy_state(
     context: dg.AssetExecutionContext,
     config: BacktestConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:

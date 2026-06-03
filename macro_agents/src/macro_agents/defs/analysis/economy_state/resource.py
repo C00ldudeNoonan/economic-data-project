@@ -13,7 +13,7 @@ from macro_agents.defs.analysis.data_points.data_point_analyzer import (
 )
 from macro_agents.defs.analysis.economy_state import data_access
 from macro_agents.defs.analysis.economy_state.modules import EconomyStateModule
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class EconomicAnalysisResource(dg.ConfigurableResource):
@@ -215,7 +215,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
     def load_optimized_module(
         self,
         module_name: str,
-        md_resource: MotherDuckResource | None = None,
+        md_resource: BigQueryWarehouseResource | None = None,
         gcs_resource: Any | None = None,
         context: dg.AssetExecutionContext | None = None,
         personality: str | None = None,
@@ -372,7 +372,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def get_economic_data(
         self,
-        md_resource: MotherDuckResource,
+        md_resource: BigQueryWarehouseResource,
         cutoff_date: str | None = None,
         max_series: int | None = None,
         latest_month_only: bool = False,
@@ -388,7 +388,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def get_market_data(
         self,
-        md_resource: MotherDuckResource,
+        md_resource: BigQueryWarehouseResource,
         cutoff_date: str | None = None,
         max_assets: int | None = 20,
         time_periods: list[str] | None = None,
@@ -402,7 +402,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def get_financial_conditions_index(
         self,
-        md_resource: MotherDuckResource,
+        md_resource: BigQueryWarehouseResource,
         cutoff_date: str | None = None,
         max_months: int | None = 12,
     ) -> str:
@@ -414,7 +414,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def get_commodity_data(
         self,
-        md_resource: MotherDuckResource,
+        md_resource: BigQueryWarehouseResource,
         cutoff_date: str | None = None,
         max_commodities: int | None = 15,
         time_periods: list[str] | None = None,
@@ -428,7 +428,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def get_correlation_data(
         self,
-        md_resource: MotherDuckResource,
+        md_resource: BigQueryWarehouseResource,
         sample_size: int = 50,
         sampling_strategy: str = "top_correlations",
         cutoff_date: str | None = None,
@@ -442,7 +442,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def get_housing_data(
         self,
-        md_resource: MotherDuckResource,
+        md_resource: BigQueryWarehouseResource,
         cutoff_date: str | None = None,
         latest_month_only: bool = False,
         max_months: int | None = 6,
@@ -456,7 +456,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def get_yield_curve_data(
         self,
-        md_resource: MotherDuckResource,
+        md_resource: BigQueryWarehouseResource,
         cutoff_date: str | None = None,
         max_months: int | None = 12,
     ) -> str:
@@ -468,7 +468,7 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
 
     def get_economic_trends(
         self,
-        md_resource: MotherDuckResource,
+        md_resource: BigQueryWarehouseResource,
         cutoff_date: str | None = None,
         max_months: int | None = 12,
     ) -> str:

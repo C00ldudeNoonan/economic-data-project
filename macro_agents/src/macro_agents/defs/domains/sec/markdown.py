@@ -17,7 +17,7 @@ from macro_agents.defs.domains.sec.helpers import (
 from macro_agents.defs.domains.sec.metadata import sec_filing_metadata
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_markdown_table
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.domains.sec.config import BATCH_SIZE_STANDARD, MAX_ERROR_DETAILS
 from macro_agents.defs.utils.sec_markdown_converter import SECMarkdownConverter
 from macro_agents.defs.utils.sec_text_extractor import SECTextExtractor
@@ -35,7 +35,7 @@ from macro_agents.defs.utils.sec_text_extractor import SECTextExtractor
 def sec_filing_markdown(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Convert processed SEC filings from HTML to Markdown.
@@ -54,7 +54,7 @@ def sec_filing_markdown(
         ensure_sec_filing_markdown_table(conn)
 
         batch_size = BATCH_SIZE_STANDARD
-        filings_to_process = pl.read_database(
+        filings_to_process = md.execute_query(
             f"""
             SELECT f.filing_id, f.cik, f.symbol, f.form_type,
                    f.filing_date, f.accession_number, f.gcs_path
@@ -66,8 +66,7 @@ def sec_filing_markdown(
                 WHERE m.filing_id = f.filing_id
             )
             LIMIT {batch_size}
-            """,
-            connection=conn,
+            """
         )
 
         if filings_to_process.is_empty():

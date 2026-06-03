@@ -6,7 +6,7 @@ from typing import Any
 import dagster as dg
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 # Optional dependencies — keep imports lazy-safe so this module can be loaded
 # without each provider SDK installed.
@@ -176,7 +176,7 @@ def _get_gemini_models(api_key: str | None = None) -> list[str]:
 )
 def fetch_available_ai_models(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Fetch available chat/completion models from OpenAI, Anthropic, and Gemini APIs and store results.

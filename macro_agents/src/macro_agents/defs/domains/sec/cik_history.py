@@ -18,7 +18,7 @@ import polars as pl
 from macro_agents.defs.domains.sec.cik import sp500_cik_enriched
 from macro_agents.defs.domains.sec.config import MAX_ERROR_DETAILS
 from macro_agents.defs.domains.sec.tables import ensure_sec_company_cik_history_table
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 
 
@@ -40,7 +40,7 @@ def _generate_history_id(symbol: str, cik: str, effective_from: str) -> str:
 def sec_company_cik_history(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Extract former names from SEC EDGAR submissions for each S&P 500 company.
@@ -57,10 +57,7 @@ def sec_company_cik_history(
         conn = md.get_connection()
         ensure_sec_company_cik_history_table(conn)
 
-        companies_df = pl.read_database(
-            "SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik",
-            connection=conn,
-        )
+        companies_df = md.execute_query("SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik")
 
         if companies_df.is_empty():
             context.log.warning("No companies found in sec_company_cik")
@@ -71,15 +68,12 @@ def sec_company_cik_history(
         # Check which companies already have recent history records
         # Re-process symbols whose records are older than 90 days
         try:
-            existing_df = pl.read_database(
-                """
+            existing_df = md.execute_query("""
                 SELECT current_symbol, MAX(created_at) as last_updated
                 FROM sec_company_cik_history
                 GROUP BY current_symbol
                 HAVING MAX(created_at) > CURRENT_TIMESTAMP - INTERVAL '90 days'
-                """,
-                connection=conn,
-            )
+                """)
             recent_symbols = set(existing_df["current_symbol"].to_list())
         except Exception:
             recent_symbols = set()

@@ -28,7 +28,7 @@ from macro_agents.defs.constants.fred_series_lists import (
 from macro_agents.defs.resources.federal_reserve import FederalReserveResource
 from macro_agents.defs.resources.fred import FredResource, fred_resource
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.domains.macro_checks import macro_checks
 
 MACRO_GROUP = "macro_ingestion"
@@ -69,7 +69,7 @@ fred_series_partition = dg.StaticPartitionsDefinition(_all_series_codes)
     description="Raw data from FRED API - runs weekly on Sundays at 2 AM EST",
 )
 def fred_raw(
-    context: dg.AssetExecutionContext, fred: FredResource, md: MotherDuckResource
+    context: dg.AssetExecutionContext, fred: FredResource, md: BigQueryWarehouseResource
 ) -> dg.MaterializeResult:
     total_records = 0
     for series_code in context.partition_keys:
@@ -99,7 +99,7 @@ year_partition = dg.StaticPartitionsDefinition(
     description="Raw Treasury yield curve data scraped from Treasury.gov XML feed",
 )
 def treasury_yields_raw(
-    context: dg.AssetExecutionContext, md: MotherDuckResource
+    context: dg.AssetExecutionContext, md: BigQueryWarehouseResource
 ) -> dg.MaterializeResult:
     """Scrape Treasury yield curve data for batched year partitions."""
     total_records = 0
@@ -115,7 +115,7 @@ def treasury_yields_raw(
 
 
 def _fetch_treasury_yields_for_year(
-    context: dg.AssetExecutionContext, md: MotherDuckResource, year: str
+    context: dg.AssetExecutionContext, md: BigQueryWarehouseResource, year: str
 ) -> int:
     """Scrape Treasury yield curve data for a specific year. Returns record count."""
     url = (
@@ -207,7 +207,7 @@ def _fetch_treasury_yields_for_year(
 )
 def fomc_minutes_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     fed: FederalReserveResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:

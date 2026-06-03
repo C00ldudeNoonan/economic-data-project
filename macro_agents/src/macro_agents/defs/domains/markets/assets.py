@@ -2,6 +2,7 @@ from datetime import date
 
 import dagster as dg
 import polars as pl
+from google.cloud import bigquery as bq
 
 from macro_agents.defs.constants.market_stack_constants import (
     NASDAQ_COMPANY_TICKERS_PARTITION_NAME,
@@ -27,7 +28,7 @@ from macro_agents.defs.resources.company_list_scraper import (
     CompanyListScraperResource,
 )
 from macro_agents.defs.resources.market_stack import MarketStackResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 def _unify_splits_schema(
@@ -44,38 +45,37 @@ def _unify_splits_schema(
 
 
 def _ensure_sp500_scd2_columns(
-    md: MotherDuckResource, context: dg.AssetExecutionContext
+    md: BigQueryWarehouseResource, context: dg.AssetExecutionContext
 ) -> None:
     """One-time migration: add date_started/date_ended columns and backfill existing rows."""
-    conn = None
     try:
-        conn = md.get_connection()
-        # Check if columns already exist
-        cols = conn.execute(
-            "SELECT column_name FROM duckdb_columns() "
-            "WHERE table_name = 'sp500_companies_raw' AND column_name = 'date_started'"
-        ).fetchall()
+        client = md.get_client()
+        project = client.project
+        dataset = md.dataset
+        cols = md.fetchall(
+            f"SELECT column_name FROM `{project}.{dataset}.INFORMATION_SCHEMA.COLUMNS` "
+            f"WHERE table_name = 'sp500_companies_raw' AND column_name = 'date_started'"
+        )
         if cols:
-            return  # Already migrated
+            return
 
         context.log.info(
             "Migrating sp500_companies_raw: adding date_started/date_ended columns"
         )
-        conn.execute("ALTER TABLE sp500_companies_raw ADD COLUMN date_started DATE")
-        conn.execute("ALTER TABLE sp500_companies_raw ADD COLUMN date_ended DATE")
-        conn.execute(
-            "UPDATE sp500_companies_raw "
-            "SET date_started = CAST(fetched_at AS DATE) "
-            "WHERE date_started IS NULL"
-        )
-        conn.commit()
+        client.query(
+            f"ALTER TABLE `{project}.{dataset}.sp500_companies_raw` ADD COLUMN date_started DATE"
+        ).result()
+        client.query(
+            f"ALTER TABLE `{project}.{dataset}.sp500_companies_raw` ADD COLUMN date_ended DATE"
+        ).result()
+        client.query(
+            f"UPDATE `{project}.{dataset}.sp500_companies_raw` "
+            f"SET date_started = CAST(fetched_at AS DATE) "
+            f"WHERE date_started IS NULL"
+        ).result()
         context.log.info("Migration complete: backfilled date_started from fetched_at")
     except Exception as e:
-        # Table may not exist yet on first run — that's fine
         context.log.debug(f"Migration skipped (table may not exist yet): {e}")
-    finally:
-        if conn:
-            conn.close()
 
 
 @dg.asset(
@@ -86,7 +86,7 @@ def _ensure_sp500_scd2_columns(
 def sp500_companies_raw(
     context: dg.AssetExecutionContext,
     company_scraper: CompanyListScraperResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Scrape S&P 500 companies from Wikipedia with SCD Type 2 history.
@@ -116,107 +116,89 @@ def sp500_companies_raw(
     _ensure_sp500_scd2_columns(md, context)
 
     # Load currently active rows from the table
-    conn = None
     added_count = 0
     removed_count = 0
     unchanged_count = 0
-    try:
-        conn = md.get_connection()
 
-        # Create table if it doesn't exist (first run)
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS sp500_companies_raw ("
-            "symbol VARCHAR, company_name VARCHAR, sector VARCHAR, "
-            "sub_industry VARCHAR, headquarters VARCHAR, date_added VARCHAR, "
-            "cik VARCHAR, founded VARCHAR, source VARCHAR, fetched_at TIMESTAMP, "
-            "date_started DATE, date_ended DATE)"
+    client = md.get_client()
+    project = client.project
+    dataset = md.dataset
+    table_ref = f"`{project}.{dataset}.sp500_companies_raw`"
+
+    # Create table if it doesn't exist (first run)
+    client.query(
+        f"CREATE TABLE IF NOT EXISTS {table_ref} ("
+        "symbol STRING, company_name STRING, sector STRING, "
+        "sub_industry STRING, headquarters STRING, date_added STRING, "
+        "cik STRING, founded STRING, source STRING, fetched_at TIMESTAMP, "
+        "date_started DATE, date_ended DATE)"
+    ).result()
+
+    active_df = md.execute_query(
+        f"SELECT symbol FROM {table_ref} WHERE date_ended IS NULL"
+    )
+    active_symbols = (
+        set(active_df["symbol"].to_list()) if not active_df.is_empty() else set()
+    )
+
+    new_symbols = scraped_symbols - active_symbols
+    removed_symbols = active_symbols - scraped_symbols
+    unchanged_count = len(scraped_symbols & active_symbols)
+
+    # Guard against mass deactivation from partial/incomplete scrapes.
+    min_expected = 400
+    if active_symbols and len(scraped_symbols) < min_expected:
+        context.log.warning(
+            f"Scrape returned only {len(scraped_symbols)} companies "
+            f"(expected >= {min_expected}). Skipping removals to avoid "
+            f"mass deactivation from an incomplete snapshot."
         )
+        removed_symbols = set()
 
-        active_df = pl.read_database(
-            "SELECT symbol FROM sp500_companies_raw WHERE date_ended IS NULL",
-            connection=conn,
+    # 1. Close removed companies (set date_ended) — use IN list directly
+    if removed_symbols:
+        symbols_list = ", ".join(f"'{s}'" for s in sorted(removed_symbols))
+        client.query(
+            f"UPDATE {table_ref} SET date_ended = DATE('{today}') "
+            f"WHERE symbol IN ({symbols_list}) AND date_ended IS NULL"
+        ).result()
+        removed_count = len(removed_symbols)
+        context.log.info(f"Closed {removed_count} removed companies: {sorted(removed_symbols)}")
+
+    # 2. Insert new additions via BigQuery load job
+    if new_symbols:
+        new_df = df.filter(pl.col("symbol").is_in(list(new_symbols)))
+        new_df = new_df.with_columns(
+            pl.lit(today).alias("date_started"),
+            pl.lit(None).cast(pl.Date).alias("date_ended"),
         )
-        active_symbols = (
-            set(active_df["symbol"].to_list()) if not active_df.is_empty() else set()
-        )
+        client.load_table_from_dataframe(
+            new_df.to_pandas(),
+            f"{project}.{dataset}.sp500_companies_raw",
+            job_config=bq.LoadJobConfig(write_disposition="WRITE_APPEND"),
+        ).result()
+        added_count = len(new_symbols)
+        context.log.info(f"Added {added_count} new companies: {sorted(new_symbols)}")
 
-        new_symbols = scraped_symbols - active_symbols
-        removed_symbols = active_symbols - scraped_symbols
-        unchanged_count = len(scraped_symbols & active_symbols)
-
-        # Guard against mass deactivation from partial/incomplete scrapes.
-        # The S&P 500 has ~500 companies; if we scraped far fewer than active,
-        # it likely means parse failures — skip removals to avoid false closures.
-        min_expected = 400
-        if active_symbols and len(scraped_symbols) < min_expected:
-            context.log.warning(
-                f"Scrape returned only {len(scraped_symbols)} companies "
-                f"(expected >= {min_expected}). Skipping removals to avoid "
-                f"mass deactivation from an incomplete snapshot."
-            )
-            removed_symbols = set()
-
-        # 1. Close removed companies (set date_ended) using temp table join
-        if removed_symbols:
-            removed_df = pl.DataFrame({"symbol": sorted(removed_symbols)})
-            conn.register("removed_symbols_df", removed_df)
-            conn.execute(
-                "UPDATE sp500_companies_raw SET date_ended = ? "
-                "WHERE symbol IN (SELECT symbol FROM removed_symbols_df) "
-                "AND date_ended IS NULL",
-                [today],
-            )
-            conn.unregister("removed_symbols_df")
-            removed_count = len(removed_symbols)
-            context.log.info(
-                f"Closed {removed_count} removed companies: {sorted(removed_symbols)}"
-            )
-
-        # 2. Insert new additions
-        if new_symbols:
-            new_df = df.filter(pl.col("symbol").is_in(list(new_symbols)))
-            new_df = new_df.with_columns(
-                pl.lit(today).alias("date_started"),
-                pl.lit(None).cast(pl.Date).alias("date_ended"),
-            )
-            # Register and insert
-            conn.register("new_companies_df", new_df)
-            conn.execute(
-                "INSERT INTO sp500_companies_raw "
-                "SELECT symbol, company_name, sector, sub_industry, headquarters, "
-                "date_added, cik, founded, source, fetched_at, date_started, date_ended "
-                "FROM new_companies_df"
-            )
-            conn.unregister("new_companies_df")
-            added_count = len(new_symbols)
-            context.log.info(
-                f"Added {added_count} new companies: {sorted(new_symbols)}"
-            )
-
-        # 3. Update metadata for still-active companies (sector, name changes, etc.)
-        continuing_symbols = scraped_symbols & active_symbols
-        if continuing_symbols:
-            continuing_df = df.filter(pl.col("symbol").is_in(list(continuing_symbols)))
-            conn.register("continuing_df", continuing_df)
-            conn.execute(
-                "UPDATE sp500_companies_raw SET "
-                "company_name = c.company_name, "
-                "sector = c.sector, "
-                "sub_industry = c.sub_industry, "
-                "headquarters = c.headquarters, "
-                "cik = c.cik, "
-                "founded = c.founded, "
-                "fetched_at = c.fetched_at "
-                "FROM continuing_df c "
-                "WHERE sp500_companies_raw.symbol = c.symbol "
-                "AND sp500_companies_raw.date_ended IS NULL"
-            )
-            conn.unregister("continuing_df")
-
-        conn.commit()
-    finally:
-        if conn:
-            conn.close()
+    # 3. Update metadata for still-active companies via staging table + MERGE
+    continuing_symbols = scraped_symbols & active_symbols
+    if continuing_symbols:
+        continuing_df = df.filter(pl.col("symbol").is_in(list(continuing_symbols)))
+        staging_ref = f"{project}.{dataset}.sp500_companies_raw_staging"
+        client.load_table_from_dataframe(
+            continuing_df.to_pandas(),
+            staging_ref,
+            job_config=bq.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
+        ).result()
+        client.query(
+            f"MERGE {table_ref} AS T "
+            f"USING `{staging_ref}` AS S ON T.symbol = S.symbol AND T.date_ended IS NULL "
+            f"WHEN MATCHED THEN UPDATE SET "
+            f"T.company_name = S.company_name, T.sector = S.sector, "
+            f"T.sub_industry = S.sub_industry, T.headquarters = S.headquarters, "
+            f"T.cik = S.cik, T.founded = S.founded, T.fetched_at = S.fetched_at"
+        ).result()
+        client.delete_table(staging_ref, not_found_ok=True)
 
     # Sync partitions with only active symbols
     active_tickers = sorted(scraped_symbols)
@@ -247,7 +229,7 @@ def sp500_companies_raw(
 def nasdaq_companies_raw(
     context: dg.AssetExecutionContext,
     company_scraper: CompanyListScraperResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Scrape NASDAQ companies from Stock Analysis.
@@ -295,7 +277,7 @@ def nasdaq_companies_raw(
 )
 def sp500_splits_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     """
@@ -373,7 +355,7 @@ def sp500_splits_raw(
 
 def _fetch_ticker_partitions(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
     table_name: str,
 ) -> dg.MaterializeResult:
@@ -432,7 +414,7 @@ def _fetch_ticker_partitions(
 
 def _fetch_commodity_partitions(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
     table_name: str,
 ) -> dg.MaterializeResult:
@@ -478,7 +460,7 @@ def _fetch_commodity_partitions(
 )
 def us_sector_etfs_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "us_sector_etfs_raw")
@@ -496,7 +478,7 @@ def us_sector_etfs_raw(
 )
 def currency_etfs_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "currency_etfs_raw")
@@ -514,7 +496,7 @@ def currency_etfs_raw(
 )
 def major_indices_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "major_indices_raw")
@@ -532,7 +514,7 @@ def major_indices_raw(
 )
 def fixed_income_etfs_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "fixed_income_etfs_raw")
@@ -550,7 +532,7 @@ def fixed_income_etfs_raw(
 )
 def global_markets_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "global_markets_raw")
@@ -569,7 +551,7 @@ def global_markets_raw(
 )
 def sp500_companies_prices_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(
@@ -590,7 +572,7 @@ def sp500_companies_prices_raw(
 )
 def nasdaq_companies_prices_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(
@@ -610,7 +592,7 @@ def nasdaq_companies_prices_raw(
 )
 def energy_commodities_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(
@@ -630,7 +612,7 @@ def energy_commodities_raw(
 )
 def input_commodities_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(
@@ -650,7 +632,7 @@ def input_commodities_raw(
 )
 def agriculture_commodities_raw(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(

@@ -19,7 +19,7 @@ import dagster as dg
 import numpy as np
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -63,7 +63,7 @@ def permutation_entropy(series: np.ndarray, order: int = 3, delay: int = 1) -> f
 )
 def entropy_complexity_signals(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching SPY and QQQ prices...")
     prices_df = md.execute_query(

@@ -6,7 +6,7 @@ from decimal import Decimal
 import dagster as dg
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.sqlite_resource import SQLiteResource
 from macro_agents.defs.telemetry.checks import telemetry_checks
 
@@ -19,7 +19,7 @@ from macro_agents.defs.telemetry.checks import telemetry_checks
 def telemetry_events_raw(
     context: dg.AssetExecutionContext,
     sqlite: SQLiteResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Replicate telemetry_events table from SQLite to MotherDuck.
@@ -35,8 +35,7 @@ def telemetry_events_raw(
         # Ensure telemetry schema exists
         conn = md.get_connection()
         try:
-            conn.execute("CREATE SCHEMA IF NOT EXISTS telemetry")
-            conn.commit()
+            conn.query("CREATE SCHEMA IF NOT EXISTS telemetry").result()
         finally:
             conn.close()
 
@@ -69,7 +68,7 @@ def telemetry_events_raw(
             metadata={
                 "num_events_replicated": 0,
                 "source": "sqlite",
-                "destination": "motherduck",
+                "destination": "bigquery",
                 "status": "source_table_not_found",
             }
         )
@@ -114,7 +113,7 @@ def telemetry_events_raw(
             metadata={
                 "num_events_replicated": 0,
                 "source": "sqlite",
-                "destination": "motherduck",
+                "destination": "bigquery",
                 "status": "read_error",
                 "error": str(e),
             }
@@ -128,7 +127,7 @@ def telemetry_events_raw(
             metadata={
                 "num_events_replicated": 0,
                 "source": "sqlite",
-                "destination": "motherduck",
+                "destination": "bigquery",
                 "status": "no_new_events",
                 "last_replicated_id": last_id,
             }
@@ -148,7 +147,7 @@ def telemetry_events_raw(
             metadata={
                 "num_events_replicated": 0,
                 "source": "sqlite",
-                "destination": "motherduck",
+                "destination": "bigquery",
                 "status": "insert_error",
                 "error": str(e),
             }
@@ -196,7 +195,7 @@ def telemetry_events_raw(
             "unique_users": unique_users,
             "event_type_distribution": event_types,
             "source": "sqlite",
-            "destination": "motherduck",
+            "destination": "bigquery",
             "status": "success",
         }
     )
@@ -210,7 +209,7 @@ def telemetry_events_raw(
 def users_raw(
     context: dg.AssetExecutionContext,
     sqlite: SQLiteResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Replicate users table from SQLite to MotherDuck.
@@ -223,8 +222,7 @@ def users_raw(
         # Ensure telemetry schema exists
         conn = md.get_connection()
         try:
-            conn.execute("CREATE SCHEMA IF NOT EXISTS telemetry")
-            conn.commit()
+            conn.query("CREATE SCHEMA IF NOT EXISTS telemetry").result()
         finally:
             conn.close()
 
@@ -252,7 +250,7 @@ def users_raw(
             metadata={
                 "num_users_replicated": 0,
                 "source": "sqlite",
-                "destination": "motherduck",
+                "destination": "bigquery",
                 "status": "source_table_not_found",
             }
         )
@@ -267,7 +265,7 @@ def users_raw(
             metadata={
                 "num_users_replicated": 0,
                 "source": "sqlite",
-                "destination": "motherduck",
+                "destination": "bigquery",
                 "status": "read_error",
                 "error": str(e),
             }
@@ -281,7 +279,7 @@ def users_raw(
             metadata={
                 "num_users_replicated": 0,
                 "source": "sqlite",
-                "destination": "motherduck",
+                "destination": "bigquery",
                 "status": "no_users",
             }
         )
@@ -300,7 +298,7 @@ def users_raw(
             metadata={
                 "num_users_replicated": 0,
                 "source": "sqlite",
-                "destination": "motherduck",
+                "destination": "bigquery",
                 "status": "insert_error",
                 "error": str(e),
             }
@@ -312,7 +310,7 @@ def users_raw(
         metadata={
             "num_users_replicated": len(df),
             "source": "sqlite",
-            "destination": "motherduck",
+            "destination": "bigquery",
             "status": "success",
         }
     )

@@ -15,7 +15,7 @@ from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     EconomicAnalysisResource,
 )
 from macro_agents.defs.resources.gcs import GCSResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 alt.data_transformers.disable_max_rows()
@@ -241,7 +241,7 @@ def _default_specs(max_charts: int) -> list[InvestmentRecommendationChartSpec]:
     return specs[:max_charts]
 
 
-def _fetch_fci_data(md: MotherDuckResource, months: int) -> pl.DataFrame:
+def _fetch_fci_data(md: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
     query = f"""
     SELECT date, FCI
     FROM agent_financial_conditions_index
@@ -252,7 +252,7 @@ def _fetch_fci_data(md: MotherDuckResource, months: int) -> pl.DataFrame:
     return md.execute_query(query, read_only=True)
 
 
-def _fetch_yield_curve_spreads(md: MotherDuckResource, months: int) -> pl.DataFrame:
+def _fetch_yield_curve_spreads(md: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
     query = f"""
     SELECT
         DATE_TRUNC('month', date) AS month,
@@ -268,7 +268,7 @@ def _fetch_yield_curve_spreads(md: MotherDuckResource, months: int) -> pl.DataFr
 
 
 def _fetch_market_returns(
-    md: MotherDuckResource, category: str, max_bars: int
+    md: BigQueryWarehouseResource, category: str, max_bars: int
 ) -> pl.DataFrame:
     query = f"""
     WITH latest AS (
@@ -388,7 +388,7 @@ def _build_ranked_bar_chart(
 
 def _chart_for_key(
     chart_key: str,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     months: int,
     max_bars: int,
     theme: ThemeStyle,
@@ -448,7 +448,7 @@ def _inject_chart_tokens(
 
 
 def _fetch_recommendations_row(
-    md: MotherDuckResource, run_id: str
+    md: BigQueryWarehouseResource, run_id: str
 ) -> dict[str, Any] | None:
     query = """
     SELECT
@@ -478,7 +478,7 @@ def _fetch_recommendations_row(
 def generate_investment_recommendation_charts(
     context: dg.AssetExecutionContext,
     config: InvestmentRecommendationChartConfig,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:

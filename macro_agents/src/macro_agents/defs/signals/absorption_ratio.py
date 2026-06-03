@@ -14,7 +14,7 @@ import dagster as dg
 import numpy as np
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -28,7 +28,7 @@ SIGNALS_GROUP = "computed_signals"
 )
 def absorption_ratio_signals(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching S&P 500 daily prices...")
     prices_df = md.execute_query(

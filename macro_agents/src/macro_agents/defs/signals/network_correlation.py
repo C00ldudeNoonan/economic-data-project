@@ -16,7 +16,7 @@ import networkx as nx
 import numpy as np
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -30,7 +30,7 @@ SIGNALS_GROUP = "computed_signals"
 )
 def network_correlation_signals(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching S&P 500 prices for network analysis...")
     prices_df = md.execute_query(

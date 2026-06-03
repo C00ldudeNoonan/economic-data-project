@@ -6,7 +6,7 @@ import polars as pl
 from macro_agents.defs.domains.sec.cik import sp500_cik_enriched
 from macro_agents.defs.domains.sec.helpers import get_company_filing_partition_name
 from macro_agents.defs.domains.sec.tables import ensure_sec_filings_table
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.domains.sec.config import (
     MAX_ERROR_DETAILS,
     METADATA_PROGRESS_LOG_INTERVAL,
@@ -26,7 +26,7 @@ _FORM_TYPES = ["10-K", "10-Q", "10-K/A", "10-Q/A"]
 def sec_filing_metadata(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Fetch SEC filing metadata for all S&P 500 companies with CIK codes.
@@ -49,10 +49,7 @@ def sec_filing_metadata(
 
         # Load companies with CIK codes
         try:
-            companies_df = pl.read_database(
-                "SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik",
-                connection=conn,
-            )
+            companies_df = md.execute_query("SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik")
         except Exception as e:
             context.log.warning(
                 f"Could not query sec_company_cik table (may not exist yet): {e}"
@@ -75,10 +72,9 @@ def sec_filing_metadata(
 
         # Query latest filing date per CIK for incremental fetching
         try:
-            latest_filings = pl.read_database(
+            latest_filings = md.execute_query(
                 "SELECT cik, MAX(filing_date) as latest_filing_date "
-                "FROM sec_filings GROUP BY cik",
-                connection=conn,
+                "FROM sec_filings GROUP BY cik"
             )
             latest_by_cik = (
                 {
@@ -97,12 +93,11 @@ def sec_filing_metadata(
         # Load historical CIK mappings (if table exists)
         historical_ciks_by_symbol: dict[str, list[str]] = {}
         try:
-            history_df = pl.read_database(
+            history_df = md.execute_query(
                 "SELECT current_symbol, cik_padded "
                 "FROM sec_company_cik_history "
                 "WHERE relationship_type != 'current' "
-                "AND cik_padded IS NOT NULL",
-                connection=conn,
+                "AND cik_padded IS NOT NULL"
             )
             if not history_df.is_empty():
                 for row in history_df.iter_rows(named=True):
@@ -320,7 +315,7 @@ def sec_filing_metadata(
 def sec_filing_partitions_sync(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Sync dynamic partitions for companies and filings from existing sec_filings table.
@@ -334,17 +329,14 @@ def sec_filing_partitions_sync(
         ensure_sec_filings_table(conn)
 
         # Get all filings with primary_document (required for document download)
-        filings_df = pl.read_database(
-            """
+        filings_df = md.execute_query("""
             SELECT DISTINCT symbol, filing_id
             FROM sec_filings
             WHERE primary_document IS NOT NULL
             AND primary_document != ''
             AND symbol IS NOT NULL
             AND filing_id IS NOT NULL
-            """,
-            connection=conn,
-        )
+            """)
 
         if filings_df.is_empty():
             context.log.debug("No filings found in database to create partitions for")

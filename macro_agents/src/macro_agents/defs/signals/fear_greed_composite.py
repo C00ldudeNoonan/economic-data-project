@@ -18,7 +18,7 @@ import dagster as dg
 import numpy as np
 import polars as pl
 
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -50,7 +50,7 @@ def _percentile_rank(arr: np.ndarray, window: int = 252) -> np.ndarray:
 )
 def fear_greed_signals(
     context: dg.AssetExecutionContext,
-    md: MotherDuckResource,
+    md: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     lookback = "3 years"
 

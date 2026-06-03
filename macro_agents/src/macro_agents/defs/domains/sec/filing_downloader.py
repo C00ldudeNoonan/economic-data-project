@@ -130,16 +130,14 @@ class FilingDownloader:
                 context=None,
             )
 
-            conn.execute(
+            conn.query(
                 """
                 UPDATE sec_filings
                 SET gcs_path = ?, processed = TRUE
                 WHERE symbol = ? AND filing_id = ?
                 """,
                 [doc_gcs_path, symbol, filing_id],
-            )
-            conn.commit()
-
+            ).result()
             self.log.debug(f"Downloaded {form_type} for {symbol} ({filing_id})")
             return FilingDownloadResult(
                 status="downloaded",
@@ -214,8 +212,7 @@ class FilingDownloader:
 
         query += f" LIMIT {limit}"
 
-        return pl.read_database(
-            query, connection=conn, execute_options={"parameters": params}
+        return md.execute_query(
         )
 
     def query_filing_by_id(
@@ -240,20 +237,19 @@ class FilingDownloader:
             query += " AND f.symbol = ?"
             params.append(symbol)
 
-        return pl.read_database(
-            query, connection=conn, execute_options={"parameters": params}
+        return md.execute_query(
         )
 
     def is_filing_processed(self, conn, filing_id: str, symbol: str) -> bool:
         """Check if a filing has already been processed."""
-        result = conn.execute(
+        result = conn.query(
             "SELECT processed FROM sec_filings WHERE filing_id = ? AND symbol = ?",
             [filing_id, symbol],
-        )
+        ).result()
         row = result.fetchone()
         return bool(row and row[0] is True)
 
     def count_remaining_unprocessed(self, conn) -> int:
         """Count filings still awaiting processing."""
-        row = conn.execute(_REMAINING_COUNT_QUERY).fetchone()
+        row = md.fetchone(_REMAINING_COUNT_QUERY)
         return row[0] if row else 0
