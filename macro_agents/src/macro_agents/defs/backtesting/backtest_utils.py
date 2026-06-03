@@ -163,7 +163,7 @@ def get_asset_returns(
     Get actual returns for assets for multiple forward-looking periods.
 
     Args:
-        md_resource: MotherDuck resource
+        md_resource: BigQuery resource
         symbols: List of asset symbols to get returns for
         backtest_date: Date string (YYYY-MM-DD) for the backtest cutoff
         periods: List of months to calculate forward returns for

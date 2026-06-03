@@ -29,7 +29,7 @@ def sec_filing_text_extracted(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """
@@ -46,12 +46,12 @@ def sec_filing_text_extracted(
     metaxy_divergence_count: int | None = None
     metaxy_shadow_error: str | None = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_content_table(conn)
 
         # Load processed filings that haven't been text-extracted yet
         batch_size = BATCH_SIZE_STANDARD
-        filings_to_process = md.execute_query(
+        filings_to_process = bq.execute_query(
             f"""
             SELECT f.filing_id, f.cik, f.symbol, f.form_type, f.gcs_path
             FROM sec_filings f
@@ -223,7 +223,7 @@ def sec_filing_text_extracted(
                 f"({total_processed} filings, {total_sections} sections)"
             )
             content_df = pl.DataFrame(all_content_records)
-            md.upsert_data(
+            bq.upsert_data(
                 "sec_filing_content",
                 content_df,
                 ["content_id"],
@@ -239,7 +239,7 @@ def sec_filing_text_extracted(
         )
 
         # Get count of remaining filings to process
-        remaining_row = md.fetchone(
+        remaining_row = bq.fetchone(
             """
             SELECT COUNT(*)
             FROM sec_filings f

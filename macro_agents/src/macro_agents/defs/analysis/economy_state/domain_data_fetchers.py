@@ -1,7 +1,7 @@
 """Domain-specific data fetching utilities.
 
 This module provides functions to fetch data for each domain sub-agent
-from MotherDuck, filtering to the relevant series and tables.
+from BigQuery, filtering to the relevant series and tables.
 """
 
 import io
@@ -48,7 +48,7 @@ def get_labor_market_data(
     """Fetch labor market specific data from FRED series.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         max_months: Number of months of history to include
 
@@ -114,7 +114,7 @@ def get_labor_trends_data(
     """Fetch month-over-month employment trends.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         max_months: Number of months of trend data
 
@@ -156,7 +156,7 @@ def get_financial_conditions_data(
     """Fetch Financial Conditions Index data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         max_months: Number of months of FCI history
 
@@ -205,7 +205,7 @@ def get_yield_curve_data(
     """Fetch yield curve data with spreads.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         max_months: Number of months of yield curve history
 
@@ -247,7 +247,7 @@ def get_credit_data(
     """Fetch credit spread and monetary policy data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         max_months: Number of months of credit data
 
@@ -311,7 +311,7 @@ def get_energy_commodities_data(
     """Fetch energy commodities data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         time_period: Time period for returns (e.g., '6_months')
 
@@ -366,7 +366,7 @@ def get_input_commodities_data(
     """Fetch industrial/input commodities data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         time_period: Time period for returns (e.g., '6_months')
 
@@ -421,7 +421,7 @@ def get_agriculture_commodities_data(
     """Fetch agricultural commodities data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         time_period: Time period for returns (e.g., '6_months')
 
@@ -476,7 +476,7 @@ def get_sector_data(
     """Fetch US sector ETF performance data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         time_period: Time period for returns (e.g., '6_months')
 
@@ -533,7 +533,7 @@ def get_sector_correlation_data(
     """Fetch sector correlation with economic indicators.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         sample_size: Number of top correlations to return
 
@@ -589,7 +589,7 @@ def get_major_indices_data(
     """Fetch major indices performance data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         time_period: Time period for returns (e.g., '6_months')
 
@@ -646,7 +646,7 @@ def get_fixed_income_data(
     """Fetch fixed income ETF performance data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         time_period: Time period for returns (e.g., '6_months')
 
@@ -707,7 +707,7 @@ def get_global_markets_data(
     """Fetch global markets and currency ETF data.
 
     Args:
-        md_resource: MotherDuck resource for database queries
+        md_resource: BigQuery resource for database queries
         cutoff_date: Optional date for backtesting (YYYY-MM-DD)
         time_period: Time period for returns (e.g., '6_months')
 

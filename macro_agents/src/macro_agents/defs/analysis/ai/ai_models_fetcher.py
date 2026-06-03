@@ -176,7 +176,7 @@ def _get_gemini_models(api_key: str | None = None) -> list[str]:
 )
 def fetch_available_ai_models(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Fetch available chat/completion models from OpenAI, Anthropic, and Gemini APIs and store results.
@@ -304,7 +304,7 @@ def fetch_available_ai_models(
             )
 
         # Drop and recreate table with new data
-        md.drop_create_duck_db_table(
+        bq.drop_create_duck_db_table(
             table_name="available_ai_models",
             df=df,
         )

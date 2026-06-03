@@ -12,7 +12,7 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 )
 def sec_company_bi_summary(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Create a summary table aggregating BI signals by company.
@@ -24,7 +24,7 @@ def sec_company_bi_summary(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         # Create summary table
         conn.query("""
@@ -52,7 +52,7 @@ def sec_company_bi_summary(
         """).result()
 
         # Get all companies with filings
-        companies = md.fetchall("""
+        companies = bq.fetchall("""
             SELECT DISTINCT
                 f.symbol,
                 c.company_name
@@ -67,7 +67,7 @@ def sec_company_bi_summary(
 
         for symbol, company_name in companies:
             # Get filing dates
-            filing_dates = md.fetchone(
+            filing_dates = bq.fetchone(
                 """
                 SELECT
                     MAX(CASE WHEN form_type = '10-K' THEN filing_date END) as latest_10k,
@@ -85,7 +85,7 @@ def sec_company_bi_summary(
                 total_filings = 0
 
             # Get signal counts by category
-            signal_counts = md.fetchall(
+            signal_counts = bq.fetchall(
                 """
                 SELECT
                     st.term_category,
@@ -200,7 +200,7 @@ def sec_company_bi_summary(
 
             total_updated += 1
         # Get summary statistics
-        stats = md.fetchone("""
+        stats = bq.fetchone("""
             SELECT
                 COUNT(*) as total_companies,
                 AVG(total_signals) as avg_signals_per_company,

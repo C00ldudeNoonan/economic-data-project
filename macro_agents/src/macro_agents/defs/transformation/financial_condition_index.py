@@ -389,7 +389,7 @@ def calculate_fci_scores(
 )
 def financial_conditions_index(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Dagster asset that creates the Financial Conditions Index (FCI).
@@ -450,7 +450,7 @@ def financial_conditions_index(
 
         # Save to database
         context.log.info("Saving FCI data to database...")
-        md.drop_create_duck_db_table("financial_conditions_index", fci_df)
+        bq.drop_create_duck_db_table("financial_conditions_index", fci_df)
 
         # Get summary statistics
         latest_fci = fci_df.filter(pl.col("FCI").is_not_null()).tail(1)
@@ -539,7 +539,7 @@ def financial_conditions_index(
 )
 def fci_weights_config(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Dagster asset that creates a weights configuration table for the FCI calculation.
@@ -675,7 +675,7 @@ def fci_weights_config(
     )
 
     # Save to database
-    md.drop_create_duck_db_table("fci_weights_config", weights_df)
+    bq.drop_create_duck_db_table("fci_weights_config", weights_df)
 
     context.log.info(
         f"FCI weights configuration saved with {len(weights_df)} weight periods"

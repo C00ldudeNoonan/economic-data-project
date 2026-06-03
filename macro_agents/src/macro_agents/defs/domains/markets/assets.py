@@ -45,14 +45,14 @@ def _unify_splits_schema(
 
 
 def _ensure_sp500_scd2_columns(
-    md: BigQueryWarehouseResource, context: dg.AssetExecutionContext
+    bq: BigQueryWarehouseResource, context: dg.AssetExecutionContext
 ) -> None:
     """One-time migration: add date_started/date_ended columns and backfill existing rows."""
     try:
-        client = md.get_client()
+        client = bq.get_client()
         project = client.project
-        dataset = md.dataset
-        cols = md.fetchall(
+        dataset = bq.dataset
+        cols = bq.fetchall(
             f"SELECT column_name FROM `{project}.{dataset}.INFORMATION_SCHEMA.COLUMNS` "
             f"WHERE table_name = 'sp500_companies_raw' AND column_name = 'date_started'"
         )
@@ -86,7 +86,7 @@ def _ensure_sp500_scd2_columns(
 def sp500_companies_raw(
     context: dg.AssetExecutionContext,
     company_scraper: CompanyListScraperResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Scrape S&P 500 companies from Wikipedia with SCD Type 2 history.
@@ -113,16 +113,16 @@ def sp500_companies_raw(
     scraped_symbols = set(df["symbol"].to_list())
 
     # Run one-time migration if needed (adds date_started/date_ended to existing table)
-    _ensure_sp500_scd2_columns(md, context)
+    _ensure_sp500_scd2_columns(bq, context)
 
     # Load currently active rows from the table
     added_count = 0
     removed_count = 0
     unchanged_count = 0
 
-    client = md.get_client()
+    client = bq.get_client()
     project = client.project
-    dataset = md.dataset
+    dataset = bq.dataset
     table_ref = f"`{project}.{dataset}.sp500_companies_raw`"
 
     # Create table if it doesn't exist (first run)
@@ -134,7 +134,7 @@ def sp500_companies_raw(
         "date_started DATE, date_ended DATE)"
     ).result()
 
-    active_df = md.execute_query(
+    active_df = bq.execute_query(
         f"SELECT symbol FROM {table_ref} WHERE date_ended IS NULL"
     )
     active_symbols = (
@@ -229,7 +229,7 @@ def sp500_companies_raw(
 def nasdaq_companies_raw(
     context: dg.AssetExecutionContext,
     company_scraper: CompanyListScraperResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Scrape NASDAQ companies from Stock Analysis.
@@ -252,7 +252,7 @@ def nasdaq_companies_raw(
         context.log.warning(f"Found {len(duplicates)} duplicate symbols")
         df = df.unique(subset=["symbol"], keep="first")
 
-    md.upsert_data("nasdaq_companies_raw", df, ["symbol"], context=context)
+    bq.upsert_data("nasdaq_companies_raw", df, ["symbol"], context=context)
     _sync_company_ticker_partitions(
         context, NASDAQ_COMPANY_TICKERS_PARTITION_NAME, df["symbol"].to_list()
     )
@@ -277,7 +277,7 @@ def nasdaq_companies_raw(
 )
 def sp500_splits_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     """
@@ -288,12 +288,12 @@ def sp500_splits_raw(
     """
     # Use date_ended filter when SCD2 columns exist, otherwise fetch all symbols
     try:
-        tickers_df = md.execute_query(
+        tickers_df = bq.execute_query(
             "SELECT DISTINCT symbol FROM sp500_companies_raw WHERE date_ended IS NULL"
         )
     except Exception:
         context.log.info("date_ended column not found, fetching all symbols")
-        tickers_df = md.execute_query("SELECT DISTINCT symbol FROM sp500_companies_raw")
+        tickers_df = bq.execute_query("SELECT DISTINCT symbol FROM sp500_companies_raw")
     tickers = sorted(tickers_df["symbol"].to_list())
     context.log.info(f"Fetching splits for {len(tickers)} S&P 500 tickers")
 
@@ -335,7 +335,7 @@ def sp500_splits_raw(
             schema={"symbol": pl.Utf8, "date": pl.Utf8, "split_factor": pl.Float64}
         )
 
-    md.upsert_data("sp500_splits_raw", combined, ["symbol", "date"], context=context)
+    bq.upsert_data("sp500_splits_raw", combined, ["symbol", "date"], context=context)
 
     sample_events = (
         combined.sort("date", descending=True).head(5).to_dicts()
@@ -355,7 +355,7 @@ def sp500_splits_raw(
 
 def _fetch_ticker_partitions(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
     table_name: str,
 ) -> dg.MaterializeResult:
@@ -377,7 +377,7 @@ def _fetch_ticker_partitions(
         )
         if df.shape[0] > 0:
             context.log.debug(f"DataFrame columns: {df.columns}")
-            md.upsert_data(table_name, df, ["symbol", "date"], context=context)
+            bq.upsert_data(table_name, df, ["symbol", "date"], context=context)
             total_rows += df.shape[0]
         else:
             empty_partitions.append(f"{ticker}/{date_partition}")
@@ -414,7 +414,7 @@ def _fetch_ticker_partitions(
 
 def _fetch_commodity_partitions(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
     table_name: str,
 ) -> dg.MaterializeResult:
@@ -435,7 +435,7 @@ def _fetch_commodity_partitions(
         if df.shape[0] > 0:
             context.log.debug(f"DataFrame columns: {df.columns}")
             context.log.debug(f"DataFrame head:\n{df.head()}")
-            md.upsert_data(table_name, df, ["commodity_name", "date"], context=context)
+            bq.upsert_data(table_name, df, ["commodity_name", "date"], context=context)
             total_rows += df.shape[0]
         else:
             context.log.warning(f"No data returned for commodity: {commodity}")
@@ -460,7 +460,7 @@ def _fetch_commodity_partitions(
 )
 def us_sector_etfs_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "us_sector_etfs_raw")
@@ -478,7 +478,7 @@ def us_sector_etfs_raw(
 )
 def currency_etfs_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "currency_etfs_raw")
@@ -496,7 +496,7 @@ def currency_etfs_raw(
 )
 def major_indices_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "major_indices_raw")
@@ -514,7 +514,7 @@ def major_indices_raw(
 )
 def fixed_income_etfs_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "fixed_income_etfs_raw")
@@ -532,7 +532,7 @@ def fixed_income_etfs_raw(
 )
 def global_markets_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, md, marketstack, "global_markets_raw")
@@ -551,7 +551,7 @@ def global_markets_raw(
 )
 def sp500_companies_prices_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(
@@ -572,7 +572,7 @@ def sp500_companies_prices_raw(
 )
 def nasdaq_companies_prices_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(
@@ -592,7 +592,7 @@ def nasdaq_companies_prices_raw(
 )
 def energy_commodities_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(
@@ -612,7 +612,7 @@ def energy_commodities_raw(
 )
 def input_commodities_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(
@@ -632,7 +632,7 @@ def input_commodities_raw(
 )
 def agriculture_commodities_raw(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(

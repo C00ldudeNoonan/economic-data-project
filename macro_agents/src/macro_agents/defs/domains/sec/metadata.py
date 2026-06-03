@@ -26,7 +26,7 @@ _FORM_TYPES = ["10-K", "10-Q", "10-K/A", "10-Q/A"]
 def sec_filing_metadata(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Fetch SEC filing metadata for all S&P 500 companies with CIK codes.
@@ -44,12 +44,12 @@ def sec_filing_metadata(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filings_table(conn)
 
         # Load companies with CIK codes
         try:
-            companies_df = md.execute_query("SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik")
+            companies_df = bq.execute_query("SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik")
         except Exception as e:
             context.log.warning(
                 f"Could not query sec_company_cik table (may not exist yet): {e}"
@@ -72,7 +72,7 @@ def sec_filing_metadata(
 
         # Query latest filing date per CIK for incremental fetching
         try:
-            latest_filings = md.execute_query(
+            latest_filings = bq.execute_query(
                 "SELECT cik, MAX(filing_date) as latest_filing_date "
                 "FROM sec_filings GROUP BY cik"
             )
@@ -93,7 +93,7 @@ def sec_filing_metadata(
         # Load historical CIK mappings (if table exists)
         historical_ciks_by_symbol: dict[str, list[str]] = {}
         try:
-            history_df = md.execute_query(
+            history_df = bq.execute_query(
                 "SELECT current_symbol, cik_padded "
                 "FROM sec_company_cik_history "
                 "WHERE relationship_type != 'current' "
@@ -251,7 +251,7 @@ def sec_filing_metadata(
             context.log.debug(
                 f"After deduplication: {len(combined_filings)} unique filings"
             )
-            md.upsert_data(
+            bq.upsert_data(
                 "sec_filings",
                 combined_filings,
                 ["symbol", "filing_id"],
@@ -315,7 +315,7 @@ def sec_filing_metadata(
 def sec_filing_partitions_sync(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Sync dynamic partitions for companies and filings from existing sec_filings table.
@@ -325,11 +325,11 @@ def sec_filing_partitions_sync(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filings_table(conn)
 
         # Get all filings with primary_document (required for document download)
-        filings_df = md.execute_query("""
+        filings_df = bq.execute_query("""
             SELECT DISTINCT symbol, filing_id
             FROM sec_filings
             WHERE primary_document IS NOT NULL

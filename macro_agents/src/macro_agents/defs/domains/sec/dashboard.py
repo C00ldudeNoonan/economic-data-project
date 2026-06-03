@@ -12,7 +12,7 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 )
 def sec_filing_dashboard_views(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Create database views for SEC filing analytics and dashboards.
@@ -27,7 +27,7 @@ def sec_filing_dashboard_views(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         # 1. Filing Overview View
         conn.query("""
@@ -213,7 +213,7 @@ def sec_filing_dashboard_views(
         view_stats = {}
         for view in views:
             try:
-                result = md.fetchone(f"SELECT COUNT(*) FROM {view}")
+                result = bq.fetchone(f"SELECT COUNT(*) FROM {view}")
                 view_stats[view] = result[0] if result else 0
             except Exception as e:
                 view_stats[view] = f"Error: {e}"

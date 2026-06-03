@@ -40,7 +40,7 @@ def _generate_metadata_id(filing_id: str, section_name: str) -> str:
 def sec_filing_llm_analysis(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     ollama: OllamaResource,
 ) -> dg.MaterializeResult:
     """
@@ -56,11 +56,11 @@ def sec_filing_llm_analysis(
 
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_llm_metadata_table(conn)
 
         # Find filing sections for this ticker that don't have LLM metadata yet
-        sections_to_process = md.execute_query(
+        sections_to_process = bq.execute_query(
             f"""
             SELECT c.content_id, c.filing_id, c.section_name, c.gcs_path,
                    f.symbol, f.form_type

@@ -54,7 +54,7 @@ def _ensure_fts_content_table(conn) -> None:
 )
 def sec_filing_fts_index(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     gcs: GCSResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
@@ -71,12 +71,12 @@ def sec_filing_fts_index(
     metaxy_divergence_count: int | None = None
     metaxy_shadow_error: str | None = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_content_table(conn)
         _ensure_fts_content_table(conn)
 
         # Find content rows not yet in the FTS table
-        new_content = md.execute_query(
+        new_content = bq.execute_query(
             f"""
             SELECT c.content_id, c.filing_id, c.section_name,
                    c.word_count, c.gcs_path,
@@ -183,7 +183,7 @@ def sec_filing_fts_index(
         context.log.info("FTS index created successfully")
 
         # Get total indexed rows
-        total_row = md.fetchone(f"SELECT COUNT(*) FROM {FTS_TABLE}")
+        total_row = bq.fetchone(f"SELECT COUNT(*) FROM {FTS_TABLE}")
         total_indexed = total_row[0] if total_row else 0
 
         return dg.MaterializeResult(

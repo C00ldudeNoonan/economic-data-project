@@ -39,7 +39,7 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 def analyze_economy_state(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -79,7 +79,7 @@ def analyze_economy_state(
     context.log.info(
         "Gathering Financial Conditions Index data (with token optimization, preserving trends)..."
     )
-    fci_data = economic_analysis.get_financial_conditions_index(md, max_months=12)
+    fci_data = economic_analysis.get_financial_conditions_index(bq, max_months=12)
 
     context.log.info(
         "Gathering housing market data (with token optimization, preserving trends)..."
@@ -91,12 +91,12 @@ def analyze_economy_state(
     context.log.info(
         "Gathering yield curve data (with token optimization, preserving trends)..."
     )
-    yield_curve_data = economic_analysis.get_yield_curve_data(md, max_months=12)
+    yield_curve_data = economic_analysis.get_yield_curve_data(bq, max_months=12)
 
     context.log.info(
         "Gathering economic trends data (with token optimization, preserving trends)..."
     )
-    economic_trends = economic_analysis.get_economic_trends(md, max_months=12)
+    economic_trends = economic_analysis.get_economic_trends(bq, max_months=12)
 
     optimized_analyzer = None
     if economic_analysis.use_optimized_models:
@@ -231,7 +231,7 @@ def analyze_economy_state(
     }
 
     context.log.info("Writing economy state analysis to database...")
-    md.write_results_to_table(
+    bq.write_results_to_table(
         [json_result],
         output_table="economy_state_analysis",
         if_exists="append",
@@ -277,7 +277,7 @@ def analyze_economy_state(
 def analyze_economy_state_v2(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
 ) -> dg.MaterializeResult:
     """
@@ -558,7 +558,7 @@ def analyze_economy_state_v2(
     }
 
     context.log.info("Writing sub-agent results to database...")
-    md.write_results_to_table(
+    bq.write_results_to_table(
         [sub_agent_results],
         output_table="economy_state_v2_sub_agents",
         if_exists="append",
@@ -587,7 +587,7 @@ def analyze_economy_state_v2(
     }
 
     context.log.info("Writing aggregated analysis to database...")
-    md.write_results_to_table(
+    bq.write_results_to_table(
         [aggregated_json],
         output_table="economy_state_analysis",
         if_exists="append",

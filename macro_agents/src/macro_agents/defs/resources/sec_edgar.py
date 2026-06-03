@@ -474,16 +474,16 @@ class SECEdgarResource(dg.ConfigurableResource):
     def sync_filing_partitions_from_database(
         self,
         context: dg.AssetExecutionContext,
-        md: BigQueryWarehouseResource,
+        bq: BigQueryWarehouseResource,
         get_company_partition_name_fn: Callable[[str], str],
     ) -> None:
         """Sync dynamic partitions for companies and filings from sec_filings table."""
         conn = None
         try:
-            conn = md.get_connection()
+            conn = bq.get_connection()
 
             # Get all filings with primary_document
-            filings_df = md.execute_query("""
+            filings_df = bq.execute_query("""
                 SELECT DISTINCT symbol, filing_id
                 FROM sec_filings
                 WHERE primary_document IS NOT NULL

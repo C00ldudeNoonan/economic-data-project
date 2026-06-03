@@ -114,7 +114,7 @@ def recommendation_accuracy_metric(example, prediction, trace=None):
 def evaluate_backtest_recommendations(
     context: dg.AssetExecutionContext,
     config: BacktestConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Asset that evaluates backtest investment recommendations using DSPy's evaluation framework.
@@ -163,7 +163,7 @@ def evaluate_backtest_recommendations(
         LIMIT 1
         """
 
-        df = md.execute_query(query, read_only=True)
+        df = bq.execute_query(query, read_only=True)
         if df.is_empty():
             context.log.warning(
                 f"No backtest recommendations found for {backtest_date} "
@@ -197,7 +197,7 @@ def evaluate_backtest_recommendations(
             continue
 
         symbols = [rec["symbol"] for rec in recommendations]
-        returns_data = get_asset_returns(md, symbols, backtest_date, periods=[1, 3, 6])
+        returns_data = get_asset_returns(bq, symbols, backtest_date, periods=[1, 3, 6])
 
         examples = []
         for rec in recommendations:
@@ -378,7 +378,7 @@ def evaluate_backtest_recommendations(
         return dg.MaterializeResult(metadata=result_metadata)
 
     context.log.info(f"Writing {len(all_results)} evaluation results to database...")
-    md.write_results_to_table(
+    bq.write_results_to_table(
         all_results,
         output_table="backtest_evaluation_results",
         if_exists="append",

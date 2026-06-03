@@ -43,13 +43,13 @@ ASSET_QUERIES = {
 )
 def turbulence_index_signals(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching multi-asset prices...")
     asset_frames: dict[str, pl.DataFrame] = {}
     for name, query in ASSET_QUERIES.items():
         try:
-            df = md.execute_query(query, read_only=True)
+            df = bq.execute_query(query, read_only=True)
             if not df.is_empty():
                 asset_frames[name] = df.rename({"adj_close": name})
         except Exception as e:
@@ -177,7 +177,7 @@ def turbulence_index_signals(
     )
 
     context.log.info(f"Writing {len(df)} turbulence index rows to MotherDuck")
-    md.upsert_data("turbulence_index_signals", df, ["date"], context=context)
+    bq.upsert_data("turbulence_index_signals", df, ["date"], context=context)
 
     return dg.MaterializeResult(
         metadata={

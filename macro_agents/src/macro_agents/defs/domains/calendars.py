@@ -137,7 +137,7 @@ def _build_us_federal_holidays(
 )
 def calendar_dates(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Build a reusable calendar/date dimension table for analytics."""
     context.log.info(
@@ -226,7 +226,7 @@ def calendar_dates(
         current += timedelta(days=1)
 
     df = pl.DataFrame(rows)
-    md.upsert_data("calendar_dates", df, ["date"], context=context)
+    bq.upsert_data("calendar_dates", df, ["date"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -344,7 +344,7 @@ def parse_numeric_value(value: str | None) -> float | None:
 )
 def economic_calendar(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Fetch the weekly economic calendar events and store them in DuckDB."""
     context.log.info("Fetching economic calendar data")
@@ -409,7 +409,7 @@ def economic_calendar(
         context.log.warning("No economic calendar events fetched")
         return dg.MaterializeResult(metadata={"rows": 0, "status": "no_data"})
 
-    md.upsert_data("economic_calendar", df, ["event_id"], context=context)
+    bq.upsert_data("economic_calendar", df, ["event_id"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -428,7 +428,7 @@ def economic_calendar(
 def earnings_calendar(
     context: dg.AssetExecutionContext,
     yahoo_finance: YahooFinanceResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Ingest earnings calendar data from Yahoo Finance.
@@ -491,7 +491,7 @@ def earnings_calendar(
     processed_df = pl.DataFrame(processed_records)
     context.log.info(f"Fetched {len(processed_df)} earnings announcements")
 
-    md.upsert_data("earnings_calendar", processed_df, ["event_id"], context=context)
+    bq.upsert_data("earnings_calendar", processed_df, ["event_id"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -504,16 +504,16 @@ def earnings_calendar(
 
 
 @dg.asset_check(asset=calendar_dates)
-def calendar_dates_quality_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def calendar_dates_quality_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate the calendar dimension table is populated and recent."""
-    if not md.table_exists("calendar_dates"):
+    if not bq.table_exists("calendar_dates"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "calendar_dates table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         "SELECT MAX(date) AS max_date, COUNT(*) AS row_count FROM calendar_dates",
         read_only=True,
     )
@@ -539,17 +539,17 @@ def calendar_dates_quality_check(md: BigQueryWarehouseResource) -> dg.AssetCheck
 
 @dg.asset_check(asset=economic_calendar)
 def economic_calendar_quality_check(
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.AssetCheckResult:
     """Ensure economic calendar has recent events."""
-    if not md.table_exists("economic_calendar"):
+    if not bq.table_exists("economic_calendar"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "economic_calendar table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         """
         SELECT MAX(date) AS max_date, COUNT(*) AS row_count
         FROM economic_calendar
@@ -577,16 +577,16 @@ def economic_calendar_quality_check(
 
 
 @dg.asset_check(asset=earnings_calendar)
-def earnings_calendar_quality_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def earnings_calendar_quality_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Ensure earnings calendar table is populated."""
-    if not md.table_exists("earnings_calendar"):
+    if not bq.table_exists("earnings_calendar"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "earnings_calendar table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         "SELECT COUNT(*) AS row_count FROM earnings_calendar",
         read_only=True,
     )

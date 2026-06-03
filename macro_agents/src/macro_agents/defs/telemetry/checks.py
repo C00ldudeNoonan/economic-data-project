@@ -4,16 +4,16 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 
 
 @dg.asset_check(asset="telemetry_events_raw")
-def telemetry_events_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def telemetry_events_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate telemetry events have been replicated."""
-    if not md.table_exists("telemetry.telemetry_events_raw"):
+    if not bq.table_exists("telemetry.telemetry_events_raw"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "telemetry.telemetry_events_raw table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         """
         SELECT
             COUNT(*) AS row_count,
@@ -35,11 +35,11 @@ def telemetry_events_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckR
 
 
 @dg.asset_check(asset="users_raw")
-def users_raw_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def users_raw_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate users table has been replicated."""
     table_name = "telemetry.users_raw"
     try:
-        df = md.execute_query(
+        df = bq.execute_query(
             f"SELECT COUNT(*) AS row_count FROM {table_name}",
             read_only=True,
         )

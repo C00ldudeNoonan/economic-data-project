@@ -13,14 +13,14 @@ DATA_QUALITY_GROUP = "data_quality"
     group_name=DATA_QUALITY_GROUP,
     kinds={"google_sheets", "duckdb"},
     description=(
-        "Write data quality anomalies from MotherDuck to a Google Sheet "
+        "Write data quality anomalies from BigQuery to a Google Sheet "
         "with GOOGLEFINANCE formulas for price verification."
     ),
     deps=[dg.AssetKey("data_quality_anomalies")],
 )
 def dq_anomalies_to_sheets(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     google_sheets: GoogleSheetsResource,
 ) -> dg.MaterializeResult:
     """Export anomalies from the dbt data_quality_anomalies table to Google Sheets.
@@ -29,13 +29,13 @@ def dq_anomalies_to_sheets(
     flagged prices against Google's data. After review, the user marks
     rows as verified='yes' and the corrections can be read back.
     """
-    if not md.table_exists("data_quality_anomalies"):
+    if not bq.table_exists("data_quality_anomalies"):
         context.log.warning("data_quality_anomalies table does not exist yet")
         return dg.MaterializeResult(
             metadata={"rows_written": 0, "status": "table not found"}
         )
 
-    anomalies_df = md.execute_query(
+    anomalies_df = bq.execute_query(
         "SELECT * FROM data_quality_anomalies ORDER BY source_table, symbol, date"
     )
 
@@ -65,13 +65,13 @@ def dq_anomalies_to_sheets(
     kinds={"google_sheets", "duckdb"},
     description=(
         "Read verified corrections from Google Sheets and update "
-        "the corresponding rows in MotherDuck raw tables."
+        "the corresponding rows in BigQuery raw tables."
     ),
     deps=[dg.AssetKey("dq_anomalies_to_sheets")],
 )
 def dq_apply_corrections(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     google_sheets: GoogleSheetsResource,
 ) -> dg.MaterializeResult:
     """Read back verified corrections from Google Sheets and update MotherDuck.
@@ -125,7 +125,7 @@ def dq_apply_corrections(
                         f"WHERE commodity_name = '{symbol}' "
                         f"AND CAST(date AS DATE) = '{date_val}'"
                     )
-                    md.execute_query(query, read_only=False)
+                    bq.execute_query(query, read_only=False)
                     total_applied += 1
             else:
                 # Build SET clause for non-empty GOOGLEFINANCE values
@@ -147,7 +147,7 @@ def dq_apply_corrections(
                         f"WHERE symbol = '{symbol}' "
                         f"AND CAST(date AS DATE) = '{date_val}'"
                     )
-                    md.execute_query(query, read_only=False)
+                    bq.execute_query(query, read_only=False)
                     total_applied += 1
 
         context.log.info(

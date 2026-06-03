@@ -61,15 +61,15 @@ def build_company_manifest(
 def sec_filing_gcs_manifest(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Build a manifest.json per company symbol under sec_filings/{symbol}/manifest.json."""
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_markdown_table(conn)
 
-        companies_df = md.execute_query("""
+        companies_df = bq.execute_query("""
             SELECT c.symbol, c.company_name, c.cik
             FROM sec_company_cik c
             WHERE c.symbol IS NOT NULL
@@ -82,7 +82,7 @@ def sec_filing_gcs_manifest(
                 metadata={"status": "no_companies", "manifests_written": 0}
             )
 
-        filings_df = md.execute_query("""
+        filings_df = bq.execute_query("""
             SELECT f.symbol, f.filing_id, f.accession_number, f.cik,
                    f.form_type, f.filing_date,
                    f.gcs_path, f.processed,
@@ -156,7 +156,7 @@ def sec_filing_gcs_manifest(
 def sec_filing_gcs_catalog(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Build a catalog.json at sec_filings/catalog.json for cross-system lookups.
 
@@ -167,9 +167,9 @@ def sec_filing_gcs_catalog(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
-        companies_df = md.execute_query("""
+        companies_df = bq.execute_query("""
             SELECT c.symbol, c.company_name, c.cik,
                    (SELECT COUNT(*) FROM sec_filings f
                     WHERE f.symbol = c.symbol) AS filing_count
@@ -178,7 +178,7 @@ def sec_filing_gcs_catalog(
             ORDER BY c.symbol
             """)
 
-        filings_df = md.execute_query("""
+        filings_df = bq.execute_query("""
             SELECT f.symbol, f.accession_number, f.cik,
                    f.form_type, f.filing_date, f.gcs_path
             FROM sec_filings f

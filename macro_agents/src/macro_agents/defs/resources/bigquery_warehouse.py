@@ -264,10 +264,17 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         return df[column].to_list() if column in df.columns else []
 
 
-environment = os.getenv("ENVIRONMENT", "dev")
+_environment = os.getenv("ENVIRONMENT", "dev")
+
+# Dataset suffix mirrors the dbt generate_schema_name macro:
+#   prod  → no suffix   → economics_raw
+#   staging → _staging  → economics_raw_staging
+#   dev   → _dev        → economics_raw_dev
+_dataset_suffix = {"prod": "", "staging": "_staging"}.get(_environment, "_dev")
+_default_dataset = f"economics_raw{_dataset_suffix}"
 
 bigquery_warehouse_resource = BigQueryWarehouseResource(
     project=os.getenv("BIGQUERY_PROJECT", "econ-data-project-478800"),
-    dataset=os.getenv("BIGQUERY_DATASET", "economics_raw"),
+    dataset=os.getenv("BIGQUERY_DATASET", _default_dataset),
     location=os.getenv("BIGQUERY_LOCATION", "US"),
 )

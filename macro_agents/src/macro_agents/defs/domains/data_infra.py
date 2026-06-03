@@ -222,7 +222,7 @@ class DataDictionaryBuilder:
         Args:
             table_name: Name of the table
             column_name: Name of the column
-            md_resource: MotherDuck resource for querying
+            md_resource: BigQuery resource for querying
 
         Returns:
             List of sample values (max 5)
@@ -251,7 +251,7 @@ class DataDictionaryBuilder:
 
         Args:
             dbt_project_path: Path to dbt_project/models directory
-            md_resource: Optional MotherDuck resource for sampling values
+            md_resource: Optional BigQuery resource for sampling values
 
         Returns:
             Polars DataFrame with data dictionary metadata
@@ -299,7 +299,7 @@ class DataDictionaryBuilder:
 
         df = pl.DataFrame(all_metadata)
 
-        # Optionally sample values if MotherDuck resource provided
+        # Optionally sample values if BigQuery resource provided
         if md_resource is not None:
             # TODO: Implement value sampling (can be added later for performance)
             pass
@@ -312,7 +312,7 @@ class DataDictionaryBuilder:
     description="Build data dictionary from DBT schema files",
 )
 def build_data_dictionary(
-    context: dg.AssetExecutionContext, md: BigQueryWarehouseResource
+    context: dg.AssetExecutionContext, bq: BigQueryWarehouseResource
 ) -> dg.MaterializeResult:
     """
     Dagster asset that populates the data_dictionary table from DBT schema files.
@@ -321,11 +321,11 @@ def build_data_dictionary(
     1. Parses all DBT schema.yml files from dbt_project/models/
     2. Extracts table and column metadata
     3. Classifies metric additivity (ADDITIVE vs NON_ADDITIVE)
-    4. Writes metadata to data_dictionary table in MotherDuck
+    4. Writes metadata to data_dictionary table in BigQuery
 
     Args:
         context: Dagster execution context
-        md: MotherDuck resource for database operations
+        md: BigQuery resource for database operations
 
     Returns:
         MaterializeResult with row count metadata
@@ -343,7 +343,7 @@ def build_data_dictionary(
     context.log.info(f"Parsing DBT schemas from: {dbt_path}")
 
     # Build dictionary
-    df = builder.build_dictionary(dbt_path, md)
+    df = builder.build_dictionary(dbt_path, bq)
 
     if df.is_empty():
         context.log.warning("No metadata found in DBT schema files")
@@ -372,15 +372,15 @@ def build_data_dictionary(
     """
 
     context.log.info("Creating data_dictionary table if not exists...")
-    md.execute_query(create_table_query)
+    bq.execute_query(create_table_query)
 
     # Clear existing data (full refresh)
     context.log.info("Clearing existing data dictionary...")
-    md.execute_query("DELETE FROM data_dictionary")
+    bq.execute_query("DELETE FROM data_dictionary")
 
     # Write new data
     context.log.info(f"Writing {len(df)} rows to data_dictionary table...")
-    md.write_results_to_table(
+    bq.write_results_to_table(
         df.to_dicts(), "data_dictionary", if_exists="append", context=context
     )
 

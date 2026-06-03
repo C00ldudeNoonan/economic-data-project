@@ -31,7 +31,7 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 )
 def sec_unprocessed_filings_sensor(
     context: dg.SensorEvaluationContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ):
     """
     Check for unprocessed SEC filings and trigger processing.
@@ -55,9 +55,9 @@ def sec_unprocessed_filings_sensor(
 
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
-        result = md.fetchone(
+        result = bq.fetchone(
             """
             SELECT COUNT(*) as cnt
             FROM sec_filings
@@ -131,7 +131,7 @@ def sec_unprocessed_filings_sensor(
 )
 def sec_new_companies_sensor(
     context: dg.SensorEvaluationContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ):
     """
     Detect new S&P 500 companies missing from sec_filings and trigger ingestion.
@@ -153,16 +153,16 @@ def sec_new_companies_sensor(
 
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         # Check if sec_filings table exists; if not, all CIK companies need ingestion
-        tables = md.fetchall(
+        tables = bq.fetchall(
             "SELECT table_name FROM information_schema.tables "
             "WHERE table_name = 'sec_filings'")
 
         if not tables:
             # sec_filings doesn't exist yet — count all companies with CIKs
-            result = md.fetchone("SELECT COUNT(*) FROM sec_company_cik")
+            result = bq.fetchone("SELECT COUNT(*) FROM sec_company_cik")
             new_company_count = result[0] if result else 0
             if new_company_count > 0:
                 context.log.info(
@@ -170,7 +170,7 @@ def sec_new_companies_sensor(
                     f"{new_company_count} CIK companies as new"
                 )
         else:
-            result = md.fetchone(
+            result = bq.fetchone(
                 """
                 SELECT COUNT(*) as cnt
                 FROM sec_company_cik c

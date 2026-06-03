@@ -28,7 +28,7 @@ fomc_transcript_years_partition = dg.StaticPartitionsDefinition(
 )
 def fomc_transcript_schema(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Create database tables for FOMC transcripts, summaries, and related data.
@@ -43,7 +43,7 @@ def fomc_transcript_schema(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         # 1. FOMC Transcripts Table
         conn.query("""
@@ -191,7 +191,7 @@ def fomc_transcript_schema(
         table_info = {}
         for table in tables:
             try:
-                result = md.fetchone(
+                result = bq.fetchone(
                     f"SELECT COUNT(*) as count FROM {table}")
                 table_info[table] = result[0] if result else 0
             except Exception:
@@ -222,7 +222,7 @@ def fomc_transcripts_raw(
     context: dg.AssetExecutionContext,
     fed: FederalReserveResource,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Download FOMC transcript PDFs for a given year and store in GCS.
@@ -245,8 +245,8 @@ def fomc_transcripts_raw(
     conn = None
     existing_by_id: dict[str, dict] = {}
     try:
-        conn = md.get_connection()
-        rows = md.fetchall(
+        conn = bq.get_connection()
+        rows = bq.fetchall(
             "SELECT transcript_id, full_text, word_count, page_count "
             "FROM fomc_transcripts WHERE transcript_id IS NOT NULL")
         for row in rows:
@@ -314,7 +314,7 @@ def fomc_transcripts_raw(
         )
 
     df = pl.DataFrame(metadata_records)
-    md.upsert_data("fomc_transcripts", df, ["transcript_id"], context=context)
+    bq.upsert_data("fomc_transcripts", df, ["transcript_id"], context=context)
 
     return dg.MaterializeResult(
         metadata={
@@ -341,7 +341,7 @@ def generate_id(prefix: str, *components: str) -> str:
 )
 def process_fomc_transcripts(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     gcs: GCSResource,
     pdf: PDFResource,
 ) -> dg.MaterializeResult:
@@ -359,10 +359,10 @@ def process_fomc_transcripts(
 
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         # Find transcripts that haven't been text-extracted yet
-        unprocessed = md.fetchall("""
+        unprocessed = bq.fetchall("""
             SELECT transcript_id, meeting_date, source_pdf_path
             FROM fomc_transcripts
             WHERE full_text IS NULL AND source_pdf_path IS NOT NULL
@@ -463,7 +463,7 @@ def process_fomc_transcripts(
 )
 def generate_transcript_summaries(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Generate AI summaries using Claude API.
@@ -496,7 +496,7 @@ def generate_transcript_summaries(
 def extract_transcript_topics(
     context: dg.AssetExecutionContext,
     fed_sentiment: FedSentimentResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Extract economic topics from transcript sections using LLM.
 
@@ -525,7 +525,7 @@ def extract_transcript_topics(
         ORDER BY ts.transcript_id, ts.section_order
     """
 
-    sections_df = md.execute_query(query, read_only=True)
+    sections_df = bq.execute_query(query, read_only=True)
 
     if sections_df.is_empty():
         context.log.info("No sections need topic extraction")
@@ -577,7 +577,7 @@ def extract_transcript_topics(
         import polars as _pl
 
         df = _pl.DataFrame(topic_records)
-        md.upsert_data("transcript_topics", df, ["topic_id"], context=context)
+        bq.upsert_data("transcript_topics", df, ["topic_id"], context=context)
 
     context.log.info(
         f"Extracted {len(topic_records)} topics from {len(sections_df)} sections "
@@ -601,7 +601,7 @@ def extract_transcript_topics(
 )
 def build_transcript_search_index(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Create searchable index for full-text search.
@@ -632,7 +632,7 @@ def build_transcript_search_index(
 )
 def analyze_member_voting_patterns(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Correlate voting with transcript content.

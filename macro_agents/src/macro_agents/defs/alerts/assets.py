@@ -199,7 +199,7 @@ def evaluate_alerts(
         "in `economic_alert_events`."
     ),
     deps=[dg.AssetKey([ALERT_INPUTS_TABLE])],
-    required_resource_keys={"md"},
+    required_resource_keys={"bq"},
     automation_condition=dg.AutomationCondition.eager(),
     group_name="alerts",
 )

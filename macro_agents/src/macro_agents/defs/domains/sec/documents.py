@@ -31,7 +31,7 @@ def sec_filing_documents(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Download a single SEC filing document to GCS.
 
@@ -42,7 +42,7 @@ def sec_filing_documents(
 
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         filing_df = downloader.query_filing_by_id(conn, filing_id)
 
@@ -110,7 +110,7 @@ def sec_filing_documents_batch(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Download unprocessed SEC filing documents in batch mode.
 
@@ -121,7 +121,7 @@ def sec_filing_documents_batch(
 
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         filings_to_process = downloader.query_unprocessed_filings(conn)
 

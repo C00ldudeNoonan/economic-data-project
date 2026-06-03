@@ -237,7 +237,7 @@ def _default_specs(max_charts: int) -> list[EconomyStateChartSpec]:
     return specs[:max_charts]
 
 
-def _fetch_fci_data(md: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
+def _fetch_fci_data(bq: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
     query = f"""
     SELECT date, FCI
     FROM agent_financial_conditions_index
@@ -245,10 +245,10 @@ def _fetch_fci_data(md: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
     ORDER BY date DESC
     LIMIT {months}
     """
-    return md.execute_query(query, read_only=True)
+    return bq.execute_query(query, read_only=True)
 
 
-def _fetch_yield_curve_spreads(md: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
+def _fetch_yield_curve_spreads(bq: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
     query = f"""
     SELECT
         DATE_TRUNC('month', date) AS month,
@@ -260,11 +260,11 @@ def _fetch_yield_curve_spreads(md: BigQueryWarehouseResource, months: int) -> pl
     ORDER BY month DESC
     LIMIT {months}
     """
-    return md.execute_query(query, read_only=True)
+    return bq.execute_query(query, read_only=True)
 
 
 def _fetch_fred_series(
-    md: BigQueryWarehouseResource, series_code: str, months: int
+    bq: BigQueryWarehouseResource, series_code: str, months: int
 ) -> pl.DataFrame:
     query = f"""
     SELECT month AS date, current_value AS value
@@ -275,7 +275,7 @@ def _fetch_fred_series(
     ORDER BY month DESC
     LIMIT {months}
     """
-    return md.execute_query(query, read_only=True)
+    return bq.execute_query(query, read_only=True)
 
 
 def _base_chart(data: list[dict[str, Any]], title: str, theme: ThemeStyle) -> alt.Chart:
@@ -363,22 +363,22 @@ def _build_single_series_chart(
 
 
 def _chart_for_key(
-    chart_key: str, md: BigQueryWarehouseResource, months: int, theme: ThemeStyle
+    chart_key: str, bq: BigQueryWarehouseResource, months: int, theme: ThemeStyle
 ) -> alt.Chart | None:
     if chart_key == "fci_trend":
-        df = _fetch_fci_data(md, months)
+        df = _fetch_fci_data(bq, months)
         if df.is_empty():
             return None
         df = df.sort("date")
         return _build_fci_chart(df, theme)
     if chart_key == "yield_curve_spreads":
-        df = _fetch_yield_curve_spreads(md, months)
+        df = _fetch_yield_curve_spreads(bq, months)
         if df.is_empty():
             return None
         df = df.sort("month")
         return _build_yield_curve_chart(df, theme)
     if chart_key == "unemployment_rate":
-        df = _fetch_fred_series(md, "UNRATE", months)
+        df = _fetch_fred_series(bq, "UNRATE", months)
         if df.is_empty():
             return None
         df = df.sort("date")
@@ -390,7 +390,7 @@ def _chart_for_key(
             0,
         )
     if chart_key == "inflation_cpi":
-        df = _fetch_fred_series(md, "CPIAUCSL", months)
+        df = _fetch_fred_series(bq, "CPIAUCSL", months)
         if df.is_empty():
             return None
         df = df.sort("date")
@@ -402,7 +402,7 @@ def _chart_for_key(
             1,
         )
     if chart_key == "payrolls":
-        df = _fetch_fred_series(md, "PAYEMS", months)
+        df = _fetch_fred_series(bq, "PAYEMS", months)
         if df.is_empty():
             return None
         df = df.sort("date")
@@ -431,7 +431,7 @@ def _inject_chart_tokens(analysis_content: str, manifest: list[dict[str, Any]]) 
     return analysis_content.strip() + "\n" + "\n".join(lines)
 
 
-def _fetch_analysis_row(md: BigQueryWarehouseResource, run_id: str) -> dict[str, Any] | None:
+def _fetch_analysis_row(bq: BigQueryWarehouseResource, run_id: str) -> dict[str, Any] | None:
     query = """
     SELECT
         analysis_timestamp,
@@ -446,7 +446,7 @@ def _fetch_analysis_row(md: BigQueryWarehouseResource, run_id: str) -> dict[str,
     ORDER BY analysis_timestamp DESC
     LIMIT 1
     """
-    df = md.execute_query(query, read_only=True, params=[run_id])
+    df = bq.execute_query(query, read_only=True, params=[run_id])
     if df.is_empty():
         return None
     return df.to_dicts()[0]
@@ -461,11 +461,11 @@ def _fetch_analysis_row(md: BigQueryWarehouseResource, run_id: str) -> dict[str,
 def generate_economy_state_charts(
     context: dg.AssetExecutionContext,
     config: EconomyStateChartConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
-    analysis_row = _fetch_analysis_row(md, context.run_id)
+    analysis_row = _fetch_analysis_row(bq, context.run_id)
     if not analysis_row:
         context.log.warning(
             "No economy_state_analysis row found for current run_id. Skipping chart generation."
@@ -558,7 +558,7 @@ def generate_economy_state_charts(
             analysis_content = ?
         WHERE analysis_timestamp = ?
         """
-        md.execute_query(
+        bq.execute_query(
             update_query,
             read_only=False,
             params=[json.dumps(manifest), updated_content, timestamp_str],

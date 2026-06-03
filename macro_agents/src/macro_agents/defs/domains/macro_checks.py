@@ -6,16 +6,16 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 
 
 @dg.asset_check(asset="fred_raw")
-def fred_raw_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def fred_raw_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate FRED data has recent observations and numeric values."""
-    if not md.table_exists("fred_raw"):
+    if not bq.table_exists("fred_raw"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "fred_raw table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         """
         SELECT
             COUNT(*) AS row_count,
@@ -55,9 +55,9 @@ def fred_raw_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="treasury_yields_raw")
-def treasury_yields_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def treasury_yields_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate treasury yields data exists and has recent data."""
-    if not md.table_exists("treasury_yields_raw"):
+    if not bq.table_exists("treasury_yields_raw"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
@@ -65,7 +65,7 @@ def treasury_yields_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckRe
         )
 
     cutoff = date.today() - timedelta(days=30)
-    df = md.execute_query(
+    df = bq.execute_query(
         f"""
         SELECT
             COUNT(*) AS row_count,
@@ -102,16 +102,16 @@ def treasury_yields_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckRe
 
 
 @dg.asset_check(asset="fomc_minutes_raw")
-def fomc_minutes_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def fomc_minutes_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate FOMC minutes data exists with recent meeting dates."""
-    if not md.table_exists("fomc_minutes_raw"):
+    if not bq.table_exists("fomc_minutes_raw"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "fomc_minutes_raw table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         """
         SELECT
             COUNT(*) AS row_count,

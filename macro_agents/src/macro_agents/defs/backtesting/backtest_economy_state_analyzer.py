@@ -110,7 +110,7 @@ def get_backtest_dates(config: BacktestConfig) -> list[str]:
 def backtest_analyze_economy_state(
     context: dg.AssetExecutionContext,
     config: BacktestConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -483,7 +483,7 @@ def backtest_analyze_economy_state(
             context.log.debug(
                 f"Successfully processed {backtest_date}, writing result to database..."
             )
-            md.write_results_to_table(
+            bq.write_results_to_table(
                 [json_result],
                 output_table="backtest_economy_state_analysis",
                 if_exists="append",

@@ -22,7 +22,7 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 def reddit_daily_summary(
     context: dg.AssetExecutionContext,
     news_summarizer: NewsSummarizerResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Generate daily AI summary of Reddit posts across all financial/economic subreddits.
@@ -56,7 +56,7 @@ def reddit_daily_summary(
         LIMIT 100
     """
 
-    posts_df = md.execute_query(query, read_only=True)
+    posts_df = bq.execute_query(query, read_only=True)
 
     if posts_df.is_empty():
         context.log.warning(f"No posts found for {partition_date}")
@@ -109,7 +109,7 @@ def reddit_daily_summary(
     summary_df = pl.DataFrame([summary_data])
 
     # Upsert to database
-    md.upsert_data("reddit_summaries", summary_df, ["summary_date"], context=context)
+    bq.upsert_data("reddit_summaries", summary_df, ["summary_date"], context=context)
 
     context.log.info("Successfully generated and stored Reddit summary")
 
@@ -137,7 +137,7 @@ def reddit_daily_summary(
 def news_weekly_summary(
     context: dg.AssetExecutionContext,
     news_summarizer: NewsSummarizerResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Generate weekly AI summary combining Reddit posts and FOMC minutes.
@@ -165,7 +165,7 @@ def news_weekly_summary(
 
     context.log.info(f"Generating weekly summary for {week_start} to {week_end}")
 
-    if not md.table_exists("reddit_summaries"):
+    if not bq.table_exists("reddit_summaries"):
         context.log.warning(
             "reddit_summaries table does not exist — skipping weekly summary"
         )
@@ -192,7 +192,7 @@ def news_weekly_summary(
         ORDER BY summary_date, source_type
     """
 
-    daily_summaries_df = md.execute_query(query, read_only=True)
+    daily_summaries_df = bq.execute_query(query, read_only=True)
 
     if daily_summaries_df.is_empty():
         context.log.warning(f"No daily summaries found for week {week_start}")
@@ -251,7 +251,7 @@ def news_weekly_summary(
     summary_df = pl.DataFrame([summary_data])
 
     # Upsert to database
-    md.upsert_data(
+    bq.upsert_data(
         "news_weekly_summaries", summary_df, ["summary_date"], context=context
     )
 

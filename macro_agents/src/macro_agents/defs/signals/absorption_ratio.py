@@ -28,10 +28,10 @@ SIGNALS_GROUP = "computed_signals"
 )
 def absorption_ratio_signals(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching S&P 500 daily prices...")
-    prices_df = md.execute_query(
+    prices_df = bq.execute_query(
         """
         SELECT date, symbol, adj_close
         FROM sp500_companies_prices_raw
@@ -166,7 +166,7 @@ def absorption_ratio_signals(
     ).drop("ar_1y_std")
 
     context.log.info(f"Writing {len(df)} absorption ratio rows to MotherDuck")
-    md.upsert_data("absorption_ratio_signals", df, ["date"], context=context)
+    bq.upsert_data("absorption_ratio_signals", df, ["date"], context=context)
 
     return dg.MaterializeResult(
         metadata={

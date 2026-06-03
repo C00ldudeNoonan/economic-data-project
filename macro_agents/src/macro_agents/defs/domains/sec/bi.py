@@ -31,7 +31,7 @@ def sec_filing_business_intelligence(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """
@@ -58,12 +58,12 @@ def sec_filing_business_intelligence(
     metaxy_divergence_count: int | None = None
     metaxy_shadow_error: str | None = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_search_terms_table(conn)
 
         # Load filings with extracted content that haven't been BI-processed
         batch_size = BATCH_SIZE_STANDARD
-        filings_to_process = md.execute_query(
+        filings_to_process = bq.execute_query(
             f"""
             SELECT DISTINCT
                 c.filing_id,
@@ -223,7 +223,7 @@ def sec_filing_business_intelligence(
 
         # Get remaining count
         try:
-            remaining_row = md.fetchone(
+            remaining_row = bq.fetchone(
                 """
                 SELECT COUNT(DISTINCT c.filing_id)
                 FROM sec_filing_content c

@@ -38,6 +38,10 @@ services:
     # Give in-flight runs time to checkpoint before Docker sends SIGKILL (default 10s)
     stop_grace_period: 90s
     environment:
+      # prod | staging | dev  — controls which BigQuery dataset suffix is used
+      # prod    → economics_raw (no suffix)
+      # staging → economics_raw_staging
+      # dev     → economics_raw_dev
       ENVIRONMENT: prod
 
       # Dagster PostgreSQL connection
@@ -48,8 +52,8 @@ services:
       DAGSTER_POSTGRES_PORT: "5432"
 
       # BigQuery (primary data warehouse)
+      # BIGQUERY_DATASET is auto-derived from ENVIRONMENT if not set explicitly.
       BIGQUERY_PROJECT: ${BIGQUERY_PROJECT}
-      BIGQUERY_DATASET: ${BIGQUERY_DATASET:-economics_raw}
       BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
       ICEBERG_BUCKET_NAME: ${ICEBERG_BUCKET_NAME:-econ-project-iceberg-data}
       DBT_TARGET: ${DBT_TARGET:-prod}
@@ -184,7 +188,6 @@ services:
       DAGSTER_POSTGRES_PORT: "5432"
       ENVIRONMENT: prod
       BIGQUERY_PROJECT: ${BIGQUERY_PROJECT}
-      BIGQUERY_DATASET: ${BIGQUERY_DATASET:-economics_raw}
       BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
       ICEBERG_BUCKET_NAME: ${ICEBERG_BUCKET_NAME:-econ-project-iceberg-data}
       DBT_TARGET: ${DBT_TARGET:-prod}

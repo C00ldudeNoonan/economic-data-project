@@ -61,7 +61,7 @@ def get_latest_backtest_economy_state_analysis(
 def backtest_analyze_asset_class_relationships(
     context: dg.AssetExecutionContext,
     config: BacktestConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -415,7 +415,7 @@ def backtest_analyze_asset_class_relationships(
             context.log.debug(
                 f"Successfully processed {backtest_date}, writing result to database..."
             )
-            md.write_results_to_table(
+            bq.write_results_to_table(
                 [json_result],
                 output_table="backtest_asset_class_relationship_analysis",
                 if_exists="append",

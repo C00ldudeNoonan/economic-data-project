@@ -131,7 +131,7 @@ def _split_text_into_chunks(
 )
 def sec_filing_search_index(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     gcs: GCSResource,
     ollama: OllamaResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
@@ -151,7 +151,7 @@ def sec_filing_search_index(
     metaxy_divergence_count: int | None = None
     metaxy_shadow_error: str | None = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_chunks_table(conn)
 
         batch_size = BATCH_SIZE_EMBEDDINGS
@@ -160,7 +160,7 @@ def sec_filing_search_index(
         # Query gcs_path and word_count, then download content from GCS.
         # Use LEFT JOIN to detect partially embedded sections: compare
         # expected chunk count (from word_count) against actual chunks stored.
-        sections_to_process = md.execute_query(
+        sections_to_process = bq.execute_query(
             f"""
             SELECT c.content_id, c.filing_id, c.section_name,
                    c.gcs_path, c.word_count, f.symbol,

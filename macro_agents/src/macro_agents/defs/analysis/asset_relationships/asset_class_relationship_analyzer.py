@@ -188,7 +188,7 @@ def extract_relationship_summary(analysis_content: str) -> dict[str, Any]:
 def analyze_asset_class_relationships(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -363,7 +363,7 @@ def analyze_asset_class_relationships(
         "dagster_asset_key": str(context.asset_key),
     }
 
-    md.write_results_to_table(
+    bq.write_results_to_table(
         [json_result],
         output_table="asset_class_relationship_analysis",
         if_exists="append",

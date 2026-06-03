@@ -40,7 +40,7 @@ def _generate_history_id(symbol: str, cik: str, effective_from: str) -> str:
 def sec_company_cik_history(
     context: dg.AssetExecutionContext,
     sec_edgar: SECEdgarResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Extract former names from SEC EDGAR submissions for each S&P 500 company.
@@ -54,10 +54,10 @@ def sec_company_cik_history(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_company_cik_history_table(conn)
 
-        companies_df = md.execute_query("SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik")
+        companies_df = bq.execute_query("SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik")
 
         if companies_df.is_empty():
             context.log.warning("No companies found in sec_company_cik")
@@ -68,7 +68,7 @@ def sec_company_cik_history(
         # Check which companies already have recent history records
         # Re-process symbols whose records are older than 90 days
         try:
-            existing_df = md.execute_query("""
+            existing_df = bq.execute_query("""
                 SELECT current_symbol, MAX(created_at) as last_updated
                 FROM sec_company_cik_history
                 GROUP BY current_symbol
@@ -176,7 +176,7 @@ def sec_company_cik_history(
                     pl.col("effective_to").cast(pl.Date, strict=False),
                 ]
             )
-            md.upsert_data(
+            bq.upsert_data(
                 "sec_company_cik_history", records_df, ["id"], context=context
             )
             context.log.info(f"Upserted {len(records)} CIK history records")

@@ -44,7 +44,7 @@ def _generate_id(prefix: str, *components: str) -> str:
 )
 def score_fed_sentiment_dictionary(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Score transcript sections using monetary policy keyword lexicon.
 
@@ -73,7 +73,7 @@ def score_fed_sentiment_dictionary(
         ORDER BY ft.meeting_date, ts.section_order
     """
 
-    sections_df = md.execute_query(query, read_only=True)
+    sections_df = bq.execute_query(query, read_only=True)
 
     if sections_df.is_empty():
         context.log.info("No unscored sections found")
@@ -120,7 +120,7 @@ def score_fed_sentiment_dictionary(
 
     # Upsert section-level scores first
     df = pl.DataFrame(records)
-    md.upsert_data("fomc_sentiment_scores", df, ["score_id"], context=context)
+    bq.upsert_data("fomc_sentiment_scores", df, ["score_id"], context=context)
 
     # Rebuild meeting-level aggregates from ALL sections in the DB
     # (not just newly scored ones) to handle partial re-runs correctly
@@ -128,11 +128,11 @@ def score_fed_sentiment_dictionary(
     meeting_aggregates = _rebuild_meeting_aggregates(
         md, affected_meetings, "dictionary"
     )
-    _compute_score_deltas(meeting_aggregates, md)
+    _compute_score_deltas(meeting_aggregates, bq)
 
     if meeting_aggregates:
         agg_df = pl.DataFrame(meeting_aggregates)
-        md.upsert_data("fomc_sentiment_scores", agg_df, ["score_id"], context=context)
+        bq.upsert_data("fomc_sentiment_scores", agg_df, ["score_id"], context=context)
 
     context.log.info(
         f"Scored {len(sections_df)} sections across {len(affected_meetings)} meetings"
@@ -163,7 +163,7 @@ MAX_SECTION_CHARS = 12_000  # ~3K tokens — safe for most models
 def score_fed_sentiment_llm(
     context: dg.AssetExecutionContext,
     fed_sentiment: FedSentimentResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Score transcript sections using LLM-based sentiment analysis.
 
@@ -191,7 +191,7 @@ def score_fed_sentiment_llm(
         ORDER BY ft.meeting_date, ts.section_order
     """
 
-    sections_df = md.execute_query(query, read_only=True)
+    sections_df = bq.execute_query(query, read_only=True)
 
     if sections_df.is_empty():
         context.log.info("No unscored sections found")
@@ -265,16 +265,16 @@ def score_fed_sentiment_llm(
     if records:
         # Upsert section-level scores first
         df = pl.DataFrame(records)
-        md.upsert_data("fomc_sentiment_scores", df, ["score_id"], context=context)
+        bq.upsert_data("fomc_sentiment_scores", df, ["score_id"], context=context)
 
         # Rebuild meeting-level aggregates from ALL sections in the DB
         affected_meetings = {r["meeting_date"] for r in records}
-        meeting_aggregates = _rebuild_meeting_aggregates(md, affected_meetings, "llm")
-        _compute_score_deltas(meeting_aggregates, md)
+        meeting_aggregates = _rebuild_meeting_aggregates(bq, affected_meetings, "llm")
+        _compute_score_deltas(meeting_aggregates, bq)
 
         if meeting_aggregates:
             agg_df = pl.DataFrame(meeting_aggregates)
-            md.upsert_data(
+            bq.upsert_data(
                 "fomc_sentiment_scores", agg_df, ["score_id"], context=context
             )
 
@@ -309,7 +309,7 @@ def score_fed_sentiment_llm(
 )
 def fed_sentiment_rate_correlation(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Join meeting-level sentiment with rate decisions from fomc_meetings_enhanced.
 
@@ -338,7 +338,7 @@ def fed_sentiment_rate_correlation(
         ORDER BY fss.meeting_date
     """
 
-    result_df = md.execute_query(query, read_only=True)
+    result_df = bq.execute_query(query, read_only=True)
 
     if result_df.is_empty():
         context.log.info("No meeting-level sentiment scores found")
@@ -363,7 +363,7 @@ def fed_sentiment_rate_correlation(
 
 
 def _rebuild_meeting_aggregates(
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     meeting_dates: set[str],
     scoring_method: str,
 ) -> list[dict]:
@@ -398,7 +398,7 @@ def _rebuild_meeting_aggregates(
         ORDER BY meeting_date
     """
 
-    agg_df = md.execute_query(query, read_only=True)
+    agg_df = bq.execute_query(query, read_only=True)
     if agg_df.is_empty():
         return []
 
@@ -437,7 +437,7 @@ def _rebuild_meeting_aggregates(
     return aggregates
 
 
-def _compute_score_deltas(records: list[dict], md: BigQueryWarehouseResource) -> None:
+def _compute_score_deltas(records: list[dict], bq: BigQueryWarehouseResource) -> None:
     """Fill in prev_meeting_score and score_delta for meeting-level rows.
 
     Queries existing meeting-level scores to find the previous meeting's score.
@@ -448,7 +448,7 @@ def _compute_score_deltas(records: list[dict], md: BigQueryWarehouseResource) ->
         return
 
     try:
-        existing = md.execute_query(
+        existing = bq.execute_query(
             """
             SELECT meeting_date, scoring_method, net_sentiment_score
             FROM fomc_sentiment_scores

@@ -61,7 +61,7 @@ def vector_search(
     """
     params_list = [query_embedding, *params]
 
-    return md.execute_query(
+    return bq.execute_query(
     )
 
 
@@ -113,7 +113,7 @@ def keyword_search(
     """
     params_list = [query_text, *params]
 
-    return md.execute_query(
+    return bq.execute_query(
     )
 
 
@@ -223,7 +223,7 @@ def hybrid_search(
 )
 def sec_filing_hybrid_search_ready(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     metaxy_store: dg.ResourceParam[MetadataStore],
 ) -> dg.MaterializeResult:
     """Check that both vector and FTS indexes are populated and queryable."""
@@ -245,10 +245,10 @@ def sec_filing_hybrid_search_ready(
         context.log.warning(f"Metaxy shadow probe failed: {metaxy_shadow_error}")
 
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
         # Check vector index coverage
-        vec_row = md.fetchone("""
+        vec_row = bq.fetchone("""
             SELECT
                 COUNT(DISTINCT symbol) AS symbols_with_embeddings,
                 COUNT(DISTINCT filing_id) AS filings_with_embeddings,
@@ -260,7 +260,7 @@ def sec_filing_hybrid_search_ready(
 
         # Check FTS table coverage
         try:
-            fts_row = md.fetchone(f"""
+            fts_row = bq.fetchone(f"""
                 SELECT
                     COUNT(DISTINCT symbol) AS symbols_indexed,
                     COUNT(DISTINCT filing_id) AS filings_indexed,

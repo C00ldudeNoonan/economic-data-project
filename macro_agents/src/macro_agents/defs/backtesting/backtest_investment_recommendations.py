@@ -94,7 +94,7 @@ def get_latest_backtest_relationship_analysis(
 def backtest_generate_investment_recommendations(
     context: dg.AssetExecutionContext,
     config: BacktestConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -375,7 +375,7 @@ def backtest_generate_investment_recommendations(
             context.log.debug(
                 f"Successfully processed {backtest_date}, writing result to database..."
             )
-            md.write_results_to_table(
+            bq.write_results_to_table(
                 [json_result],
                 output_table="backtest_investment_recommendations",
                 if_exists="append",

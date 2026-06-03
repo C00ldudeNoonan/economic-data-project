@@ -227,12 +227,27 @@ resource "google_storage_bucket" "iceberg_data" {
 # BigQuery datasets
 locals {
   bigquery_datasets = [
+    # prod datasets (canonical)
     "economics_raw",
     "economics_staging",
     "economics_marts",
     "economics_signals",
     "economics_analysis",
     "economics_backtesting",
+    # staging environment datasets
+    "economics_raw_staging",
+    "economics_staging_staging",
+    "economics_marts_staging",
+    "economics_signals_staging",
+    "economics_analysis_staging",
+    "economics_backtesting_staging",
+    # dev environment datasets
+    "economics_raw_dev",
+    "economics_staging_dev",
+    "economics_marts_dev",
+    "economics_signals_dev",
+    "economics_analysis_dev",
+    "economics_backtesting_dev",
   ]
 }
 

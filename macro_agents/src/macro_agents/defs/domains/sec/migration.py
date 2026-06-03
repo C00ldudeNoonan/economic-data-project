@@ -32,7 +32,7 @@ def _is_old_format(gcs_path: str | None, symbol: str) -> bool:
 def sec_filing_gcs_migration(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """Migrate GCS objects and DB paths from old to new format.
 
@@ -43,9 +43,9 @@ def sec_filing_gcs_migration(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
 
-        filings_df = md.execute_query("""
+        filings_df = bq.execute_query("""
             SELECT filing_id, cik, symbol, accession_number, form_type,
                    filing_date, primary_document, gcs_path
             FROM sec_filings
@@ -117,7 +117,7 @@ def sec_filing_gcs_migration(
                     ).result()
 
                     # Migrate extracted content paths
-                    content_df = md.execute_query(
+                    content_df = bq.execute_query(
                         """
                         SELECT content_id, gcs_path
                         FROM sec_filing_content

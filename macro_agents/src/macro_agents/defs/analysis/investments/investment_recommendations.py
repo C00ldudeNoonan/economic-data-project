@@ -231,7 +231,7 @@ def extract_recommendations_summary(recommendations_content: str) -> dict[str, A
 def generate_investment_recommendations(
     context: dg.AssetExecutionContext,
     config: EconomicAnalysisConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
     gcs: GCSResource,
 ) -> dg.MaterializeResult:
@@ -385,7 +385,7 @@ def generate_investment_recommendations(
     }
 
     context.log.info("Writing investment recommendations to database...")
-    md.write_results_to_table(
+    bq.write_results_to_table(
         [json_result],
         output_table="investment_recommendations",
         if_exists="append",

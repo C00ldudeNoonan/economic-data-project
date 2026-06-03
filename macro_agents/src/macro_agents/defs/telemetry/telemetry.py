@@ -19,7 +19,7 @@ from macro_agents.defs.telemetry.checks import telemetry_checks
 def telemetry_events_raw(
     context: dg.AssetExecutionContext,
     sqlite: SQLiteResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Replicate telemetry_events table from SQLite to MotherDuck.
@@ -33,7 +33,7 @@ def telemetry_events_raw(
     def ensure_table_exists() -> None:
         """Create empty table if it doesn't exist."""
         # Ensure telemetry schema exists
-        conn = md.get_connection()
+        conn = bq.get_connection()
         try:
             conn.query("CREATE SCHEMA IF NOT EXISTS telemetry").result()
         finally:
@@ -52,7 +52,7 @@ def telemetry_events_raw(
             }
         )
         # Use upsert to create table structure without inserting data
-        md.upsert_data(
+        bq.upsert_data(
             "telemetry.telemetry_events_raw", empty_df, ["id"], context=context
         )
 
@@ -61,7 +61,7 @@ def telemetry_events_raw(
     # Check if source table exists
     if not sqlite.table_exists("telemetry_events"):
         context.log.warning(
-            "telemetry_events table doesn't exist in SQLite yet, creating empty table in MotherDuck"
+            "telemetry_events table doesn't exist in SQLite yet, creating empty table in BigQuery"
         )
         ensure_table_exists()
         return dg.MaterializeResult(
@@ -73,16 +73,16 @@ def telemetry_events_raw(
             }
         )
 
-    # Get the last replicated ID from MotherDuck
+    # Get the last replicated ID from BigQuery
     last_id: int | None = None
     try:
         # Check in telemetry schema
-        result = md.execute_query(
+        result = bq.execute_query(
             "SELECT MAX(id) as max_id FROM telemetry.telemetry_events_raw"
         )
         if len(result) > 0 and result["max_id"][0] is not None:
             last_id = int(result["max_id"][0])
-            context.log.info(f"Last replicated ID from MotherDuck: {last_id}")
+            context.log.info(f"Last replicated ID from BigQuery: {last_id}")
         else:
             context.log.info("No existing data in telemetry.telemetry_events_raw")
     except Exception as e:
@@ -140,7 +140,7 @@ def telemetry_events_raw(
 
     # Insert into MotherDuck telemetry schema
     try:
-        md.upsert_data("telemetry.telemetry_events_raw", df, ["id"], context=context)
+        bq.upsert_data("telemetry.telemetry_events_raw", df, ["id"], context=context)
     except Exception as e:
         context.log.error(f"Failed to insert into MotherDuck: {e}")
         return dg.MaterializeResult(
@@ -209,7 +209,7 @@ def telemetry_events_raw(
 def users_raw(
     context: dg.AssetExecutionContext,
     sqlite: SQLiteResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Replicate users table from SQLite to MotherDuck.
@@ -220,7 +220,7 @@ def users_raw(
     def ensure_table_exists() -> None:
         """Create empty table if it doesn't exist."""
         # Ensure telemetry schema exists
-        conn = md.get_connection()
+        conn = bq.get_connection()
         try:
             conn.query("CREATE SCHEMA IF NOT EXISTS telemetry").result()
         finally:
@@ -236,14 +236,14 @@ def users_raw(
                 "replicated_at": pl.Datetime,
             }
         )
-        md.drop_create_duck_db_table("telemetry.users_raw", empty_df)
+        bq.drop_create_duck_db_table("telemetry.users_raw", empty_df)
 
     context.log.info("Starting users table replication from SQLite to MotherDuck")
 
     # Check if source table exists
     if not sqlite.table_exists("users"):
         context.log.warning(
-            "users table doesn't exist in SQLite yet, creating empty table in MotherDuck"
+            "users table doesn't exist in SQLite yet, creating empty table in BigQuery"
         )
         ensure_table_exists()
         return dg.MaterializeResult(
@@ -291,7 +291,7 @@ def users_raw(
 
     # Full refresh (drop and recreate) in telemetry schema
     try:
-        md.drop_create_duck_db_table("telemetry.users_raw", df)
+        bq.drop_create_duck_db_table("telemetry.users_raw", df)
     except Exception as e:
         context.log.error(f"Failed to insert users into MotherDuck: {e}")
         return dg.MaterializeResult(

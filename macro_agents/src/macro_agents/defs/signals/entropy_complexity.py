@@ -63,10 +63,10 @@ def permutation_entropy(series: np.ndarray, order: int = 3, delay: int = 1) -> f
 )
 def entropy_complexity_signals(
     context: dg.AssetExecutionContext,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching SPY and QQQ prices...")
-    prices_df = md.execute_query(
+    prices_df = bq.execute_query(
         """
         SELECT date, symbol, adj_close
         FROM stg_major_indices
@@ -173,7 +173,7 @@ def entropy_complexity_signals(
     )
 
     context.log.info(f"Writing {len(result_df)} entropy rows to MotherDuck")
-    md.upsert_data("entropy_complexity_signals", result_df, ["date"], context=context)
+    bq.upsert_data("entropy_complexity_signals", result_df, ["date"], context=context)
 
     return dg.MaterializeResult(
         metadata={

@@ -4,16 +4,16 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 
 
 @dg.asset_check(asset="financial_conditions_index")
-def fci_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def fci_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate financial conditions index has recent values in valid range."""
-    if not md.table_exists("financial_conditions_index"):
+    if not bq.table_exists("financial_conditions_index"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "financial_conditions_index table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         """
         SELECT
             COUNT(*) AS row_count,
@@ -49,16 +49,16 @@ def fci_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
 
 
 @dg.asset_check(asset="fci_weights_config")
-def fci_weights_data_check(md: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def fci_weights_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate FCI weights configuration table exists and has entries."""
-    if not md.table_exists("fci_weights_config"):
+    if not bq.table_exists("fci_weights_config"):
         return dg.AssetCheckResult(
             passed=False,
             severity=dg.AssetCheckSeverity.ERROR,
             metadata={"error": "fci_weights_config table does not exist"},
         )
 
-    df = md.execute_query(
+    df = bq.execute_query(
         "SELECT COUNT(*) AS row_count FROM fci_weights_config",
         read_only=True,
     )

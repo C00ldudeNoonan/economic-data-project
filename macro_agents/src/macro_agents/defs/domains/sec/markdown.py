@@ -35,7 +35,7 @@ from macro_agents.defs.utils.sec_text_extractor import SECTextExtractor
 def sec_filing_markdown(
     context: dg.AssetExecutionContext,
     gcs: GCSResource,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     """
     Convert processed SEC filings from HTML to Markdown.
@@ -50,11 +50,11 @@ def sec_filing_markdown(
     """
     conn = None
     try:
-        conn = md.get_connection()
+        conn = bq.get_connection()
         ensure_sec_filing_markdown_table(conn)
 
         batch_size = BATCH_SIZE_STANDARD
-        filings_to_process = md.execute_query(
+        filings_to_process = bq.execute_query(
             f"""
             SELECT f.filing_id, f.cik, f.symbol, f.form_type,
                    f.filing_date, f.accession_number, f.gcs_path
@@ -164,7 +164,7 @@ def sec_filing_markdown(
 
         if records:
             records_df = pl.DataFrame(records)
-            md.upsert_data(
+            bq.upsert_data(
                 "sec_filing_markdown", records_df, ["filing_id"], context=context
             )
             context.log.info(f"Tracked {len(records)} markdown conversions")

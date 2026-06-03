@@ -243,7 +243,7 @@ def create_indicator_forecast_table_if_not_exists(
 def generate_economic_narratives(
     context: dg.AssetExecutionContext,
     config: NarrativeGenerationConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
 ) -> dg.MaterializeResult:
     """
@@ -298,7 +298,7 @@ def generate_economic_narratives(
             indicator_category = indicator_config.get("category", "other")
 
             # Get indicator data first to obtain actual release date
-            indicator_data = get_indicator_data(md, series_code)
+            indicator_data = get_indicator_data(bq, series_code)
 
             if indicator_data["current_value"] == "N/A":
                 context.log.warning(f"No data found for {series_code}, skipping...")
@@ -317,7 +317,7 @@ def generate_economic_narratives(
                 AND personality = '{config.personality}'
                 """
                 try:
-                    result = md.execute_query(existing_check, read_only=True)
+                    result = bq.execute_query(existing_check, read_only=True)
                     if not result.is_empty() and result.to_dicts()[0].get("cnt", 0) > 0:
                         context.log.info(
                             f"Skipping {series_code} - narrative already exists for release date {release_date}"
@@ -388,7 +388,7 @@ def generate_economic_narratives(
 
             # Insert into database
             df = pl.DataFrame([narrative_record])
-            md.upsert_data(
+            bq.upsert_data(
                 table_name="economic_indicator_narratives",
                 data=df,
                 key_columns=["id"],
@@ -433,7 +433,7 @@ def generate_economic_narratives(
 def generate_indicator_forecasts(
     context: dg.AssetExecutionContext,
     config: NarrativeGenerationConfig,
-    md: BigQueryWarehouseResource,
+    bq: BigQueryWarehouseResource,
     economic_analysis: EconomicAnalysisResource,
 ) -> dg.MaterializeResult:
     """
@@ -471,7 +471,7 @@ def generate_indicator_forecasts(
         ORDER BY analysis_timestamp DESC
         LIMIT 1
         """
-        conditions_df = md.execute_query(conditions_query, read_only=True)
+        conditions_df = bq.execute_query(conditions_query, read_only=True)
         if not conditions_df.is_empty():
             economic_conditions = conditions_df.to_dicts()[0].get(
                 "analysis_content", ""
@@ -508,7 +508,7 @@ def generate_indicator_forecasts(
                 AND personality = '{config.personality}'
                 """
                 try:
-                    result = md.execute_query(existing_check, read_only=True)
+                    result = bq.execute_query(existing_check, read_only=True)
                     if not result.is_empty() and result.to_dicts()[0].get("cnt", 0) > 0:
                         context.log.info(
                             f"Skipping {series_code} forecast - already exists for today"
@@ -523,7 +523,7 @@ def generate_indicator_forecasts(
             )
 
             # Get historical data
-            indicator_data = get_indicator_data(md, series_code, max_periods=36)
+            indicator_data = get_indicator_data(bq, series_code, max_periods=36)
 
             if not indicator_data["historical_data"]:
                 context.log.warning(
@@ -572,7 +572,7 @@ def generate_indicator_forecasts(
 
             # Insert into database
             df = pl.DataFrame([forecast_record])
-            md.upsert_data(
+            bq.upsert_data(
                 table_name="economic_indicator_forecasts",
                 data=df,
                 key_columns=["id"],

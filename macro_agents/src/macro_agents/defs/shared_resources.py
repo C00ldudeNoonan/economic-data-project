@@ -12,7 +12,7 @@ from macro_agents.defs.resources.sqlite_resource import sqlite_resource
 
 defs = dg.Definitions(
     resources={
-        "md": bigquery_warehouse_resource,
+        "bq": bigquery_warehouse_resource,
         "metaxy_store": MetaxyStoreFromConfigResource(name="prod"),
         "sqlite": sqlite_resource,
         "gcs": GCSResource(
