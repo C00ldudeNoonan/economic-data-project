@@ -1,5 +1,5 @@
 [sqlfluff]
-dialect = duckdb
+dialect = bigquery
 templater = dbt
 # Allow longer lines for complex SQL (default is 80)
 max_line_length = 120

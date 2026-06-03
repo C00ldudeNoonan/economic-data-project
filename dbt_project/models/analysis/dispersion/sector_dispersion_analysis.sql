@@ -34,7 +34,7 @@ trailing_prices AS (
     FROM {{ ref('stg_sp500_companies_prices') }} p
     WHERE p.adj_close IS NOT NULL
         AND p.adj_close > 0
-        AND p.date >= CURRENT_DATE - INTERVAL '1 year'
+        AND p.date >= CURRENT_DATE - INTERVAL 1 YEAR
 ),
 
 stock_trailing_returns AS (

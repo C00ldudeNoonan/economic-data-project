@@ -27,7 +27,7 @@ with pivoted_yields as (
     and date >= COALESCE(
         (select max(date) from {{ this }}),
         DATE '1900-01-01'
-    ) - INTERVAL '7 days'
+    ) - INTERVAL 7 DAY
     {% endif %}
     group by date
 ),

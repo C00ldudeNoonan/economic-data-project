@@ -56,7 +56,7 @@ with_signals as (
         end as is_deep_thread,
         -- Controversy: high depth + mixed scores (both upvoted and downvoted)
         case
-            when negative_score_comments::float / nullif(total_comments, 0) >= 0.2
+            when CAST(negative_score_comments AS FLOAT64) / nullif(total_comments, 0) >= 0.2
                 and total_comments >= 5
             then true
             else false
@@ -64,7 +64,7 @@ with_signals as (
         -- Reply ratio: how much discussion vs. standalone comments
         case
             when top_level_comments > 0
-                then reply_comments::float / top_level_comments
+                then CAST(reply_comments AS FLOAT64) / top_level_comments
             else 0
         end as reply_ratio,
         -- Discussion quality: longer comments + deeper threads = more substantive

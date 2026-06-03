@@ -2,8 +2,9 @@ version: 2
 
 sources:
   - name: raw_telemetry
-    description: Raw telemetry data replicated from SQLite
-    schema: telemetry
+    description: Raw telemetry data
+    database: "{{ env_var('BIGQUERY_PROJECT') }}"
+    schema: economics_raw
     tables:
       - name: telemetry_events_raw
         description: User interaction events from frontend telemetry system
@@ -27,12 +28,12 @@ sources:
           - name: properties
             description: JSON string of event-specific properties
           - name: created_at
-            description: Database insertion timestamp from SQLite
+            description: Database insertion timestamp
           - name: replicated_at
-            description: Timestamp when replicated to MotherDuck
+            description: Timestamp when replicated to BigQuery
 
       - name: users_raw
-        description: User account information replicated from SQLite
+        description: User account information
         columns:
           - name: id
             description: Primary key
@@ -50,4 +51,4 @@ sources:
           - name: updated_at
             description: Last update timestamp
           - name: replicated_at
-            description: Timestamp when replicated to MotherDuck
+            description: Timestamp when replicated to BigQuery

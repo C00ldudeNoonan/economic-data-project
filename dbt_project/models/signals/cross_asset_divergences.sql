@@ -11,7 +11,7 @@ WITH spy_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'SPY'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 spy_indicators AS (
@@ -40,7 +40,7 @@ hyg_prices AS (
     FROM {{ ref('stg_fixed_income') }}
     WHERE symbol = 'HYG'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 hyg_indicators AS (
@@ -61,7 +61,7 @@ hy_spread AS (
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'BAMLH0A0HYM2'
       AND value IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 hy_spread_indicators AS (
@@ -113,7 +113,7 @@ govt_prices AS (
     FROM {{ ref('stg_fixed_income') }}
     WHERE symbol = 'GOVT'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 govt_returns AS (
@@ -145,7 +145,7 @@ xlp_prices AS (
     FROM {{ ref('stg_us_sectors') }}
     WHERE symbol = 'XLP'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 xly_prices AS (
@@ -155,7 +155,7 @@ xly_prices AS (
     FROM {{ ref('stg_us_sectors') }}
     WHERE symbol = 'XLY'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 xlp_xly_ratio AS (
@@ -194,7 +194,7 @@ gold_prices AS (
     WHERE commodity_name = 'gold'
       AND price IS NOT NULL
       AND price > 0
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 copper_prices AS (
@@ -205,7 +205,7 @@ copper_prices AS (
     WHERE commodity_name = 'copper'
       AND price IS NOT NULL
       AND price > 0
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 real_yields AS (
@@ -215,7 +215,7 @@ real_yields AS (
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'DFII10'
       AND value IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 gold_real_base AS (
@@ -300,7 +300,7 @@ iwm_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'IWM'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 rsp_prices AS (
@@ -310,7 +310,7 @@ rsp_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'RSP'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 iwm_spy_ratio AS (
@@ -384,7 +384,7 @@ treasury_yields AS (
         bc_10year AS treasury_10y_yield
     FROM {{ ref('stg_treasury_yields') }}
     WHERE bc_10year IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 copper_gold_yield_corr AS (
@@ -408,7 +408,7 @@ fxa_prices AS (
     FROM {{ ref('stg_currency') }}
     WHERE symbol = 'FXA'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 fxa_spy_ratio AS (
@@ -440,7 +440,7 @@ dia_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'DIA'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 iyt_prices AS (
@@ -450,7 +450,7 @@ iyt_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'IYT'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 dow_theory AS (
@@ -478,7 +478,7 @@ soxx_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'SOXX'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 soxx_spy_ratio AS (
@@ -588,5 +588,5 @@ LEFT JOIN fxa_spy_indicators fxa ON h.date = fxa.date
 LEFT JOIN dow_theory dow ON h.date = dow.date
 LEFT JOIN soxx_spy_indicators soxx ON h.date = soxx.date
 
-WHERE h.date >= CURRENT_DATE - INTERVAL '3 years'
+WHERE h.date >= CURRENT_DATE - INTERVAL 3 YEAR
 ORDER BY h.date DESC

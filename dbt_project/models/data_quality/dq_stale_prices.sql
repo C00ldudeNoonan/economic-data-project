@@ -33,7 +33,7 @@ select
     high,
     low,
     close,
-    null::double as adj_close,
+    CAST(NULL AS FLOAT64) as adj_close,
     current_timestamp as detected_at
 from {{ table_name }}_consecutive
 where

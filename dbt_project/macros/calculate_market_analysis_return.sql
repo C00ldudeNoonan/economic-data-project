@@ -57,23 +57,23 @@ price_lookups AS (
     LEFT JOIN daily_changes p1
         ON dc.symbol = p1.symbol
         AND dc.exchange = p1.exchange
-        AND p1.date = dc.date - INTERVAL '30' DAY
+        AND p1.date = dc.date - INTERVAL 30 DAY
     LEFT JOIN daily_changes p2
         ON dc.symbol = p2.symbol
         AND dc.exchange = p2.exchange
-        AND p2.date = dc.date - INTERVAL '90' DAY
+        AND p2.date = dc.date - INTERVAL 90 DAY
     LEFT JOIN daily_changes p3
         ON dc.symbol = p3.symbol
         AND dc.exchange = p3.exchange
-        AND p3.date = dc.date - INTERVAL '180' DAY
+        AND p3.date = dc.date - INTERVAL 180 DAY
     LEFT JOIN daily_changes p4
         ON dc.symbol = p4.symbol
         AND dc.exchange = p4.exchange
-        AND p4.date = dc.date - INTERVAL '270' DAY
+        AND p4.date = dc.date - INTERVAL 270 DAY
     LEFT JOIN daily_changes p5
         ON dc.symbol = p5.symbol
         AND dc.exchange = p5.exchange
-        AND p5.date = dc.date - INTERVAL '365' DAY
+        AND p5.date = dc.date - INTERVAL 365 DAY
 ),
 
 rolling_stats AS (
@@ -89,17 +89,17 @@ rolling_stats AS (
         MAX(current_high) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '365' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 365 DAY PRECEDING AND CURRENT ROW
         ) AS high_1yr,
         MIN(current_low) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '365' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 365 DAY PRECEDING AND CURRENT ROW
         ) AS low_1yr,
         STDDEV(daily_diff) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '365' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 365 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_1yr,
         price_365d_ago AS price_start_1yr,
         CASE
@@ -111,17 +111,17 @@ rolling_stats AS (
         MAX(current_high) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '270' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 270 DAY PRECEDING AND CURRENT ROW
         ) AS high_9mo,
         MIN(current_low) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '270' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 270 DAY PRECEDING AND CURRENT ROW
         ) AS low_9mo,
         STDDEV(daily_diff) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '270' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 270 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_9mo,
         price_270d_ago AS price_start_9mo,
         CASE
@@ -133,17 +133,17 @@ rolling_stats AS (
         MAX(current_high) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '180' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 180 DAY PRECEDING AND CURRENT ROW
         ) AS high_6mo,
         MIN(current_low) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '180' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 180 DAY PRECEDING AND CURRENT ROW
         ) AS low_6mo,
         STDDEV(daily_diff) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '180' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 180 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_6mo,
         price_180d_ago AS price_start_6mo,
         CASE
@@ -155,17 +155,17 @@ rolling_stats AS (
         MAX(current_high) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '90' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 90 DAY PRECEDING AND CURRENT ROW
         ) AS high_3mo,
         MIN(current_low) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '90' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 90 DAY PRECEDING AND CURRENT ROW
         ) AS low_3mo,
         STDDEV(daily_diff) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '90' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 90 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_3mo,
         price_90d_ago AS price_start_3mo,
         CASE
@@ -177,17 +177,17 @@ rolling_stats AS (
         MAX(current_high) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '30' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 30 DAY PRECEDING AND CURRENT ROW
         ) AS high_1mo,
         MIN(current_low) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '30' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 30 DAY PRECEDING AND CURRENT ROW
         ) AS low_1mo,
         STDDEV(daily_diff) OVER (
             PARTITION BY symbol, exchange
             ORDER BY date
-            RANGE BETWEEN INTERVAL '30' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 30 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_1mo,
         price_30d_ago AS price_start_1mo,
         CASE

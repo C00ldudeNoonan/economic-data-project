@@ -11,12 +11,12 @@ disk_size_gb = 50
 # Dagster Configuration
 dagster_pg_password = "your-secure-password-here"
 
-# MotherDuck Configuration
-motherduck_token       = "your-motherduck-token"
-motherduck_database    = "economic_data"
-motherduck_prod_schema = "main"
+# BigQuery Configuration
+bigquery_project    = "your-gcp-project-id"
+bigquery_location   = "US"
+iceberg_bucket_name = "your-project-iceberg-data"
 
 # API Keys (optional - add as needed)
-fred_api_key    = ""
-openai_api_key  = ""
+fred_api_key      = ""
+openai_api_key    = ""
 anthropic_api_key = ""

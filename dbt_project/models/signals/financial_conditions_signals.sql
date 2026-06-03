@@ -204,5 +204,5 @@ SELECT
     END AS lending_status
 
 FROM final
-WHERE date >= CURRENT_DATE - INTERVAL '3 years'
+WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
 ORDER BY date DESC

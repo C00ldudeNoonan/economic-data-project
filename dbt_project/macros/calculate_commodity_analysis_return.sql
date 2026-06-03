@@ -40,23 +40,23 @@ price_lookups AS (
     LEFT JOIN daily_changes p1
         ON dc.commodity_name = p1.commodity_name
         AND dc.commodity_unit = p1.commodity_unit
-        AND p1.date = dc.date - INTERVAL '30' DAY
+        AND p1.date = dc.date - INTERVAL 30 DAY
     LEFT JOIN daily_changes p2
         ON dc.commodity_name = p2.commodity_name
         AND dc.commodity_unit = p2.commodity_unit
-        AND p2.date = dc.date - INTERVAL '90' DAY
+        AND p2.date = dc.date - INTERVAL 90 DAY
     LEFT JOIN daily_changes p3
         ON dc.commodity_name = p3.commodity_name
         AND dc.commodity_unit = p3.commodity_unit
-        AND p3.date = dc.date - INTERVAL '180' DAY
+        AND p3.date = dc.date - INTERVAL 180 DAY
     LEFT JOIN daily_changes p4
         ON dc.commodity_name = p4.commodity_name
         AND dc.commodity_unit = p4.commodity_unit
-        AND p4.date = dc.date - INTERVAL '270' DAY
+        AND p4.date = dc.date - INTERVAL 270 DAY
     LEFT JOIN daily_changes p5
         ON dc.commodity_name = p5.commodity_name
         AND dc.commodity_unit = p5.commodity_unit
-        AND p5.date = dc.date - INTERVAL '365' DAY
+        AND p5.date = dc.date - INTERVAL 365 DAY
 ),
 
 rolling_stats AS (
@@ -69,17 +69,17 @@ rolling_stats AS (
         MAX(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '365' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 365 DAY PRECEDING AND CURRENT ROW
         ) AS high_1yr,
         MIN(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '365' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 365 DAY PRECEDING AND CURRENT ROW
         ) AS low_1yr,
         STDDEV(daily_diff) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '365' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 365 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_1yr,
         price_365d_ago AS price_start_1yr,
         CASE
@@ -91,17 +91,17 @@ rolling_stats AS (
         MAX(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '270' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 270 DAY PRECEDING AND CURRENT ROW
         ) AS high_9mo,
         MIN(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '270' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 270 DAY PRECEDING AND CURRENT ROW
         ) AS low_9mo,
         STDDEV(daily_diff) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '270' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 270 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_9mo,
         price_270d_ago AS price_start_9mo,
         CASE
@@ -113,17 +113,17 @@ rolling_stats AS (
         MAX(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '180' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 180 DAY PRECEDING AND CURRENT ROW
         ) AS high_6mo,
         MIN(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '180' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 180 DAY PRECEDING AND CURRENT ROW
         ) AS low_6mo,
         STDDEV(daily_diff) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '180' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 180 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_6mo,
         price_180d_ago AS price_start_6mo,
         CASE
@@ -135,17 +135,17 @@ rolling_stats AS (
         MAX(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '90' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 90 DAY PRECEDING AND CURRENT ROW
         ) AS high_3mo,
         MIN(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '90' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 90 DAY PRECEDING AND CURRENT ROW
         ) AS low_3mo,
         STDDEV(daily_diff) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '90' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 90 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_3mo,
         price_90d_ago AS price_start_3mo,
         CASE
@@ -157,17 +157,17 @@ rolling_stats AS (
         MAX(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '30' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 30 DAY PRECEDING AND CURRENT ROW
         ) AS high_1mo,
         MIN(current_price) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '30' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 30 DAY PRECEDING AND CURRENT ROW
         ) AS low_1mo,
         STDDEV(daily_diff) OVER (
             PARTITION BY commodity_name, commodity_unit
             ORDER BY date
-            RANGE BETWEEN INTERVAL '30' DAY PRECEDING AND CURRENT ROW
+            RANGE BETWEEN INTERVAL 30 DAY PRECEDING AND CURRENT ROW
         ) AS std_diff_1mo,
         price_30d_ago AS price_start_1mo,
         CASE

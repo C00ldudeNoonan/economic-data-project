@@ -23,7 +23,7 @@ Deploy Dagster on Google Cloud Platform with Identity-Aware Proxy (IAP) for secu
 │                      └─────────────────────────────────┘   │
 │                                                              │
 │  ┌──────────────┐    ┌─────────────────────────────────┐   │
-│  │Secret Manager│    │         MotherDuck              │   │
+│  │Secret Manager│    │   BigQuery + Iceberg (GCS)      │   │
 │  │  (API Keys)  │    │     (Data Warehouse)            │   │
 │  └──────────────┘    └─────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
@@ -48,17 +48,24 @@ gcloud config set project YOUR_PROJECT_ID
 
 ### 1. Configure Variables
 
+Non-sensitive variables go in `terraform.tfvars` (gitignored):
+
 ```bash
 cd deploy/gcp
 cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars: set project_id, authorized_email, bigquery_project, etc.
 ```
 
-Edit `terraform.tfvars` with your values:
-- `project_id`: Your GCP project ID
-- `authorized_email`: Your email (only this can access Dagster)
-- `dagster_pg_password`: A secure password for PostgreSQL
-- `motherduck_token`: Your MotherDuck API token
-- Other API keys as needed
+Sensitive secrets must be set as `TF_VAR_*` environment variables — never put them in files:
+
+```bash
+export TF_VAR_dagster_pg_password="your-secure-password"
+export TF_VAR_fred_api_key="your-fred-key"
+export TF_VAR_openai_api_key="your-openai-key"
+export TF_VAR_anthropic_api_key="your-anthropic-key"
+```
+
+Terraform automatically picks up any `TF_VAR_<name>` variable from the environment.
 
 ### 2. Initialize and Deploy
 

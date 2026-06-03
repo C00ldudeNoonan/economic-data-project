@@ -17,20 +17,40 @@ clean-targets:
     - "dbt_packages"
 
 # Model configurations
+# Schema values map to BigQuery datasets. generate_schema_name macro must
+# return the custom schema as-is (see macros/generate_schema_name.sql).
 models:
   dbt_project:
     +materialized: table
     staging:
+      +schema: economics_staging
       +materialized: view
+    analytics:
+      +schema: economics_marts
+      +materialized: table
     markets:
+      +schema: economics_marts
       +materialized: table
     commodities:
+      +schema: economics_marts
+      +materialized: table
+    government:
+      +schema: economics_marts
       +materialized: table
     signals:
+      +schema: economics_signals
       +materialized: table
     agents_preprocess:
+      +schema: economics_analysis
       +materialized: view
     data_quality:
+      +schema: economics_staging
+      +materialized: table
+    analysis:
+      +schema: economics_analysis
       +materialized: table
     backtesting:
+      +schema: economics_backtesting
       +materialized: incremental
+      +file_format: iceberg
+      +catalog: iceberg_catalog

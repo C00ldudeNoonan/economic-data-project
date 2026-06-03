@@ -227,5 +227,5 @@ SELECT
 
 FROM with_growth wg
 CROSS JOIN velocity_with_trend vt
-WHERE wg.date >= CURRENT_DATE - INTERVAL '3 years'
+WHERE wg.date >= CURRENT_DATE - INTERVAL 3 YEAR
 ORDER BY wg.date DESC

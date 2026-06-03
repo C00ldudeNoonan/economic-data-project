@@ -30,7 +30,7 @@ stock_prices AS (
     FROM {{ ref('stg_sp500_companies_prices') }}
     WHERE adj_close IS NOT NULL
         AND adj_close > 0
-        AND date >= CURRENT_DATE - INTERVAL '4 years'
+        AND date >= CURRENT_DATE - INTERVAL 4 YEAR
 ),
 
 -- 200-day SMA per stock (computed on the full 4-year range)
@@ -60,7 +60,7 @@ stock_ma_flags AS (
         CASE WHEN ma_200_days_count >= 200 AND price > sma_200 THEN 1 ELSE 0 END AS above_200_ma,
         CASE WHEN ma_200_days_count >= 200 THEN 1 ELSE 0 END AS has_valid_ma
     FROM stock_with_ma
-    WHERE date >= CURRENT_DATE - INTERVAL '3 years'
+    WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 -- Join with sector metadata

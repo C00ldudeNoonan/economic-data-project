@@ -210,5 +210,5 @@ SELECT
     END AS orders_inventories_status
 
 FROM with_yoy
-WHERE date >= CURRENT_DATE - INTERVAL '3 years'
+WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
 ORDER BY date DESC

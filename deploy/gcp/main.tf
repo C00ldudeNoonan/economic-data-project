@@ -30,6 +30,21 @@ resource "google_project_service" "secretmanager" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "bigquery" {
+  service            = "bigquery.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "biglake" {
+  service            = "biglake.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "bigqueryconnection" {
+  service            = "bigqueryconnection.googleapis.com"
+  disable_on_destroy = false
+}
+
 # Store secrets in Secret Manager
 resource "google_secret_manager_secret" "dagster_env" {
   secret_id = "dagster-env"
@@ -46,9 +61,8 @@ resource "google_secret_manager_secret_version" "dagster_env" {
 
   secret_data = <<-EOF
     DAGSTER_PG_PASSWORD=${var.dagster_pg_password}
-    MOTHERDUCK_TOKEN=${var.motherduck_token}
-    MOTHERDUCK_DATABASE=${var.motherduck_database}
-    MOTHERDUCK_PROD_SCHEMA=${var.motherduck_prod_schema}
+    BIGQUERY_PROJECT=${var.bigquery_project}
+    BIGQUERY_LOCATION=${var.bigquery_location}
     DBT_TARGET=prod
     FRED_API_KEY=${var.fred_api_key}
     OPENAI_API_KEY=${var.openai_api_key}
@@ -196,4 +210,69 @@ resource "google_compute_instance_iam_member" "ssh_access" {
   instance_name = google_compute_instance.dagster.name
   role          = "roles/compute.osLogin"
   member        = "user:${var.authorized_email}"
+}
+
+# GCS bucket for Iceberg table storage
+resource "google_storage_bucket" "iceberg_data" {
+  name                        = var.iceberg_bucket_name
+  location                    = var.bigquery_location
+  uniform_bucket_level_access = true
+  force_destroy               = false
+
+  versioning {
+    enabled = true
+  }
+}
+
+# BigQuery datasets
+locals {
+  bigquery_datasets = [
+    "economics_raw",
+    "economics_staging",
+    "economics_marts",
+    "economics_signals",
+    "economics_analysis",
+    "economics_backtesting",
+  ]
+}
+
+resource "google_bigquery_dataset" "economics" {
+  for_each   = toset(local.bigquery_datasets)
+  dataset_id = each.key
+  location   = var.bigquery_location
+  project    = var.bigquery_project
+
+  depends_on = [google_project_service.bigquery]
+}
+
+# BigLake connection for Iceberg
+resource "google_bigquery_connection" "biglake" {
+  connection_id = "biglake-iceberg"
+  location      = var.bigquery_location
+  project       = var.bigquery_project
+
+  cloud_resource {}
+
+  depends_on = [google_project_service.bigqueryconnection]
+}
+
+# Grant BigLake connection service account objectAdmin on Iceberg bucket
+resource "google_storage_bucket_iam_member" "biglake_object_admin" {
+  bucket = google_storage_bucket.iceberg_data.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_bigquery_connection.biglake.cloud_resource[0].service_account_id}"
+}
+
+# Grant Dagster VM service account BigQuery data editor
+resource "google_project_iam_member" "dagster_bq_data_editor" {
+  project = var.bigquery_project
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${google_service_account.dagster_vm.email}"
+}
+
+# Grant Dagster VM service account BigQuery job user
+resource "google_project_iam_member" "dagster_bq_job_user" {
+  project = var.bigquery_project
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.dagster_vm.email}"
 }

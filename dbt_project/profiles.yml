@@ -1,21 +1,23 @@
 econ_database:
-  target: "{{ env_var('DBT_TARGET', 'local') }}"  # Default to local if not set
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
   outputs:
-    local:  # Keep local target for backwards compatibility
-      type: duckdb
-      schema: public
-      path: "../econ_data_project/local.duckdb"
-      threads: 1
-    
-    prod:  # Keep prod target for backwards compatibility
-      # SECURITY: dbt-duckdb requires the MotherDuck token inside the path
-      # string. dbt may emit this value in DEBUG-level logs and write it
-      # into target/ artifacts (run_results.json, manifest.json).
-      # Mitigations:
-      #   1. Never raise log level above INFO in production runs.
-      #   2. Never publish dbt_project/target/ or logs/ as build artifacts.
-      #   3. Rotate MOTHERDUCK_TOKEN if a log or artifact is ever exfiltrated.
-      type: duckdb
-      schema: "{{ env_var('MOTHERDUCK_PROD_SCHEMA') }}"
-      path: "md:{{ env_var('MOTHERDUCK_DATABASE') }}?motherduck_token={{ env_var('MOTHERDUCK_TOKEN') }}"
-      threads: 1
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('BIGQUERY_PROJECT') }}"
+      dataset: economics_staging
+      threads: 4
+      location: "{{ env_var('BIGQUERY_LOCATION', 'US') }}"
+      timeout_seconds: 300
+
+    prod:
+      # On GCE, ADC automatically uses the attached VM service account —
+      # no keyfile needed. Ensure the service account has bigquery.dataEditor
+      # and bigquery.jobUser on the project (provisioned in Terraform Phase 0).
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('BIGQUERY_PROJECT') }}"
+      dataset: economics_staging
+      threads: 8
+      location: "{{ env_var('BIGQUERY_LOCATION', 'US') }}"
+      timeout_seconds: 300

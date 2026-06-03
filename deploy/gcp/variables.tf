@@ -38,23 +38,22 @@ variable "dagster_pg_password" {
   sensitive   = true
 }
 
-# Environment variables for the application
-variable "motherduck_token" {
-  description = "MotherDuck API token"
+# BigQuery configuration
+variable "bigquery_project" {
+  description = "GCP project ID for BigQuery (may differ from infra project_id)"
   type        = string
-  sensitive   = true
 }
 
-variable "motherduck_database" {
-  description = "MotherDuck database name"
+variable "bigquery_location" {
+  description = "BigQuery dataset and GCS bucket location"
   type        = string
-  default     = "economic_data"
+  default     = "US"
 }
 
-variable "motherduck_prod_schema" {
-  description = "MotherDuck production schema"
+variable "iceberg_bucket_name" {
+  description = "GCS bucket name for Iceberg table storage"
   type        = string
-  default     = "main"
+  default     = "econ-project-iceberg-data"
 }
 
 variable "fred_api_key" {

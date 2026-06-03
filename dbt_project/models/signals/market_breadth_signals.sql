@@ -23,7 +23,7 @@ WITH RECURSIVE stock_prices AS (
     WHERE
         adj_close IS NOT NULL
         AND adj_close > 0
-        AND date >= CURRENT_DATE - INTERVAL '3 years'
+        AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 -- Calculate moving averages for each stock
@@ -107,7 +107,7 @@ daily_breadth AS (
         -- Advance/Decline line contribution (advances - declines)
         SUM(is_advancing) - SUM(is_declining) AS ad_line_delta
     FROM stock_signals
-    WHERE date >= CURRENT_DATE - INTERVAL '2 years'
+    WHERE date >= CURRENT_DATE - INTERVAL 2 YEAR
     GROUP BY date
     HAVING COUNT(DISTINCT symbol) >= 400  -- Ensure we have most S&P 500 stocks
 ),
@@ -230,7 +230,7 @@ spy_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'SPY'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 spy_with_highs AS (
@@ -249,7 +249,7 @@ sector_prices AS (
         adj_close AS price
     FROM {{ ref('stg_us_sectors') }}
     WHERE adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 sector_with_sma AS (
@@ -287,7 +287,7 @@ internals_prices AS (
         adj_close AS price
     FROM {{ ref('stg_us_sectors') }}
     WHERE adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 
     UNION ALL
 
@@ -298,7 +298,7 @@ internals_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol IN ('SPY', 'QQQ')
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL '3 years'
+      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
 ),
 
 internals_returns AS (

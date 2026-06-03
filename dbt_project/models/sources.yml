@@ -2,7 +2,8 @@ version: 2
 
 sources:
   - name: staging
-    schema: main
+    database: "{{ env_var('BIGQUERY_PROJECT') }}"
+    schema: economics_raw
     tables:
       # FRED Data
       - name: fred_raw
