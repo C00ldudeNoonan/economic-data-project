@@ -38,7 +38,6 @@ services:
     # Give in-flight runs time to checkpoint before Docker sends SIGKILL (default 10s)
     stop_grace_period: 90s
     environment:
-      # Environment setting - use "prod" for MotherDuck, "dev" for local DuckDB
       ENVIRONMENT: prod
 
       # Dagster PostgreSQL connection
@@ -48,17 +47,15 @@ services:
       DAGSTER_POSTGRES_HOSTNAME: dagster_postgresql
       DAGSTER_POSTGRES_PORT: "5432"
 
-      # MotherDuck (primary data warehouse)
-      MOTHERDUCK_TOKEN: ${MOTHERDUCK_TOKEN}
-      MOTHERDUCK_DATABASE: ${MOTHERDUCK_DATABASE}
-      MOTHERDUCK_PROD_SCHEMA: ${MOTHERDUCK_PROD_SCHEMA}
+      # BigQuery (primary data warehouse)
+      BIGQUERY_PROJECT: ${BIGQUERY_PROJECT}
+      BIGQUERY_DATASET: ${BIGQUERY_DATASET:-economics_raw}
+      BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
+      ICEBERG_BUCKET_NAME: ${ICEBERG_BUCKET_NAME:-econ-project-iceberg-data}
       DBT_TARGET: ${DBT_TARGET:-prod}
       DBT_PROJECT_DIR: /opt/dagster/dbt_project
-      # GCP Configuration
+      # GCP / GCS Configuration
       GCS_BUCKET_NAME: ${GCS_BUCKET_NAME}
-      BIGQUERY_PROJECT_ID: ${BIGQUERY_PROJECT_ID}
-      BIGQUERY_DATASET: ${BIGQUERY_DATASET:-economic_data}
-      BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
       # Pass JSON credentials to entrypoint, which writes to file
       GOOGLE_APPLICATION_CREDENTIALS_JSON: ${GOOGLE_APPLICATION_CREDENTIALS}
       SEC_EDGAR_CONTACT_EMAIL: ${SEC_EDGAR_CONTACT_EMAIL}
@@ -186,15 +183,13 @@ services:
       DAGSTER_POSTGRES_HOSTNAME: dagster_postgresql
       DAGSTER_POSTGRES_PORT: "5432"
       ENVIRONMENT: prod
-      MOTHERDUCK_TOKEN: ${MOTHERDUCK_TOKEN}
-      MOTHERDUCK_DATABASE: ${MOTHERDUCK_DATABASE}
-      MOTHERDUCK_PROD_SCHEMA: ${MOTHERDUCK_PROD_SCHEMA}
+      BIGQUERY_PROJECT: ${BIGQUERY_PROJECT}
+      BIGQUERY_DATASET: ${BIGQUERY_DATASET:-economics_raw}
+      BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
+      ICEBERG_BUCKET_NAME: ${ICEBERG_BUCKET_NAME:-econ-project-iceberg-data}
       DBT_TARGET: ${DBT_TARGET:-prod}
       DBT_PROJECT_DIR: /opt/dagster/dbt_project
       GCS_BUCKET_NAME: ${GCS_BUCKET_NAME}
-      BIGQUERY_PROJECT_ID: ${BIGQUERY_PROJECT_ID}
-      BIGQUERY_DATASET: ${BIGQUERY_DATASET:-economic_data}
-      BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
       GOOGLE_APPLICATION_CREDENTIALS_JSON: ${GOOGLE_APPLICATION_CREDENTIALS}
       SEC_EDGAR_CONTACT_EMAIL: ${SEC_EDGAR_CONTACT_EMAIL}
       GOOGLE_DRIVE_FOLDER_ID: ${GOOGLE_DRIVE_FOLDER_ID}
