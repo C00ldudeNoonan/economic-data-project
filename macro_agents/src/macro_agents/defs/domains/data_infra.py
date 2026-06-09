@@ -244,7 +244,9 @@ class DataDictionaryBuilder:
             return []
 
     def build_dictionary(
-        self, dbt_project_path: Path, md_resource: BigQueryWarehouseResource | None = None
+        self,
+        dbt_project_path: Path,
+        md_resource: BigQueryWarehouseResource | None = None,
     ) -> pl.DataFrame:
         """
         Build complete data dictionary by parsing all DBT schema files.

@@ -126,7 +126,7 @@ def score_fed_sentiment_dictionary(
     # (not just newly scored ones) to handle partial re-runs correctly
     affected_meetings = {r["meeting_date"] for r in records}
     meeting_aggregates = _rebuild_meeting_aggregates(
-        md, affected_meetings, "dictionary"
+        bq, affected_meetings, "dictionary"
     )
     _compute_score_deltas(meeting_aggregates, bq)
 

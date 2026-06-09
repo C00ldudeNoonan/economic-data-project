@@ -66,14 +66,14 @@ def analyze_economy_state(
         "Gathering economic data (with token optimization, preserving trends)..."
     )
     economic_data = economic_analysis.get_economic_data(
-        md, max_series=50, latest_month_only=False, max_months_per_series=3
+        bq, max_series=50, latest_month_only=False, max_months_per_series=3
     )
 
     context.log.info(
         "Gathering commodity data (with token optimization, preserving trends)..."
     )
     commodity_data = economic_analysis.get_commodity_data(
-        md, max_commodities=15, time_periods=["6_months"]
+        bq, max_commodities=15, time_periods=["6_months"]
     )
 
     context.log.info(
@@ -85,7 +85,7 @@ def analyze_economy_state(
         "Gathering housing market data (with token optimization, preserving trends)..."
     )
     housing_data = economic_analysis.get_housing_data(
-        md, latest_month_only=False, max_months=6
+        bq, latest_month_only=False, max_months=6
     )
 
     context.log.info(
@@ -102,7 +102,7 @@ def analyze_economy_state(
     if economic_analysis.use_optimized_models:
         optimized_analyzer = economic_analysis.load_optimized_module(
             module_name="economy_state",
-            md_resource=md,
+            md_resource=bq,
             gcs_resource=gcs,
             context=context,
             personality=config.personality,
@@ -352,8 +352,8 @@ def analyze_economy_state_v2(
 
     context.log.info("Step 1/6: Running Labor Market Agent...")
 
-    labor_data = get_labor_market_data(md)
-    labor_trends = get_labor_trends_data(md)
+    labor_data = get_labor_market_data(bq)
+    labor_trends = get_labor_trends_data(bq)
 
     estimated_tokens = _estimate_tokens(labor_data + labor_trends)
     _check_rate_limit(provider, model_name, estimated_tokens, context)
@@ -380,9 +380,9 @@ def analyze_economy_state_v2(
 
     context.log.info("Step 2/6: Running Financial Conditions Agent...")
 
-    fci_data = get_financial_conditions_data(md)
-    yield_curve = get_yield_curve_data(md)
-    credit_data = get_credit_data(md)
+    fci_data = get_financial_conditions_data(bq)
+    yield_curve = get_yield_curve_data(bq)
+    credit_data = get_credit_data(bq)
 
     estimated_tokens = _estimate_tokens(fci_data + yield_curve + credit_data)
     _check_rate_limit(provider, model_name, estimated_tokens, context)
@@ -410,9 +410,9 @@ def analyze_economy_state_v2(
 
     context.log.info("Step 3/6: Running Commodities Agent...")
 
-    energy_data = get_energy_commodities_data(md)
-    input_data = get_input_commodities_data(md)
-    agriculture_data = get_agriculture_commodities_data(md)
+    energy_data = get_energy_commodities_data(bq)
+    input_data = get_input_commodities_data(bq)
+    agriculture_data = get_agriculture_commodities_data(bq)
 
     estimated_tokens = _estimate_tokens(energy_data + input_data + agriculture_data)
     _check_rate_limit(provider, model_name, estimated_tokens, context)
@@ -440,8 +440,8 @@ def analyze_economy_state_v2(
 
     context.log.info("Step 4/6: Running Sector Agent...")
 
-    sector_data = get_sector_data(md)
-    correlation_data = get_sector_correlation_data(md)
+    sector_data = get_sector_data(bq)
+    correlation_data = get_sector_correlation_data(bq)
 
     estimated_tokens = _estimate_tokens(sector_data + correlation_data)
     _check_rate_limit(provider, model_name, estimated_tokens, context)
@@ -468,9 +468,9 @@ def analyze_economy_state_v2(
 
     context.log.info("Step 5/6: Running Market Structure Agent...")
 
-    indices_data = get_major_indices_data(md)
-    fixed_income = get_fixed_income_data(md)
-    global_markets = get_global_markets_data(md)
+    indices_data = get_major_indices_data(bq)
+    fixed_income = get_fixed_income_data(bq)
+    global_markets = get_global_markets_data(bq)
 
     estimated_tokens = _estimate_tokens(indices_data + fixed_income + global_markets)
     _check_rate_limit(provider, model_name, estimated_tokens, context)

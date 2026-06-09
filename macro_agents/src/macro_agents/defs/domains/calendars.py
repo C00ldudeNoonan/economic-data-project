@@ -577,7 +577,9 @@ def economic_calendar_quality_check(
 
 
 @dg.asset_check(asset=earnings_calendar)
-def earnings_calendar_quality_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def earnings_calendar_quality_check(
+    bq: BigQueryWarehouseResource,
+) -> dg.AssetCheckResult:
     """Ensure earnings calendar table is populated."""
     if not bq.table_exists("earnings_calendar"):
         return dg.AssetCheckResult(

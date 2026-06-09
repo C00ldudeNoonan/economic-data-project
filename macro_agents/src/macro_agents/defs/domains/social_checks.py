@@ -46,7 +46,9 @@ def reddit_posts_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResul
 
 
 @dg.asset_check(asset="reddit_post_content_raw")
-def reddit_post_content_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def reddit_post_content_data_check(
+    bq: BigQueryWarehouseResource,
+) -> dg.AssetCheckResult:
     """Validate reddit post content exists and links back to posts."""
     if not bq.table_exists("reddit_post_content_raw"):
         return dg.AssetCheckResult(

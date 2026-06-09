@@ -1,7 +1,6 @@
 import re
 
 import dagster as dg
-import polars as pl
 
 from macro_agents.defs.domains.sec.config import BATCH_SIZE_STANDARD
 from macro_agents.defs.domains.sec.helpers import build_filing_gcs_path
@@ -123,7 +122,7 @@ def sec_filing_gcs_migration(
                         FROM sec_filing_content
                         WHERE filing_id = ? AND gcs_path IS NOT NULL
                         """,
-                        execute_options={"parameters": [filing_id]}
+                        execute_options={"parameters": [filing_id]},
                     )
 
                     for content_row in content_df.iter_rows(named=True):

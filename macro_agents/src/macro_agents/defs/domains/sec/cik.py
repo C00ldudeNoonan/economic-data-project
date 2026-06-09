@@ -39,7 +39,9 @@ def sp500_cik_enriched(
         ensure_sec_company_cik_table(conn)
 
         # Load S&P 500 companies
-        sp500_df = bq.execute_query("SELECT symbol, company_name, cik FROM sp500_companies_raw WHERE date_ended IS NULL")
+        sp500_df = bq.execute_query(
+            "SELECT symbol, company_name, cik FROM sp500_companies_raw WHERE date_ended IS NULL"
+        )
 
         if sp500_df.is_empty():
             context.log.warning("No S&P 500 companies found in database")

@@ -78,7 +78,7 @@ def _check_signal_table(
 def absorption_ratio_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate absorption ratio signal has recent, valid values."""
     return _check_signal_table(
-        "absorption_ratio_signals", "absorption_ratio", md, freshness_days=14
+        "absorption_ratio_signals", "absorption_ratio", bq, freshness_days=14
     )
 
 
@@ -86,7 +86,7 @@ def absorption_ratio_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckR
 def turbulence_index_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate turbulence index signal has recent, valid values."""
     return _check_signal_table(
-        "turbulence_index_signals", "turbulence_raw", md, freshness_days=7
+        "turbulence_index_signals", "turbulence_raw", bq, freshness_days=7
     )
 
 
@@ -94,7 +94,7 @@ def turbulence_index_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckR
 def fear_greed_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate fear & greed signal has recent, valid values."""
     return _check_signal_table(
-        "fear_greed_signals", "fear_greed_score", md, freshness_days=7
+        "fear_greed_signals", "fear_greed_score", bq, freshness_days=7
     )
 
 
@@ -102,15 +102,17 @@ def fear_greed_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
 def entropy_complexity_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
     """Validate entropy complexity signal has recent, valid values."""
     return _check_signal_table(
-        "entropy_complexity_signals", "spy_perm_entropy", md, freshness_days=7
+        "entropy_complexity_signals", "spy_perm_entropy", bq, freshness_days=7
     )
 
 
 @dg.asset_check(asset="network_correlation_signals")
-def network_correlation_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def network_correlation_data_check(
+    bq: BigQueryWarehouseResource,
+) -> dg.AssetCheckResult:
     """Validate network correlation signal has recent, valid values."""
     return _check_signal_table(
-        "network_correlation_signals", "mst_total_length", md, freshness_days=14
+        "network_correlation_signals", "mst_total_length", bq, freshness_days=14
     )
 
 

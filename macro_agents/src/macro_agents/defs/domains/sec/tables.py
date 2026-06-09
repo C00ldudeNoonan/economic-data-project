@@ -128,7 +128,9 @@ def ensure_sec_filing_content_table(
         .result()
         .to_dataframe()
     )
-    legacy_columns_present = int(legacy_row["cnt"].iloc[0]) > 0 if len(legacy_row) else False
+    legacy_columns_present = (
+        int(legacy_row["cnt"].iloc[0]) > 0 if len(legacy_row) else False
+    )
 
     if legacy_columns_present:
         conn.query(

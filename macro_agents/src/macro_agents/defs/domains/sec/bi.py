@@ -235,7 +235,8 @@ def sec_filing_business_intelligence(
                     SELECT 1 FROM sec_filing_search_terms t
                     WHERE t.filing_id = c.filing_id
                 )
-                """)
+                """
+            )
             remaining = remaining_row[0] if remaining_row else 0
         except Exception:
             # Table might not exist yet

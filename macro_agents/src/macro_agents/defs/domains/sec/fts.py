@@ -6,7 +6,6 @@ Complements the vector/semantic search in search.py.
 """
 
 import dagster as dg
-import polars as pl
 from metaxy.ext.dagster import metaxify
 from metaxy.metadata_store.base import MetadataStore
 

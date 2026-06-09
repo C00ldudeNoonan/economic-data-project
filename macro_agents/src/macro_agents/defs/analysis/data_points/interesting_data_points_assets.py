@@ -201,7 +201,7 @@ def detect_interesting_data_points_weekly(
 
     # 6. Get economic context for AI
     context.log.info("Retrieving economic context")
-    economic_context = get_latest_economic_context(md)
+    economic_context = get_latest_economic_context(bq)
 
     # 7. Prioritize with AI
     context.log.info("Running AI prioritization")

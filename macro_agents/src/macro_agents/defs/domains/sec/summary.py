@@ -76,7 +76,8 @@ def sec_company_bi_summary(
                 FROM sec_filings
                 WHERE symbol = ?
             """,
-                [symbol],)
+                [symbol],
+            )
             if filing_dates:
                 latest_10k, latest_10q, total_filings = filing_dates
             else:
@@ -96,7 +97,8 @@ def sec_company_bi_summary(
                 WHERE f.symbol = ?
                 GROUP BY st.term_category
             """,
-                [symbol],)
+                [symbol],
+            )
 
             # Initialize counts
             category_counts = {

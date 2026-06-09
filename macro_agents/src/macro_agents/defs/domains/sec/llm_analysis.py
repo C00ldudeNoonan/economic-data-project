@@ -8,7 +8,6 @@ import hashlib
 
 import dagster as dg
 import dspy
-import polars as pl
 
 from macro_agents.defs.domains.markets.partitions import sp500_company_tickers
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_llm_metadata_table

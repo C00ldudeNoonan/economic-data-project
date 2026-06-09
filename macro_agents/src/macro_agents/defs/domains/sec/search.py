@@ -9,7 +9,6 @@ import hashlib
 import re
 
 import dagster as dg
-import polars as pl
 from metaxy.ext.dagster import metaxify
 from metaxy.metadata_store.base import MetadataStore
 

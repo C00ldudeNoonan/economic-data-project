@@ -453,7 +453,7 @@ def optimize_dspy_modules(
 
                 symbols = [rec["symbol"] for rec in recommendations]
                 returns_data = get_asset_returns(
-                    md, symbols, backtest_date, periods=[1, 3, 6]
+                    bq, symbols, backtest_date, periods=[1, 3, 6]
                 )
 
                 for rec in recommendations:

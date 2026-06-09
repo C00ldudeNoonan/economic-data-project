@@ -249,7 +249,8 @@ def sec_filing_text_extracted(
                 SELECT 1 FROM sec_filing_content c
                 WHERE c.filing_id = f.filing_id
             )
-            """)
+            """
+        )
         remaining = remaining_row[0] if remaining_row else 0
 
         return dg.MaterializeResult(

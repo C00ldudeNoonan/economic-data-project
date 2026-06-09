@@ -98,7 +98,7 @@ def backtest_analyze_asset_class_relationships(
     if config.use_optimized_models and economic_analysis.use_optimized_models:
         relationship_analyzer = economic_analysis.load_optimized_module(
             module_name="asset_class_relationship",
-            md_resource=md,
+            md_resource=bq,
             gcs_resource=gcs,
             context=context,
             personality=None,  # Asset class relationship doesn't use personality
@@ -138,7 +138,7 @@ def backtest_analyze_asset_class_relationships(
 
             context.log.info("Retrieving backtest economy state analysis...")
             economy_state_analysis = get_latest_backtest_economy_state_analysis(
-                md, backtest_date, config.model_provider, config.model_name
+                bq, backtest_date, config.model_provider, config.model_name
             )
 
             if not economy_state_analysis:
@@ -152,7 +152,7 @@ def backtest_analyze_asset_class_relationships(
                     "Gathering market performance data with cutoff date (with token optimization)..."
                 )
                 market_data = economic_analysis.get_market_data(
-                    md,
+                    bq,
                     cutoff_date=backtest_date,
                     max_assets=20,
                     time_periods=["6_months"],
@@ -163,7 +163,7 @@ def backtest_analyze_asset_class_relationships(
                 )
                 try:
                     correlation_data = economic_analysis.get_correlation_data(
-                        md,
+                        bq,
                         sample_size=50,
                         sampling_strategy="top_correlations",
                         cutoff_date=backtest_date,
@@ -178,7 +178,7 @@ def backtest_analyze_asset_class_relationships(
                     "Gathering commodity data with cutoff date (with token optimization)..."
                 )
                 commodity_data = economic_analysis.get_commodity_data(
-                    md,
+                    bq,
                     cutoff_date=backtest_date,
                     max_commodities=15,
                     time_periods=["6_months"],
@@ -188,7 +188,7 @@ def backtest_analyze_asset_class_relationships(
                     "Gathering market performance data with cutoff date (full data, no token optimization)..."
                 )
                 market_data = economic_analysis.get_market_data(
-                    md, cutoff_date=backtest_date
+                    bq, cutoff_date=backtest_date
                 )
 
                 context.log.info(
@@ -196,7 +196,7 @@ def backtest_analyze_asset_class_relationships(
                 )
                 try:
                     correlation_data = economic_analysis.get_correlation_data(
-                        md,
+                        bq,
                         sample_size=100,
                         sampling_strategy="top_correlations",
                         cutoff_date=backtest_date,
@@ -211,7 +211,7 @@ def backtest_analyze_asset_class_relationships(
                     "Gathering commodity data with cutoff date (full data, no token optimization)..."
                 )
                 commodity_data = economic_analysis.get_commodity_data(
-                    md, cutoff_date=backtest_date
+                    bq, cutoff_date=backtest_date
                 )
 
             provider = economic_analysis._get_provider()

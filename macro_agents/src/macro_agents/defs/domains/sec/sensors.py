@@ -64,7 +64,8 @@ def sec_unprocessed_filings_sensor(
             WHERE processed = FALSE
             AND primary_document IS NOT NULL
             AND primary_document != ''
-            """)
+            """
+        )
         unprocessed_count = result[0] if result else 0
 
     except Exception as e:
@@ -158,7 +159,8 @@ def sec_new_companies_sensor(
         # Check if sec_filings table exists; if not, all CIK companies need ingestion
         tables = bq.fetchall(
             "SELECT table_name FROM information_schema.tables "
-            "WHERE table_name = 'sec_filings'")
+            "WHERE table_name = 'sec_filings'"
+        )
 
         if not tables:
             # sec_filings doesn't exist yet — count all companies with CIKs
@@ -177,7 +179,8 @@ def sec_new_companies_sensor(
                 WHERE NOT EXISTS (
                     SELECT 1 FROM sec_filings f WHERE f.symbol = c.symbol
                 )
-                """)
+                """
+            )
             new_company_count = result[0] if result else 0
 
     except Exception as e:

@@ -148,7 +148,7 @@ def backtest_analyze_economy_state(
     if config.use_optimized_models and economic_analysis.use_optimized_models:
         optimized_analyzer = economic_analysis.load_optimized_module(
             module_name="economy_state",
-            md_resource=md,
+            md_resource=bq,
             gcs_resource=gcs,
             context=context,
             personality=config.personality,
@@ -196,7 +196,7 @@ def backtest_analyze_economy_state(
                     "Gathering economic data with cutoff date (with token optimization, preserving trends)..."
                 )
                 economic_data = economic_analysis.get_economic_data(
-                    md,
+                    bq,
                     cutoff_date=backtest_date,
                     max_series=50,
                     latest_month_only=False,
@@ -207,7 +207,7 @@ def backtest_analyze_economy_state(
                     "Gathering commodity data with cutoff date (with token optimization, preserving trends)..."
                 )
                 commodity_data = economic_analysis.get_commodity_data(
-                    md,
+                    bq,
                     cutoff_date=backtest_date,
                     max_commodities=15,
                     time_periods=["6_months"],
@@ -217,70 +217,70 @@ def backtest_analyze_economy_state(
                     "Gathering Financial Conditions Index data with cutoff date (with token optimization, preserving trends)..."
                 )
                 fci_data = economic_analysis.get_financial_conditions_index(
-                    md, cutoff_date=backtest_date, max_months=12
+                    bq, cutoff_date=backtest_date, max_months=12
                 )
 
                 context.log.info(
                     "Gathering housing market data with cutoff date (with token optimization, preserving trends)..."
                 )
                 housing_data = economic_analysis.get_housing_data(
-                    md, cutoff_date=backtest_date, latest_month_only=False, max_months=6
+                    bq, cutoff_date=backtest_date, latest_month_only=False, max_months=6
                 )
 
                 context.log.info(
                     "Gathering yield curve data with cutoff date (with token optimization, preserving trends)..."
                 )
                 yield_curve_data = economic_analysis.get_yield_curve_data(
-                    md, cutoff_date=backtest_date, max_months=12
+                    bq, cutoff_date=backtest_date, max_months=12
                 )
 
                 context.log.info(
                     "Gathering economic trends data with cutoff date (with token optimization, preserving trends)..."
                 )
                 economic_trends = economic_analysis.get_economic_trends(
-                    md, cutoff_date=backtest_date, max_months=12
+                    bq, cutoff_date=backtest_date, max_months=12
                 )
             else:
                 context.log.info(
                     "Gathering economic data with cutoff date (full data, no token optimization)..."
                 )
                 economic_data = economic_analysis.get_economic_data(
-                    md, cutoff_date=backtest_date
+                    bq, cutoff_date=backtest_date
                 )
 
                 context.log.info(
                     "Gathering commodity data with cutoff date (full data, no token optimization)..."
                 )
                 commodity_data = economic_analysis.get_commodity_data(
-                    md, cutoff_date=backtest_date
+                    bq, cutoff_date=backtest_date
                 )
 
                 context.log.info(
                     "Gathering Financial Conditions Index data with cutoff date (full data, no token optimization)..."
                 )
                 fci_data = economic_analysis.get_financial_conditions_index(
-                    md, cutoff_date=backtest_date
+                    bq, cutoff_date=backtest_date
                 )
 
                 context.log.info(
                     "Gathering housing market data with cutoff date (full data, no token optimization)..."
                 )
                 housing_data = economic_analysis.get_housing_data(
-                    md, cutoff_date=backtest_date
+                    bq, cutoff_date=backtest_date
                 )
 
                 context.log.info(
                     "Gathering yield curve data with cutoff date (full data, no token optimization)..."
                 )
                 yield_curve_data = economic_analysis.get_yield_curve_data(
-                    md, cutoff_date=backtest_date
+                    bq, cutoff_date=backtest_date
                 )
 
                 context.log.info(
                     "Gathering economic trends data with cutoff date (full data, no token optimization)..."
                 )
                 economic_trends = economic_analysis.get_economic_trends(
-                    md, cutoff_date=backtest_date
+                    bq, cutoff_date=backtest_date
                 )
 
             provider = economic_analysis._get_provider()

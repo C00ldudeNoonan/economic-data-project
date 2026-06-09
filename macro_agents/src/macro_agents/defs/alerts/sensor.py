@@ -104,7 +104,9 @@ def _mark_notified(md, event_id: int, now: datetime) -> None:
 )
 def economic_alert_notification_sensor(context: dg.SensorEvaluationContext):
     from macro_agents.defs.resources.gmail import gmail_notifier_resource
-    from macro_agents.defs.resources.bigquery_warehouse import bigquery_warehouse_resource
+    from macro_agents.defs.resources.bigquery_warehouse import (
+        bigquery_warehouse_resource,
+    )
 
     recipient = os.getenv("ALERT_RECIPIENT")
     if not recipient:

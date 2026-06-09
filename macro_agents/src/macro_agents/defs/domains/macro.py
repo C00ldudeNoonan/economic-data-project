@@ -104,7 +104,7 @@ def treasury_yields_raw(
     """Scrape Treasury yield curve data for batched year partitions."""
     total_records = 0
     for year in context.partition_keys:
-        total_records += _fetch_treasury_yields_for_year(context, md, year)
+        total_records += _fetch_treasury_yields_for_year(context, bq, year)
 
     return dg.MaterializeResult(
         metadata={
