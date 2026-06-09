@@ -453,7 +453,7 @@ def optimize_dspy_modules(
 
                 symbols = [rec["symbol"] for rec in recommendations]
                 returns_data = get_asset_returns(
-                    md, symbols, backtest_date, periods=[1, 3, 6]
+                    bq, symbols, backtest_date, periods=[1, 3, 6]
                 )
 
                 for rec in recommendations:
@@ -978,7 +978,6 @@ def auto_promote_best_models_to_production(
             )
         except Exception as e:
             context.log.error(f"Error promoting {module_name} v{version}: {e}")
-            conn.rollback()
         finally:
             conn.close()
 

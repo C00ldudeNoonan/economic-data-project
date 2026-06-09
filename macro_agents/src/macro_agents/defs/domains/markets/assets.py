@@ -2,7 +2,6 @@ from datetime import date
 
 import dagster as dg
 import polars as pl
-from google.cloud import bigquery as bq
 
 from macro_agents.defs.constants.market_stack_constants import (
     NASDAQ_COMPANY_TICKERS_PARTITION_NAME,
@@ -28,6 +27,7 @@ from macro_agents.defs.resources.company_list_scraper import (
     CompanyListScraperResource,
 )
 from macro_agents.defs.resources.market_stack import MarketStackResource
+from google.cloud import bigquery
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
@@ -163,7 +163,9 @@ def sp500_companies_raw(
             f"WHERE symbol IN ({symbols_list}) AND date_ended IS NULL"
         ).result()
         removed_count = len(removed_symbols)
-        context.log.info(f"Closed {removed_count} removed companies: {sorted(removed_symbols)}")
+        context.log.info(
+            f"Closed {removed_count} removed companies: {sorted(removed_symbols)}"
+        )
 
     # 2. Insert new additions via BigQuery load job
     if new_symbols:
@@ -175,7 +177,7 @@ def sp500_companies_raw(
         client.load_table_from_dataframe(
             new_df.to_pandas(),
             f"{project}.{dataset}.sp500_companies_raw",
-            job_config=bq.LoadJobConfig(write_disposition="WRITE_APPEND"),
+            job_config=bigquery.LoadJobConfig(write_disposition="WRITE_APPEND"),
         ).result()
         added_count = len(new_symbols)
         context.log.info(f"Added {added_count} new companies: {sorted(new_symbols)}")
@@ -188,7 +190,7 @@ def sp500_companies_raw(
         client.load_table_from_dataframe(
             continuing_df.to_pandas(),
             staging_ref,
-            job_config=bq.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
+            job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
         ).result()
         client.query(
             f"MERGE {table_ref} AS T "
@@ -463,7 +465,7 @@ def us_sector_etfs_raw(
     bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
-    return _fetch_ticker_partitions(context, md, marketstack, "us_sector_etfs_raw")
+    return _fetch_ticker_partitions(context, bq, marketstack, "us_sector_etfs_raw")
 
 
 @dg.asset(
@@ -481,7 +483,7 @@ def currency_etfs_raw(
     bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
-    return _fetch_ticker_partitions(context, md, marketstack, "currency_etfs_raw")
+    return _fetch_ticker_partitions(context, bq, marketstack, "currency_etfs_raw")
 
 
 @dg.asset(
@@ -499,7 +501,7 @@ def major_indices_raw(
     bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
-    return _fetch_ticker_partitions(context, md, marketstack, "major_indices_raw")
+    return _fetch_ticker_partitions(context, bq, marketstack, "major_indices_raw")
 
 
 @dg.asset(
@@ -517,7 +519,7 @@ def fixed_income_etfs_raw(
     bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
-    return _fetch_ticker_partitions(context, md, marketstack, "fixed_income_etfs_raw")
+    return _fetch_ticker_partitions(context, bq, marketstack, "fixed_income_etfs_raw")
 
 
 @dg.asset(
@@ -535,7 +537,7 @@ def global_markets_raw(
     bq: BigQueryWarehouseResource,
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
-    return _fetch_ticker_partitions(context, md, marketstack, "global_markets_raw")
+    return _fetch_ticker_partitions(context, bq, marketstack, "global_markets_raw")
 
 
 @dg.asset(
@@ -555,7 +557,7 @@ def sp500_companies_prices_raw(
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(
-        context, md, marketstack, "sp500_companies_prices_raw"
+        context, bq, marketstack, "sp500_companies_prices_raw"
     )
 
 
@@ -576,7 +578,7 @@ def nasdaq_companies_prices_raw(
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(
-        context, md, marketstack, "nasdaq_companies_prices_raw"
+        context, bq, marketstack, "nasdaq_companies_prices_raw"
     )
 
 
@@ -596,7 +598,7 @@ def energy_commodities_raw(
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(
-        context, md, marketstack, "energy_commodities_raw"
+        context, bq, marketstack, "energy_commodities_raw"
     )
 
 
@@ -616,7 +618,7 @@ def input_commodities_raw(
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(
-        context, md, marketstack, "input_commodities_raw"
+        context, bq, marketstack, "input_commodities_raw"
     )
 
 
@@ -636,5 +638,5 @@ def agriculture_commodities_raw(
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_commodity_partitions(
-        context, md, marketstack, "agriculture_commodities_raw"
+        context, bq, marketstack, "agriculture_commodities_raw"
     )

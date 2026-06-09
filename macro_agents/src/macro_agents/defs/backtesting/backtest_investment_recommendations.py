@@ -131,7 +131,7 @@ def backtest_generate_investment_recommendations(
     if config.use_optimized_models and economic_analysis.use_optimized_models:
         recommendations_generator = economic_analysis.load_optimized_module(
             module_name="investment_recommendations",
-            md_resource=md,
+            md_resource=bq,
             gcs_resource=gcs,
             context=context,
             personality=config.personality,
@@ -185,7 +185,7 @@ def backtest_generate_investment_recommendations(
 
             context.log.info("Retrieving backtest economy state analysis...")
             economy_state_analysis = get_latest_backtest_economy_state_analysis(
-                md, backtest_date, config.model_provider, config.model_name
+                bq, backtest_date, config.model_provider, config.model_name
             )
 
             if not economy_state_analysis:
@@ -196,7 +196,7 @@ def backtest_generate_investment_recommendations(
 
             context.log.info("Retrieving backtest asset class relationship analysis...")
             relationship_analysis = get_latest_backtest_relationship_analysis(
-                md, backtest_date, config.model_provider, config.model_name
+                bq, backtest_date, config.model_provider, config.model_name
             )
 
             if not relationship_analysis or (

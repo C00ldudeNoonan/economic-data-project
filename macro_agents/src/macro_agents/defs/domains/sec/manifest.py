@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
 import dagster as dg
-import polars as pl
 
 from macro_agents.defs.domains.sec.gcs_schema import CATALOG_PATH
 from macro_agents.defs.domains.sec.helpers import PIPELINE_VERSION

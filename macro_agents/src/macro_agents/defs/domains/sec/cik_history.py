@@ -57,7 +57,9 @@ def sec_company_cik_history(
         conn = bq.get_connection()
         ensure_sec_company_cik_history_table(conn)
 
-        companies_df = bq.execute_query("SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik")
+        companies_df = bq.execute_query(
+            "SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik"
+        )
 
         if companies_df.is_empty():
             context.log.warning("No companies found in sec_company_cik")

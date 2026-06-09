@@ -212,8 +212,7 @@ class FilingDownloader:
 
         query += f" LIMIT {limit}"
 
-        return md.execute_query(
-        )
+        return conn.execute(query, params).pl()
 
     def query_filing_by_id(
         self, conn, filing_id: str, *, symbol: str | None = None
@@ -237,8 +236,7 @@ class FilingDownloader:
             query += " AND f.symbol = ?"
             params.append(symbol)
 
-        return md.execute_query(
-        )
+        return conn.execute(query, params).pl()
 
     def is_filing_processed(self, conn, filing_id: str, symbol: str) -> bool:
         """Check if a filing has already been processed."""
@@ -251,5 +249,5 @@ class FilingDownloader:
 
     def count_remaining_unprocessed(self, conn) -> int:
         """Count filings still awaiting processing."""
-        row = md.fetchone(_REMAINING_COUNT_QUERY)
+        row = conn.execute(_REMAINING_COUNT_QUERY).fetchone()
         return row[0] if row else 0

@@ -464,7 +464,7 @@ def asset_failure_monitor(context):
     github_errors = []
 
     try:
-        md = context.resources.md
+        md = context.resources.bq
         github = context.resources.github
 
         # Try to initialize GitHub - if it fails, continue without it

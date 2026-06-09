@@ -36,7 +36,7 @@ class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
         return dg.AutomationCondition.eager()
 
 
-environment = os.getenv("DBT_TARGET", "local")
+environment = os.getenv("DBT_TARGET", "dev")
 
 dbt_project_dir = os.getenv("DBT_PROJECT_DIR")
 if dbt_project_dir:

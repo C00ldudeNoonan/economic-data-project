@@ -252,7 +252,9 @@ def _fetch_fci_data(bq: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
     return bq.execute_query(query, read_only=True)
 
 
-def _fetch_yield_curve_spreads(bq: BigQueryWarehouseResource, months: int) -> pl.DataFrame:
+def _fetch_yield_curve_spreads(
+    bq: BigQueryWarehouseResource, months: int
+) -> pl.DataFrame:
     query = f"""
     SELECT
         DATE_TRUNC('month', date) AS month,
@@ -531,7 +533,7 @@ def generate_investment_recommendation_charts(
 
         for theme_name, theme in THEMES.items():
             chart = _chart_for_key(
-                spec.chart_key, md, config.months_lookback, config.max_bars, theme
+                spec.chart_key, bq, config.months_lookback, config.max_bars, theme
             )
             if chart is None:
                 continue

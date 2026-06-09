@@ -183,7 +183,7 @@ def sec_filing_business_intelligence(
                         context_text = EXCLUDED.context_text,
                         confidence_score = EXCLUDED.confidence_score
                         """,
-                        [
+                        [  # ty: ignore[invalid-argument-type]
                             term_id,
                             filing_id,
                             signal.category,
@@ -235,7 +235,8 @@ def sec_filing_business_intelligence(
                     SELECT 1 FROM sec_filing_search_terms t
                     WHERE t.filing_id = c.filing_id
                 )
-                """)
+                """
+            )
             remaining = remaining_row[0] if remaining_row else 0
         except Exception:
             # Table might not exist yet

@@ -216,7 +216,7 @@ def analyze_asset_class_relationships(
         model_name_override=model_name,
     )
 
-    economy_state_analysis = get_latest_economy_state_analysis(md)
+    economy_state_analysis = get_latest_economy_state_analysis(bq)
 
     if not economy_state_analysis:
         raise ValueError(
@@ -224,12 +224,12 @@ def analyze_asset_class_relationships(
         )
 
     market_data = economic_analysis.get_market_data(
-        md, max_assets=20, time_periods=["6_months"]
+        bq, max_assets=20, time_periods=["6_months"]
     )
 
     try:
         correlation_data = economic_analysis.get_correlation_data(
-            md, sample_size=50, sampling_strategy="top_correlations"
+            bq, sample_size=50, sampling_strategy="top_correlations"
         )
     except Exception as e:
         context.log.warning(
@@ -238,14 +238,14 @@ def analyze_asset_class_relationships(
         correlation_data = ""
 
     commodity_data = economic_analysis.get_commodity_data(
-        md, max_commodities=15, time_periods=["6_months"]
+        bq, max_commodities=15, time_periods=["6_months"]
     )
 
     relationship_analyzer = None
     if economic_analysis.use_optimized_models:
         relationship_analyzer = economic_analysis.load_optimized_module(
             module_name="asset_class_relationship",
-            md_resource=md,
+            md_resource=bq,
             gcs_resource=gcs,
             context=context,
         )

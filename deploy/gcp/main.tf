@@ -291,3 +291,22 @@ resource "google_project_iam_member" "dagster_bq_job_user" {
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.dagster_vm.email}"
 }
+
+# Grant authorized user BigQuery access for console/local dev
+resource "google_project_iam_member" "user_bq_data_editor" {
+  project = var.bigquery_project
+  role    = "roles/bigquery.dataEditor"
+  member  = "user:${var.authorized_email}"
+}
+
+resource "google_project_iam_member" "user_bq_job_user" {
+  project = var.bigquery_project
+  role    = "roles/bigquery.jobUser"
+  member  = "user:${var.authorized_email}"
+}
+
+resource "google_project_iam_member" "user_gcs_object_admin" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "user:${var.authorized_email}"
+}

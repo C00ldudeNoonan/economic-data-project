@@ -183,7 +183,7 @@ class TestAssetCheckFailureSensor:
         )
         instance.get_latest_materialization_event = Mock(return_value=None)
         mock_context = build_op_context(
-            resources={"md": mock_md, "github": mock_github}, instance=instance
+            resources={"bq": mock_md, "github": mock_github}, instance=instance
         )
 
         with (
@@ -217,7 +217,7 @@ class TestAssetCheckFailureSensor:
 
         instance = DagsterInstance.ephemeral()
         mock_context = build_op_context(
-            resources={"md": mock_md, "github": mock_github}, instance=instance
+            resources={"bq": mock_md, "github": mock_github}, instance=instance
         )
 
         with patch(
@@ -236,14 +236,9 @@ class TestAssetFailureMonitorIntegration:
     def test_asset_failure_monitor_creates_tracking_table(self, tmp_path):
         from dagster import DagsterInstance, build_op_context
         from macro_agents.defs.asset_failure_sensor import asset_failure_monitor
-        from macro_agents.defs.resources.motherduck import MotherDuckResource
+        from tests.conftest import DuckDBWarehouseStub
 
-        db_path = tmp_path / "asset_failures.duckdb"
-        md_resource = MotherDuckResource(
-            md_token="test_token",
-            environment="dev",
-            local_path=str(db_path),
-        )
+        bq_resource = DuckDBWarehouseStub()
 
         mock_github = Mock()
         mock_github.setup_for_execution = Mock()
@@ -254,7 +249,7 @@ class TestAssetFailureMonitorIntegration:
         )
 
         context = build_op_context(
-            resources={"md": md_resource, "github": mock_github}, instance=instance
+            resources={"bq": bq_resource, "github": mock_github}, instance=instance
         )
 
         with (
@@ -270,4 +265,4 @@ class TestAssetFailureMonitorIntegration:
             result = asset_failure_monitor(context)
 
         assert result.metadata["status"] == "ok"
-        assert md_resource.table_exists("asset_check_failures")
+        assert bq_resource.table_exists("asset_check_failures")

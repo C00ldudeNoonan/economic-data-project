@@ -9,7 +9,7 @@ import pytest
 from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
     EconomicAnalysisResource,
 )
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
 class TestEconomicAnalysisResource:
@@ -30,7 +30,7 @@ class TestEconomicAnalysisResource:
             model_name="gpt-4-turbo-preview", openai_api_key="test_key"
         )
 
-        mock_md = Mock(spec=MotherDuckResource)
+        mock_md = Mock(spec=BigQueryWarehouseResource)
         mock_df = pl.DataFrame(
             {
                 "series_code": ["GDP", "CPI"],
@@ -53,7 +53,7 @@ class TestEconomicAnalysisResource:
             model_name="gpt-4-turbo-preview", openai_api_key="test_key"
         )
 
-        mock_md = Mock(spec=MotherDuckResource)
+        mock_md = Mock(spec=BigQueryWarehouseResource)
         mock_df = pl.DataFrame(
             {
                 "symbol": ["AAPL", "GOOGL"],
@@ -75,7 +75,7 @@ class TestEconomicAnalysisResource:
             model_name="gpt-4-turbo-preview", openai_api_key="test_key"
         )
 
-        mock_md = Mock(spec=MotherDuckResource)
+        mock_md = Mock(spec=BigQueryWarehouseResource)
         mock_df = pl.DataFrame(
             {
                 "commodity_name": ["Crude Oil", "Gold"],

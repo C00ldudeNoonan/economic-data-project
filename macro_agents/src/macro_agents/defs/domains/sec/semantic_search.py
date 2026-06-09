@@ -50,7 +50,7 @@ def vector_search(
     filters.append("c.embedding IS NOT NULL")
     where_clause = "WHERE " + " AND ".join(filters)
 
-    query = f"""
+    sql = f"""
         SELECT c.chunk_id, c.filing_id, c.symbol, c.section_name,
                c.chunk_text, c.word_count,
                list_cosine_similarity(c.embedding, ?::FLOAT[768]) AS similarity
@@ -59,10 +59,7 @@ def vector_search(
         ORDER BY similarity DESC
         LIMIT {top_k}
     """
-    params_list = [query_embedding, *params]
-
-    return bq.execute_query(
-    )
+    return conn.execute(sql, [query_embedding, *params]).pl()
 
 
 def keyword_search(
@@ -98,7 +95,7 @@ def keyword_search(
 
     where_clause = f"AND {' AND '.join(filters)}" if filters else ""
 
-    query = f"""
+    sql = f"""
         SELECT fts.content_id, fts.filing_id, fts.symbol, fts.form_type,
                fts.filing_date, fts.section_name,
                LEFT(fts.content_text, 500) AS content_snippet,
@@ -111,10 +108,7 @@ def keyword_search(
         ORDER BY fts_score DESC
         LIMIT {top_k}
     """
-    params_list = [query_text, *params]
-
-    return bq.execute_query(
-    )
+    return conn.execute(sql, [query_text, *params]).pl()
 
 
 def hybrid_search(

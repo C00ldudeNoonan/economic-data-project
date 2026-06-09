@@ -37,7 +37,9 @@ def economy_state_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResu
 
 
 @dg.asset_check(asset="generate_economic_narratives")
-def economic_narratives_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult:
+def economic_narratives_data_check(
+    bq: BigQueryWarehouseResource,
+) -> dg.AssetCheckResult:
     """Validate economic narratives table has content."""
     if not bq.table_exists("economic_indicator_narratives"):
         return dg.AssetCheckResult(

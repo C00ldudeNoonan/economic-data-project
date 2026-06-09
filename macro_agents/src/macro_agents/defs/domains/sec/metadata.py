@@ -49,7 +49,9 @@ def sec_filing_metadata(
 
         # Load companies with CIK codes
         try:
-            companies_df = bq.execute_query("SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik")
+            companies_df = bq.execute_query(
+                "SELECT symbol, cik, cik_padded, company_name FROM sec_company_cik"
+            )
         except Exception as e:
             context.log.warning(
                 f"Could not query sec_company_cik table (may not exist yet): {e}"

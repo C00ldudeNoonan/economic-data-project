@@ -6,7 +6,9 @@ import polars as pl
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
-def fetch_financial_data(motherduck_resource: BigQueryWarehouseResource) -> pl.DataFrame:
+def fetch_financial_data(
+    motherduck_resource: BigQueryWarehouseResource,
+) -> pl.DataFrame:
     """
     Fetch financial data from dbt models and prepare it for FCI calculation.
     """
@@ -261,7 +263,9 @@ def fetch_financial_data(motherduck_resource: BigQueryWarehouseResource) -> pl.D
     return merged_df
 
 
-def load_fci_weights(motherduck_resource: BigQueryWarehouseResource) -> dict[str, list[float]]:
+def load_fci_weights(
+    motherduck_resource: BigQueryWarehouseResource,
+) -> dict[str, list[float]]:
     """
     Load FCI weights from the fci_weights_config table.
 
@@ -418,13 +422,13 @@ def financial_conditions_index(
     try:
         # Load weights from fci_weights_config table
         context.log.info("Loading FCI weights from fci_weights_config table...")
-        weights = load_fci_weights(md)
+        weights = load_fci_weights(bq)
         context.log.info(f"Loaded weights for {len(weights.get('period', []))} periods")
 
         context.log.info("Fetching financial data from stg_fred_series...")
 
         # Fetch and process data
-        merged_df = fetch_financial_data(md)
+        merged_df = fetch_financial_data(bq)
 
         if merged_df is None or len(merged_df) == 0:
             raise ValueError(

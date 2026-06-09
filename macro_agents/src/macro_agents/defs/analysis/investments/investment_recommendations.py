@@ -259,7 +259,7 @@ def generate_investment_recommendations(
     )
 
     context.log.info("Retrieving latest economy state analysis...")
-    economy_state_analysis = get_latest_economy_state_analysis(md)
+    economy_state_analysis = get_latest_economy_state_analysis(bq)
 
     if not economy_state_analysis:
         raise ValueError(
@@ -267,7 +267,7 @@ def generate_investment_recommendations(
         )
 
     context.log.info("Retrieving latest asset class relationship analysis...")
-    relationship_analysis = get_latest_relationship_analysis(md)
+    relationship_analysis = get_latest_relationship_analysis(bq)
 
     if not relationship_analysis:
         raise ValueError(
@@ -278,7 +278,7 @@ def generate_investment_recommendations(
     if economic_analysis.use_optimized_models:
         recommendations_generator = economic_analysis.load_optimized_module(
             module_name="investment_recommendations",
-            md_resource=md,
+            md_resource=bq,
             gcs_resource=gcs,
             context=context,
             personality=config.personality,

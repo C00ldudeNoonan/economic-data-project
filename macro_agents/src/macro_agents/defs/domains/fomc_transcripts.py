@@ -191,8 +191,7 @@ def fomc_transcript_schema(
         table_info = {}
         for table in tables:
             try:
-                result = bq.fetchone(
-                    f"SELECT COUNT(*) as count FROM {table}")
+                result = bq.fetchone(f"SELECT COUNT(*) as count FROM {table}")
                 table_info[table] = result[0] if result else 0
             except Exception:
                 table_info[table] = 0
@@ -248,7 +247,8 @@ def fomc_transcripts_raw(
         conn = bq.get_connection()
         rows = bq.fetchall(
             "SELECT transcript_id, full_text, word_count, page_count "
-            "FROM fomc_transcripts WHERE transcript_id IS NOT NULL")
+            "FROM fomc_transcripts WHERE transcript_id IS NOT NULL"
+        )
         for row in rows:
             existing_by_id[row[0]] = {
                 "full_text": row[1],
@@ -405,7 +405,7 @@ def process_fomc_transcripts(
                         processed_date = CURRENT_TIMESTAMP
                     WHERE transcript_id = $4
                     """,
-                    [full_text, word_count, page_count, transcript_id],
+                    [full_text, word_count, page_count, transcript_id],  # ty: ignore[invalid-argument-type]
                 ).result()
 
                 # Parse into speaker sections
@@ -418,7 +418,7 @@ def process_fomc_transcripts(
                          speaker, speaker_role, content)
                         VALUES ($1, $2, $3, $4, $5, $6, $7)
                         """,
-                        [
+                        [  # ty: ignore[invalid-argument-type]
                             section["section_id"],
                             transcript_id,
                             section["section_order"],

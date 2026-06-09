@@ -151,7 +151,7 @@ def us_sector_etfs_weekly_coverage_check(
         "us_sector_etfs_raw",
         "symbol",
         "date",
-        md,
+        bq,
     )
 
 
@@ -164,7 +164,7 @@ def currency_etfs_weekly_coverage_check(
         "currency_etfs_raw",
         "symbol",
         "date",
-        md,
+        bq,
     )
 
 
@@ -177,7 +177,7 @@ def major_indices_weekly_coverage_check(
         "major_indices_raw",
         "symbol",
         "date",
-        md,
+        bq,
     )
 
 
@@ -190,7 +190,7 @@ def fixed_income_etfs_weekly_coverage_check(
         "fixed_income_etfs_raw",
         "symbol",
         "date",
-        md,
+        bq,
     )
 
 
@@ -203,7 +203,7 @@ def global_markets_weekly_coverage_check(
         "global_markets_raw",
         "symbol",
         "date",
-        md,
+        bq,
     )
 
 
@@ -216,7 +216,7 @@ def energy_commodities_weekly_coverage_check(
         "energy_commodities_raw",
         "commodity_name",
         "date",
-        md,
+        bq,
     )
 
 
@@ -229,7 +229,7 @@ def input_commodities_weekly_coverage_check(
         "input_commodities_raw",
         "commodity_name",
         "date",
-        md,
+        bq,
     )
 
 
@@ -242,7 +242,7 @@ def agriculture_commodities_weekly_coverage_check(
         "agriculture_commodities_raw",
         "commodity_name",
         "date",
-        md,
+        bq,
     )
 
 
@@ -255,7 +255,7 @@ def sp500_companies_prices_weekly_coverage_check(
         "sp500_companies_prices_raw",
         "symbol",
         "date",
-        md,
+        bq,
     )
 
 
@@ -268,5 +268,5 @@ def nasdaq_companies_prices_weekly_coverage_check(
         "nasdaq_companies_prices_raw",
         "symbol",
         "date",
-        md,
+        bq,
     )

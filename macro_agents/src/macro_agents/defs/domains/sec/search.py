@@ -9,7 +9,6 @@ import hashlib
 import re
 
 import dagster as dg
-import polars as pl
 from metaxy.ext.dagster import metaxify
 from metaxy.metadata_store.base import MetadataStore
 
@@ -264,7 +263,7 @@ def sec_filing_search_index(
                     conn.query(
                         "DELETE FROM sec_filing_chunks "
                         "WHERE filing_id = ? AND section_name = ?",
-                        [filing_id, section_name],
+                        [filing_id, section_name],  # ty: ignore[invalid-argument-type]
                     ).result()
                     context.log.debug(
                         f"Cleared {existing_chunks} partial chunks for "
@@ -292,7 +291,7 @@ def sec_filing_search_index(
                             embedding = EXCLUDED.embedding,
                             model_name = EXCLUDED.model_name
                         """,
-                        [
+                        [  # ty: ignore[invalid-argument-type]
                             chunk_id,
                             filing_id,
                             symbol,

@@ -10,9 +10,7 @@ from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 from pydantic import Field
 
-_IDENTIFIER_RE = re.compile(
-    r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*){0,2}$"
-)
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*){0,2}$")
 
 
 def _validate_identifier(name: str, kind: str = "identifier") -> str:
@@ -26,7 +24,9 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
     """Dagster resource for BigQuery providing the same public API as BigQueryWarehouseResource."""
 
     project: str = Field(description="GCP project ID")
-    dataset: str = Field(description="Default BigQuery dataset", default="economics_raw")
+    dataset: str = Field(
+        description="Default BigQuery dataset", default="economics_raw"
+    )
     location: str = Field(description="BigQuery location", default="US")
 
     def get_client(self) -> bigquery.Client:
@@ -54,9 +54,7 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         ).result()
         return table_name
 
-    def drop_create_duck_db_table(
-        self, table_name: str, df: pl.DataFrame
-    ) -> str:
+    def drop_create_duck_db_table(self, table_name: str, df: pl.DataFrame) -> str:
         """Backwards-compatible alias for write_table."""
         return self.write_table(table_name, df)
 
@@ -136,20 +134,25 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         """Read all rows from a table as a list of dicts."""
         client = self.get_client()
         ref = self._table_ref(table_name)
-        return (
-            client.query(f"SELECT * FROM `{ref}`")
-            .to_dataframe()
-            .to_dict("records")
-        )
+        return client.query(f"SELECT * FROM `{ref}`").to_dataframe().to_dict("records")
 
     def execute_query(
         self, query: str, read_only: bool = True, params: list[Any] | None = None
     ) -> pl.DataFrame:
-        """Execute a SQL query and return results as a Polars DataFrame."""
+        """Execute a SQL query and return results as a Polars DataFrame.
+
+        Bare table names are resolved against self.dataset so callers don't
+        need to fully qualify every reference.
+        """
+        from google.cloud.bigquery import DatasetReference, QueryJobConfig
+
         client = self.get_client()
-        job = client.query(query)
+        job_config = QueryJobConfig(
+            default_dataset=DatasetReference(self.project, self.dataset)
+        )
+        job = client.query(query, job_config=job_config)
         try:
-            return pl.from_arrow(job.result().to_arrow())
+            return pl.DataFrame(job.result().to_arrow())
         except Exception:
             return pl.DataFrame()
 

@@ -182,7 +182,9 @@ def get_fed_policy_context(md_resource: BigQueryWarehouseResource) -> str:
         return "Fed policy context not available"
 
 
-def create_narrative_table_if_not_exists(md_resource: BigQueryWarehouseResource) -> None:
+def create_narrative_table_if_not_exists(
+    md_resource: BigQueryWarehouseResource,
+) -> None:
     """Create the economic_indicator_narratives table if it doesn't exist."""
     create_table_query = """
     CREATE TABLE IF NOT EXISTS economic_indicator_narratives (
@@ -273,7 +275,7 @@ def generate_economic_narratives(
     )
 
     # Create table if not exists
-    create_narrative_table_if_not_exists(md)
+    create_narrative_table_if_not_exists(bq)
 
     # Initialize narrative module
     narrative_module = EconomicNarrativeModule(personality=config.personality)
@@ -332,7 +334,7 @@ def generate_economic_narratives(
             )
 
             # Get Fed policy context
-            fed_context = get_fed_policy_context(md)
+            fed_context = get_fed_policy_context(bq)
 
             # Check rate limits
             combined_input = (
@@ -457,7 +459,7 @@ def generate_indicator_forecasts(
     )
 
     # Create table if not exists
-    create_indicator_forecast_table_if_not_exists(md)
+    create_indicator_forecast_table_if_not_exists(bq)
 
     # Initialize forecast module
     forecast_module = IndicatorForecastModule(personality=config.personality)

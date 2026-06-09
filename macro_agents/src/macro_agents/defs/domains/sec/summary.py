@@ -68,15 +68,15 @@ def sec_company_bi_summary(
         for symbol, company_name in companies:
             # Get filing dates
             filing_dates = bq.fetchone(
-                """
+                f"""
                 SELECT
                     MAX(CASE WHEN form_type = '10-K' THEN filing_date END) as latest_10k,
                     MAX(CASE WHEN form_type = '10-Q' THEN filing_date END) as latest_10q,
                     COUNT(*) as total_filings
                 FROM sec_filings
-                WHERE symbol = ?
-            """,
-                [symbol],)
+                WHERE symbol = '{symbol}'
+            """
+            )
             if filing_dates:
                 latest_10k, latest_10q, total_filings = filing_dates
             else:
@@ -86,17 +86,17 @@ def sec_company_bi_summary(
 
             # Get signal counts by category
             signal_counts = bq.fetchall(
-                """
+                f"""
                 SELECT
                     st.term_category,
                     COUNT(*) as count,
                     AVG(st.confidence_score) as avg_conf
                 FROM sec_filing_search_terms st
                 JOIN sec_filings f ON st.filing_id = f.filing_id
-                WHERE f.symbol = ?
+                WHERE f.symbol = '{symbol}'
                 GROUP BY st.term_category
-            """,
-                [symbol],)
+            """
+            )
 
             # Initialize counts
             category_counts = {
@@ -176,7 +176,7 @@ def sec_company_bi_summary(
                     risk_score = EXCLUDED.risk_score,
                     updated_at = CURRENT_TIMESTAMP
             """,
-                [
+                [  # ty: ignore[invalid-argument-type]
                     symbol,
                     company_name,
                     latest_10k,

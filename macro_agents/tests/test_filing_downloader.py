@@ -52,8 +52,7 @@ class TestDownloadFiling:
 
         sec_edgar.download_filing_document.assert_called_once()
         gcs.upload_json.assert_called_once()
-        conn.execute.assert_called_once()
-        conn.commit.assert_called_once()
+        conn.query.assert_called_once()
 
     def test_no_primary_document_empty(self):
         downloader, _, _, _ = _make_downloader()
@@ -63,7 +62,7 @@ class TestDownloadFiling:
 
         assert result.status == "no_document"
         assert result.filing_id == "fid-001"
-        conn.execute.assert_not_called()
+        conn.query.assert_not_called()
 
     def test_no_primary_document_none(self):
         downloader, _, _, _ = _make_downloader()
@@ -179,62 +178,58 @@ class TestDownloadBatch:
 
 
 class TestQueryMethods:
-    @patch("macro_agents.defs.domains.sec.filing_downloader.pl.read_database")
     @patch("macro_agents.defs.domains.sec.filing_downloader.ensure_sec_filings_table")
-    def test_query_unprocessed_no_symbol(self, mock_ensure, mock_read_db):
+    def test_query_unprocessed_no_symbol(self, mock_ensure):
         downloader, _, _, _ = _make_downloader()
         conn = MagicMock()
-        mock_read_db.return_value = pl.DataFrame([_make_filing_row()])
+        conn.execute.return_value.pl.return_value = pl.DataFrame([_make_filing_row()])
 
         result = downloader.query_unprocessed_filings(conn)
 
         mock_ensure.assert_called_once_with(conn)
-        call_args = mock_read_db.call_args
+        call_args = conn.execute.call_args
         query = call_args[0][0]
         assert "processed = FALSE" in query
         assert "f.symbol = ?" not in query
         assert len(result) == 1
 
-    @patch("macro_agents.defs.domains.sec.filing_downloader.pl.read_database")
     @patch("macro_agents.defs.domains.sec.filing_downloader.ensure_sec_filings_table")
-    def test_query_unprocessed_with_symbol(self, mock_ensure, mock_read_db):
+    def test_query_unprocessed_with_symbol(self, mock_ensure):
         downloader, _, _, _ = _make_downloader()
         conn = MagicMock()
-        mock_read_db.return_value = pl.DataFrame([_make_filing_row()])
+        conn.execute.return_value.pl.return_value = pl.DataFrame([_make_filing_row()])
 
         downloader.query_unprocessed_filings(conn, symbol="AAPL")
 
-        call_args = mock_read_db.call_args
+        call_args = conn.execute.call_args
         query = call_args[0][0]
+        params = call_args[0][1]
         assert "f.symbol = ?" in query
-        params = call_args[1]["execute_options"]["parameters"]
         assert "AAPL" in params
 
-    @patch("macro_agents.defs.domains.sec.filing_downloader.pl.read_database")
     @patch("macro_agents.defs.domains.sec.filing_downloader.ensure_sec_filings_table")
-    def test_query_filing_by_id(self, mock_ensure, mock_read_db):
+    def test_query_filing_by_id(self, mock_ensure):
         downloader, _, _, _ = _make_downloader()
         conn = MagicMock()
-        mock_read_db.return_value = pl.DataFrame([_make_filing_row()])
+        conn.execute.return_value.pl.return_value = pl.DataFrame([_make_filing_row()])
 
         result = downloader.query_filing_by_id(conn, "fid-001")
 
-        call_args = mock_read_db.call_args
+        call_args = conn.execute.call_args
         query = call_args[0][0]
         assert "f.filing_id = ?" in query
         assert "f.symbol = ?" not in query
         assert len(result) == 1
 
-    @patch("macro_agents.defs.domains.sec.filing_downloader.pl.read_database")
     @patch("macro_agents.defs.domains.sec.filing_downloader.ensure_sec_filings_table")
-    def test_query_filing_by_id_with_symbol(self, mock_ensure, mock_read_db):
+    def test_query_filing_by_id_with_symbol(self, mock_ensure):
         downloader, _, _, _ = _make_downloader()
         conn = MagicMock()
-        mock_read_db.return_value = pl.DataFrame([_make_filing_row()])
+        conn.execute.return_value.pl.return_value = pl.DataFrame([_make_filing_row()])
 
         downloader.query_filing_by_id(conn, "fid-001", symbol="AAPL")
 
-        call_args = mock_read_db.call_args
+        call_args = conn.execute.call_args
         query = call_args[0][0]
         assert "f.filing_id = ?" in query
         assert "f.symbol = ?" in query
@@ -244,21 +239,21 @@ class TestIsFilingProcessed:
     def test_processed_true(self):
         downloader, _, _, _ = _make_downloader()
         conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = (True,)
+        conn.query.return_value.result.return_value.fetchone.return_value = (True,)
 
         assert downloader.is_filing_processed(conn, "fid-001", "AAPL") is True
 
     def test_processed_false(self):
         downloader, _, _, _ = _make_downloader()
         conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = (False,)
+        conn.query.return_value.result.return_value.fetchone.return_value = (False,)
 
         assert downloader.is_filing_processed(conn, "fid-001", "AAPL") is False
 
     def test_not_found(self):
         downloader, _, _, _ = _make_downloader()
         conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = None
+        conn.query.return_value.result.return_value.fetchone.return_value = None
 
         assert downloader.is_filing_processed(conn, "fid-001", "AAPL") is False
 

@@ -6,7 +6,6 @@ Complements the vector/semantic search in search.py.
 """
 
 import dagster as dg
-import polars as pl
 from metaxy.ext.dagster import metaxify
 from metaxy.metadata_store.base import MetadataStore
 
@@ -26,7 +25,7 @@ def _ensure_fts_content_table(conn) -> None:
     We join filing metadata with content text so keyword searches
     return symbol, form_type, filing_date alongside matches.
     """
-    conn.query(f"""
+    conn.execute(f"""
         CREATE TABLE IF NOT EXISTS {FTS_TABLE} (
             content_id VARCHAR PRIMARY KEY,
             filing_id VARCHAR NOT NULL,
@@ -38,7 +37,7 @@ def _ensure_fts_content_table(conn) -> None:
             word_count INTEGER,
             indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """).result()
+    """)
 
 
 @metaxify(key="sec_filing_fts_index")
@@ -142,7 +141,7 @@ def sec_filing_fts_index(
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT (content_id) DO NOTHING
                         """,
-                        [
+                        [  # ty: ignore[invalid-argument-type]
                             row["content_id"],
                             row["filing_id"],
                             row["symbol"],
