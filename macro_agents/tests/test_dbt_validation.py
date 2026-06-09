@@ -51,10 +51,11 @@ class TestDbtProjectValidation:
             os.chdir(dbt_project_dir)
 
             result = subprocess.run(
-                ["dbt", "parse", "--target", "local"],
+                ["dbt", "parse", "--target", "dev"],
                 capture_output=True,
                 text=True,
                 timeout=60,
+                env={**os.environ, "BIGQUERY_PROJECT": "econ-data-project-478800"},
             )
 
             if result.returncode != 0:
@@ -73,10 +74,11 @@ class TestDbtProjectValidation:
             os.chdir(dbt_project_dir)
 
             result = subprocess.run(
-                ["dbt", "list", "--target", "local", "--resource-type", "model"],
+                ["dbt", "list", "--target", "dev", "--resource-type", "model"],
                 capture_output=True,
                 text=True,
                 timeout=60,
+                env={**os.environ, "BIGQUERY_PROJECT": "econ-data-project-478800"},
             )
 
             if result.returncode != 0:
@@ -101,10 +103,11 @@ class TestDbtProjectValidation:
             os.chdir(dbt_project_dir)
 
             result = subprocess.run(
-                ["dbt", "parse", "--target", "local"],
+                ["dbt", "parse", "--target", "dev"],
                 capture_output=True,
                 text=True,
                 timeout=60,
+                env={**os.environ, "BIGQUERY_PROJECT": "econ-data-project-478800"},
             )
 
             if result.returncode != 0:

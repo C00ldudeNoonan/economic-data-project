@@ -2,137 +2,11 @@
 Unit tests for resources.
 """
 
-import os
-import tempfile
 from unittest.mock import Mock, patch
 
 import polars as pl
 from macro_agents.defs.resources.fred import FredResource
 from macro_agents.defs.resources.market_stack import MarketStackResource
-from macro_agents.defs.resources.motherduck import MotherDuckResource
-
-
-class TestMotherDuckResource:
-    """Test cases for MotherDuckResource."""
-
-    def test_initialization_dev_environment(self):
-        """Test resource initialization in dev environment."""
-        resource = MotherDuckResource(
-            md_token="test_token", environment="dev", local_path="test.duckdb"
-        )
-
-        assert resource.environment == "dev"
-        assert resource.local_path == "test.duckdb"
-        assert resource._db_connection == "test.duckdb"
-
-    def test_initialization_prod_environment(self):
-        """Test resource initialization in prod environment."""
-        resource = MotherDuckResource(
-            md_token="test_token", environment="prod", md_database="test_db"
-        )
-
-        assert resource.environment == "prod"
-        assert resource.md_token == "test_token"
-        assert resource._db_connection == "md:?motherduck_token=test_token"
-
-    def test_drop_create_does_not_leak_token(self):
-        """drop_create_duck_db_table must not return the connection string."""
-        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-        try:
-            resource = MotherDuckResource(
-                md_token="secret_token", environment="dev", local_path=tmp_path
-            )
-            result = resource.drop_create_duck_db_table(
-                "leak_check", pl.DataFrame({"id": [1]})
-            )
-            assert "motherduck_token" not in result
-            assert "secret_token" not in result
-            assert result == "leak_check"
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-
-    def test_table_exists(self):
-        """Test table existence check."""
-        # Create temp file and close it immediately so DuckDB can open it
-        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-
-        try:
-            resource = MotherDuckResource(
-                md_token="test_token", environment="dev", local_path=tmp_path
-            )
-
-            # Test non-existent table
-            assert not resource.table_exists("non_existent_table")
-
-            # Create table and test
-            test_df = pl.DataFrame({"id": [1, 2, 3]})
-            resource.drop_create_duck_db_table("test_table", test_df)
-            assert resource.table_exists("test_table")
-        finally:
-            # Clean up
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-
-    def test_write_results_to_table_aligns_columns(self):
-        """Ensure append inserts align to existing table schema."""
-        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-
-        try:
-            resource = MotherDuckResource(
-                md_token="test_token", environment="dev", local_path=tmp_path
-            )
-            resource.execute_query(
-                "CREATE TABLE test_table (col_a VARCHAR, col_b VARCHAR)",
-                read_only=False,
-            )
-
-            resource.write_results_to_table(
-                [{"col_a": "a1", "col_b": "b1", "col_c": "extra"}],
-                output_table="test_table",
-                if_exists="append",
-            )
-
-            df = resource.execute_query(
-                "SELECT col_a, col_b FROM test_table",
-                read_only=True,
-            )
-            assert df.to_dicts() == [{"col_a": "a1", "col_b": "b1"}]
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-
-    def test_write_results_to_table_fills_missing_columns(self):
-        """Ensure missing columns are filled with nulls when appending."""
-        with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-
-        try:
-            resource = MotherDuckResource(
-                md_token="test_token", environment="dev", local_path=tmp_path
-            )
-            resource.execute_query(
-                "CREATE TABLE test_table (col_a VARCHAR, col_b VARCHAR, col_c VARCHAR)",
-                read_only=False,
-            )
-
-            resource.write_results_to_table(
-                [{"col_a": "a2", "col_b": "b2"}],
-                output_table="test_table",
-                if_exists="append",
-            )
-
-            df = resource.execute_query(
-                "SELECT col_a, col_b, col_c FROM test_table",
-                read_only=True,
-            )
-            assert df.to_dicts() == [{"col_a": "a2", "col_b": "b2", "col_c": None}]
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
 
 
 class TestFredResource:
@@ -253,7 +127,6 @@ class TestMarketStackResource:
     @patch("macro_agents.defs.resources.market_stack.requests.get")
     def test_get_cik_codes_batch(self, mock_get, mock_sleep):
         """Test get_cik_codes_batch method."""
-        # Mock responses for each ticker
         mock_responses = [
             Mock(
                 status_code=200,
@@ -305,7 +178,5 @@ class TestMarketStackResource:
 
         assert isinstance(result, pl.DataFrame)
         assert len(result) == 2
-        # First should succeed
         assert result.row(0, named=True)["status"] == "success"
-        # Second should have error status
         assert "error" in result.row(1, named=True)["status"]

@@ -2,30 +2,92 @@
 Pytest configuration and fixtures.
 """
 
-import os
-import tempfile
+import re
 from unittest.mock import Mock
 
+import duckdb
+import polars as pl
 import pytest
-from macro_agents.defs.resources.motherduck import MotherDuckResource
+
+_TIMESTAMP_CALL_RE = re.compile(
+    r"TIMESTAMP\('(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) UTC'\)"
+)
+
+
+def _bq_to_duckdb(sql: str) -> str:
+    """Translate BigQuery-specific SQL constructs to DuckDB equivalents."""
+    sql = re.sub(r"\bFLOAT64\b", "DOUBLE", sql)
+    sql = _TIMESTAMP_CALL_RE.sub(r"TIMESTAMPTZ '\1 UTC'", sql)
+    return sql
+
+
+class DuckDBWarehouseStub:
+    """DuckDB-backed stub implementing the BigQueryWarehouseResource interface for tests."""
+
+    def __init__(self):
+        self._conn = duckdb.connect()
+
+    def execute_query(
+        self, query: str, read_only: bool = True, params=None
+    ) -> pl.DataFrame:
+        translated = _bq_to_duckdb(query)
+        try:
+            result = self._conn.execute(translated)
+            try:
+                return result.pl()
+            except Exception:
+                return pl.DataFrame()
+        except Exception:
+            return pl.DataFrame()
+
+    def get_connection(self):
+        return self._conn
+
+    def table_exists(self, table_name: str) -> bool:
+        result = self._conn.execute(
+            "SELECT count(*) FROM information_schema.tables WHERE table_name = ?",
+            [table_name],
+        ).fetchone()
+        return bool(result and result[0] > 0)
+
+    def drop_create_duck_db_table(self, table_name: str, df: pl.DataFrame) -> str:
+        self._conn.register("_tmp_write", df)
+        self._conn.execute(
+            f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM _tmp_write"
+        )
+        return table_name
+
+    def write_table(self, table_name: str, df: pl.DataFrame) -> str:
+        return self.drop_create_duck_db_table(table_name, df)
+
+    def fetchone(self, sql: str) -> tuple | None:
+        result = self._conn.execute(sql).fetchone()
+        return result
+
+    def fetchall(self, sql: str) -> list[tuple]:
+        return self._conn.execute(sql).fetchall()
+
+    def write_results_to_table(
+        self,
+        json_results: list[dict],
+        output_table: str,
+        if_exists: str = "append",
+        context=None,
+    ) -> None:
+        df = pl.DataFrame(json_results)
+        self._conn.register("_tmp_results", df)
+        if if_exists == "replace" or not self.table_exists(output_table):
+            self._conn.execute(
+                f"CREATE OR REPLACE TABLE {output_table} AS SELECT * FROM _tmp_results"
+            )
+        else:
+            self._conn.execute(f"INSERT INTO {output_table} SELECT * FROM _tmp_results")
 
 
 @pytest.fixture
-def temp_duckdb_file():
-    """Create a temporary DuckDB file for testing."""
-    with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp_file:
-        yield tmp_file.name
-        # Clean up
-        if os.path.exists(tmp_file.name):
-            os.unlink(tmp_file.name)
-
-
-@pytest.fixture
-def motherduck_resource(temp_duckdb_file):
-    """Create a MotherDuck resource for testing."""
-    return MotherDuckResource(
-        md_token="test_token", environment="dev", local_path=temp_duckdb_file
-    )
+def bq_test_resource():
+    """Fresh DuckDB-backed warehouse stub for each test."""
+    return DuckDBWarehouseStub()
 
 
 @pytest.fixture

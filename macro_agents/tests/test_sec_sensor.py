@@ -9,16 +9,14 @@ from macro_agents.defs.domains.sec.sensors import sec_unprocessed_filings_sensor
 
 
 def _make_md_mock(unprocessed_count=0, db_error=False):
-    """Create a mock MotherDuckResource."""
+    """Create a mock BigQueryWarehouseResource."""
     md = MagicMock()
     if db_error:
-        conn = MagicMock()
-        conn.execute.side_effect = Exception("DB connection failed")
-        md.get_connection.return_value = conn
+        md.fetchone.side_effect = Exception("DB connection failed")
     else:
-        conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = (unprocessed_count,)
-        md.get_connection.return_value = conn
+        md.fetchone.return_value = (unprocessed_count,)
+    conn = MagicMock()
+    md.get_connection.return_value = conn
     return md
 
 

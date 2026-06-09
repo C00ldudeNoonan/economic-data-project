@@ -25,7 +25,7 @@ def _ensure_fts_content_table(conn) -> None:
     We join filing metadata with content text so keyword searches
     return symbol, form_type, filing_date alongside matches.
     """
-    conn.query(f"""
+    conn.execute(f"""
         CREATE TABLE IF NOT EXISTS {FTS_TABLE} (
             content_id VARCHAR PRIMARY KEY,
             filing_id VARCHAR NOT NULL,
@@ -37,7 +37,7 @@ def _ensure_fts_content_table(conn) -> None:
             word_count INTEGER,
             indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """).result()
+    """)
 
 
 @metaxify(key="sec_filing_fts_index")

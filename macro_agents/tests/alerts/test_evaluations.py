@@ -15,9 +15,9 @@ from macro_agents.defs.alerts.assets import (
 
 
 @pytest.fixture
-def md(motherduck_resource):
-    """Return the test MotherDuck resource with the inputs table seeded."""
-    return motherduck_resource
+def md(bq_test_resource):
+    """Return the test warehouse stub with the inputs table seeded."""
+    return bq_test_resource
 
 
 def _seed_inputs(md, rows: list[dict]) -> None:
@@ -36,12 +36,8 @@ def _seed_inputs(md, rows: list[dict]) -> None:
     )
     df = pl.DataFrame(rows)
     conn = md.get_connection()
-    try:
-        conn.register("seed_df", df)
-        conn.execute(f"INSERT INTO {ALERT_INPUTS_TABLE} SELECT * FROM seed_df")
-        conn.commit()
-    finally:
-        conn.close()
+    conn.register("seed_df", df)
+    conn.execute(f"INSERT INTO {ALERT_INPUTS_TABLE} SELECT * FROM seed_df")
 
 
 def _mock_context(run_id: str = "test-run"):

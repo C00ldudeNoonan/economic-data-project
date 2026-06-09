@@ -1,14 +1,13 @@
-"""Schema migration tests for sec_filing_content (issue #70).
+"""Schema tests for ensure_sec_filing_content_table DDL (issue #70).
 
-The asset writes 6 columns (content_id, filing_id, section_name,
-section_order, word_count, gcs_path). The legacy schema also had
-content_text TEXT and created_at TIMESTAMP, which made md.upsert_data
-fail its strict schema-equality check. These tests verify that
-ensure_sec_filing_content_table converges any legacy schema to the new
-shape without losing the indexes.
+After the BigQuery migration, ensure_sec_filing_content_table issues DDL
+against a BigQuery client. These tests verify the SQL produced is correct
+by inspecting calls to a mock client.
 """
 
-import duckdb
+from unittest.mock import MagicMock
+
+import pytest
 
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_content_table
 
@@ -21,86 +20,87 @@ EXPECTED_COLUMNS = {
     "word_count",
     "gcs_path",
 }
-EXPECTED_INDEXES = {
-    "idx_sec_filing_content_filing_id",
-    "idx_sec_filing_content_filing_section",
-}
 
 
-def _columns(conn: duckdb.DuckDBPyConnection) -> set[str]:
-    rows = conn.execute(
-        "SELECT column_name FROM duckdb_columns() "
-        "WHERE table_name = 'sec_filing_content'"
-    ).fetchall()
-    return {r[0] for r in rows}
+@pytest.fixture
+def mock_bq():
+    """Mock BigQuery client with no legacy columns present."""
+    client = MagicMock()
+    client.project = "test-project"
+    job = MagicMock()
+    # INFORMATION_SCHEMA query returns empty result (no legacy columns)
+    job.result.return_value.to_dataframe.return_value.__len__ = lambda self: 0
+    client.query.return_value = job
+    return client
 
 
-def _indexes(conn: duckdb.DuckDBPyConnection) -> set[str]:
-    rows = conn.execute(
-        "SELECT index_name FROM duckdb_indexes() "
-        "WHERE table_name = 'sec_filing_content'"
-    ).fetchall()
-    return {r[0] for r in rows}
+def test_creates_fresh_table_with_expected_shape(mock_bq):
+    """CREATE TABLE IF NOT EXISTS should include all expected columns."""
+    ensure_sec_filing_content_table(mock_bq)
+    assert mock_bq.query.called
+    create_sql = mock_bq.query.call_args_list[0][0][0]
+    assert "CREATE TABLE IF NOT EXISTS" in create_sql
+    assert "sec_filing_content" in create_sql
+    for col in EXPECTED_COLUMNS:
+        assert col in create_sql
 
 
-def test_creates_fresh_table_with_expected_shape():
-    conn = duckdb.connect(":memory:")
-    ensure_sec_filing_content_table(conn)
-    assert _columns(conn) == EXPECTED_COLUMNS
-    assert _indexes(conn) == EXPECTED_INDEXES
+def test_idempotent_on_already_migrated_table(mock_bq):
+    """Calling twice should issue CREATE TABLE IF NOT EXISTS twice."""
+    ensure_sec_filing_content_table(mock_bq)
+    ensure_sec_filing_content_table(mock_bq)
+    create_calls = [
+        c
+        for c in mock_bq.query.call_args_list
+        if "CREATE TABLE IF NOT EXISTS" in c[0][0]
+    ]
+    assert len(create_calls) == 2
 
 
-def test_idempotent_on_already_migrated_table():
-    conn = duckdb.connect(":memory:")
-    ensure_sec_filing_content_table(conn)
-    ensure_sec_filing_content_table(conn)
-    assert _columns(conn) == EXPECTED_COLUMNS
-    assert _indexes(conn) == EXPECTED_INDEXES
+def test_migrates_legacy_schema_with_content_text_and_created_at(mock_bq):
+    """When legacy columns are present, ALTER TABLE should drop them."""
+    import pandas as pd
+
+    legacy_df = pd.DataFrame({"cnt": [2]})
+    job_with_legacy = MagicMock()
+    job_with_legacy.result.return_value.to_dataframe.return_value = legacy_df
+
+    drop_job = MagicMock()
+
+    mock_bq.query.side_effect = [
+        job_with_legacy,  # CREATE TABLE
+        job_with_legacy,  # INFORMATION_SCHEMA query
+        drop_job,  # DROP content_text
+        drop_job,  # DROP created_at
+    ]
+
+    ensure_sec_filing_content_table(mock_bq)
+
+    all_sql = [c[0][0] for c in mock_bq.query.call_args_list]
+    drop_sqls = [s for s in all_sql if "DROP COLUMN" in s]
+    assert any("content_text" in s for s in drop_sqls)
+    assert any("created_at" in s for s in drop_sqls)
 
 
-def test_migrates_legacy_schema_with_content_text_and_created_at():
-    conn = duckdb.connect(":memory:")
-    # Recreate the pre-#70 schema exactly.
-    conn.execute("""
-        CREATE TABLE sec_filing_content (
-            content_id VARCHAR PRIMARY KEY,
-            filing_id VARCHAR NOT NULL,
-            section_name VARCHAR,
-            section_order INTEGER,
-            content_text TEXT,
-            word_count INTEGER,
-            gcs_path VARCHAR,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.execute(
-        "CREATE INDEX idx_sec_filing_content_filing_id ON sec_filing_content(filing_id)"
-    )
-    conn.execute(
-        "CREATE INDEX idx_sec_filing_content_filing_section "
-        "ON sec_filing_content(filing_id, section_name)"
-    )
+def test_migrates_partial_legacy_schema_with_only_content_text(mock_bq):
+    """When only content_text is present (cnt=1), DROP calls are still issued."""
+    import pandas as pd
 
-    ensure_sec_filing_content_table(conn)
+    legacy_df = pd.DataFrame({"cnt": [1]})
+    job_with_legacy = MagicMock()
+    job_with_legacy.result.return_value.to_dataframe.return_value = legacy_df
 
-    assert _columns(conn) == EXPECTED_COLUMNS
-    assert _indexes(conn) == EXPECTED_INDEXES
+    drop_job = MagicMock()
 
+    mock_bq.query.side_effect = [
+        job_with_legacy,
+        job_with_legacy,
+        drop_job,
+        drop_job,
+    ]
 
-def test_migrates_partial_legacy_schema_with_only_content_text():
-    """Only `content_text` present (no `created_at`). Migration should
-    still drop it and converge."""
-    conn = duckdb.connect(":memory:")
-    conn.execute("""
-        CREATE TABLE sec_filing_content (
-            content_id VARCHAR PRIMARY KEY,
-            filing_id VARCHAR NOT NULL,
-            section_name VARCHAR,
-            section_order INTEGER,
-            content_text TEXT,
-            word_count INTEGER,
-            gcs_path VARCHAR
-        )
-    """)
-    ensure_sec_filing_content_table(conn)
-    assert _columns(conn) == EXPECTED_COLUMNS
+    ensure_sec_filing_content_table(mock_bq)
+
+    all_sql = [c[0][0] for c in mock_bq.query.call_args_list]
+    drop_sqls = [s for s in all_sql if "DROP COLUMN" in s]
+    assert len(drop_sqls) >= 1
