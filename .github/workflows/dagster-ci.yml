@@ -55,6 +55,8 @@ jobs:
           uv run ty check --extra-search-path src src/macro_agents
 
       - name: Test Dagster definitions
+        env:
+          BIGQUERY_PROJECT: econ-data-project-478800
         run: |
           cd macro_agents
           uv run dg check defs
