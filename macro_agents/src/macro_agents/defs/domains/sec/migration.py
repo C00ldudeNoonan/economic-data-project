@@ -112,17 +112,16 @@ def sec_filing_gcs_migration(
                         SET gcs_path = ?
                         WHERE symbol = ? AND filing_id = ?
                         """,
-                        [new_gcs_path, symbol, filing_id],
+                        [new_gcs_path, symbol, filing_id],  # ty: ignore[invalid-argument-type]
                     ).result()
 
                     # Migrate extracted content paths
                     content_df = bq.execute_query(
-                        """
+                        f"""
                         SELECT content_id, gcs_path
                         FROM sec_filing_content
-                        WHERE filing_id = ? AND gcs_path IS NOT NULL
-                        """,
-                        execute_options={"parameters": [filing_id]},
+                        WHERE filing_id = '{filing_id}' AND gcs_path IS NOT NULL
+                        """
                     )
 
                     for content_row in content_df.iter_rows(named=True):
@@ -162,7 +161,7 @@ def sec_filing_gcs_migration(
                             SET gcs_path = ?
                             WHERE content_id = ?
                             """,
-                            [new_content_path, content_row["content_id"]],
+                            [new_content_path, content_row["content_id"]],  # ty: ignore[invalid-argument-type]
                         ).result()
                     total_migrated += 1
                     context.log.debug(f"Migrated {symbol}/{filing_id}")
@@ -172,7 +171,6 @@ def sec_filing_gcs_migration(
                     context.log.error(error_msg)
                     error_details.append(error_msg)
                     total_errors += 1
-                    conn.rollback()
 
             context.log.info(
                 f"Batch progress: {min(i + batch_size, len(to_migrate))}/{len(to_migrate)}"

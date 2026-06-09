@@ -152,7 +152,7 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         )
         job = client.query(query, job_config=job_config)
         try:
-            return pl.from_arrow(job.result().to_arrow())
+            return pl.DataFrame(job.result().to_arrow())
         except Exception:
             return pl.DataFrame()
 

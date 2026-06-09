@@ -27,6 +27,7 @@ from macro_agents.defs.resources.company_list_scraper import (
     CompanyListScraperResource,
 )
 from macro_agents.defs.resources.market_stack import MarketStackResource
+from google.cloud import bigquery
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
@@ -176,7 +177,7 @@ def sp500_companies_raw(
         client.load_table_from_dataframe(
             new_df.to_pandas(),
             f"{project}.{dataset}.sp500_companies_raw",
-            job_config=bq.LoadJobConfig(write_disposition="WRITE_APPEND"),
+            job_config=bigquery.LoadJobConfig(write_disposition="WRITE_APPEND"),
         ).result()
         added_count = len(new_symbols)
         context.log.info(f"Added {added_count} new companies: {sorted(new_symbols)}")
@@ -189,7 +190,7 @@ def sp500_companies_raw(
         client.load_table_from_dataframe(
             continuing_df.to_pandas(),
             staging_ref,
-            job_config=bq.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
+            job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
         ).result()
         client.query(
             f"MERGE {table_ref} AS T "

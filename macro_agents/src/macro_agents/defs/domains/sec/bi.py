@@ -183,7 +183,7 @@ def sec_filing_business_intelligence(
                         context_text = EXCLUDED.context_text,
                         confidence_score = EXCLUDED.confidence_score
                         """,
-                        [
+                        [  # ty: ignore[invalid-argument-type]
                             term_id,
                             filing_id,
                             signal.category,

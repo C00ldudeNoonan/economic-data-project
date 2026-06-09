@@ -141,7 +141,7 @@ def sec_filing_fts_index(
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT (content_id) DO NOTHING
                         """,
-                        [
+                        [  # ty: ignore[invalid-argument-type]
                             row["content_id"],
                             row["filing_id"],
                             row["symbol"],

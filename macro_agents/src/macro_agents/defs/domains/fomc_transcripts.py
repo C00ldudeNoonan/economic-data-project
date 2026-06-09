@@ -405,7 +405,7 @@ def process_fomc_transcripts(
                         processed_date = CURRENT_TIMESTAMP
                     WHERE transcript_id = $4
                     """,
-                    [full_text, word_count, page_count, transcript_id],
+                    [full_text, word_count, page_count, transcript_id],  # ty: ignore[invalid-argument-type]
                 ).result()
 
                 # Parse into speaker sections
@@ -418,7 +418,7 @@ def process_fomc_transcripts(
                          speaker, speaker_role, content)
                         VALUES ($1, $2, $3, $4, $5, $6, $7)
                         """,
-                        [
+                        [  # ty: ignore[invalid-argument-type]
                             section["section_id"],
                             transcript_id,
                             section["section_order"],

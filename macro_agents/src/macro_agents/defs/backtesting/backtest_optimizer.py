@@ -978,7 +978,6 @@ def auto_promote_best_models_to_production(
             )
         except Exception as e:
             context.log.error(f"Error promoting {module_name} v{version}: {e}")
-            conn.rollback()
         finally:
             conn.close()
 

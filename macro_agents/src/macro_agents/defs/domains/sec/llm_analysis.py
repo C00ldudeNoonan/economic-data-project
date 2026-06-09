@@ -149,7 +149,7 @@ def sec_filing_llm_analysis(
                         embedding = EXCLUDED.embedding,
                         model_name = EXCLUDED.model_name
                     """,
-                    [
+                    [  # ty: ignore[invalid-argument-type]
                         metadata_id,
                         filing_id,
                         ticker,
