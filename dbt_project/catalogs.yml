@@ -2,7 +2,10 @@ version: 2
 
 catalogs:
   - name: iceberg_catalog
-    type: biglake_metastore
-    connection_id: "projects/{{ env_var('BIGQUERY_PROJECT') }}/locations/{{ env_var('BIGQUERY_LOCATION', 'US') }}/connections/biglake-iceberg"
-    gcs_bucket: "{{ env_var('ICEBERG_BUCKET_NAME', 'econ-project-iceberg-data') }}"
-    gcs_path_prefix: "iceberg"
+    write_integrations:
+      - name: biglake
+        catalog_type: biglake_metastore
+        adapter_properties:
+          connection_id: "projects/{{ env_var('BIGQUERY_PROJECT') }}/locations/{{ env_var('BIGQUERY_LOCATION', 'US') }}/connections/biglake-iceberg"
+          gcs_bucket: "{{ env_var('ICEBERG_BUCKET_NAME', 'econ-project-iceberg-data') }}"
+          gcs_path_prefix: "iceberg"

@@ -17,24 +17,34 @@ ALERT_EVENTS_TABLE = "economic_alert_events"
 ALERT_INPUTS_TABLE = "economic_alert_inputs"
 
 
+def _ts(dt: datetime) -> str:
+    """Format a datetime as a BigQuery TIMESTAMP literal."""
+    return f"TIMESTAMP('{dt.strftime('%Y-%m-%d %H:%M:%S UTC')}')"
+
+
+def _sq(s: str) -> str:
+    """Single-quote a string literal, escaping internal single quotes."""
+    return "'" + s.replace("'", "''") + "'"
+
+
 def _ensure_events_table(md, context: dg.AssetExecutionContext) -> None:
     md.execute_query(
         f"""
         CREATE TABLE IF NOT EXISTS {ALERT_EVENTS_TABLE} (
-            event_id BIGINT PRIMARY KEY,
-            alert_id VARCHAR NOT NULL,
-            indicator VARCHAR NOT NULL,
-            comparator VARCHAR NOT NULL,
-            threshold DOUBLE NOT NULL,
-            observed_value DOUBLE NOT NULL,
-            severity VARCHAR NOT NULL,
-            title VARCHAR NOT NULL,
-            description VARCHAR,
+            event_id INT64,
+            alert_id STRING NOT NULL,
+            indicator STRING NOT NULL,
+            comparator STRING NOT NULL,
+            threshold FLOAT64 NOT NULL,
+            observed_value FLOAT64 NOT NULL,
+            severity STRING NOT NULL,
+            title STRING NOT NULL,
+            description STRING,
             observed_at TIMESTAMP NOT NULL,
             breached_at TIMESTAMP NOT NULL,
             resolved_at TIMESTAMP,
             notified_at TIMESTAMP,
-            run_id VARCHAR
+            run_id STRING
         )
         """,
         read_only=False,
@@ -67,12 +77,10 @@ def _open_event(md, alert_id: str) -> dict | None:
         f"""
         SELECT *
         FROM {ALERT_EVENTS_TABLE}
-        WHERE alert_id = ? AND resolved_at IS NULL
+        WHERE alert_id = {_sq(alert_id)} AND resolved_at IS NULL
         ORDER BY breached_at DESC
         LIMIT 1
-        """,
-        read_only=True,
-        params=[alert_id],
+        """
     )
     return rows.to_dicts()[0] if not rows.is_empty() else None
 
@@ -94,37 +102,29 @@ def _insert_breach(
     now: datetime,
     run_id: str | None,
 ) -> None:
+    run_id_sql = _sq(run_id) if run_id else "NULL"
+    desc_sql = _sq(alert.description or "")
     md.execute_query(
         f"""
         INSERT INTO {ALERT_EVENTS_TABLE} (
             event_id, alert_id, indicator, comparator, threshold,
             observed_value, severity, title, description,
             observed_at, breached_at, resolved_at, notified_at, run_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)
+        ) VALUES (
+            {event_id}, {_sq(alert.alert_id)}, {_sq(alert.indicator)},
+            {_sq(alert.comparator)}, {float(alert.threshold)}, {float(value)},
+            {_sq(alert.severity)}, {_sq(alert.title)}, {desc_sql},
+            {_ts(observed_at)}, {_ts(now)}, NULL, NULL, {run_id_sql}
+        )
         """,
         read_only=False,
-        params=[
-            event_id,
-            alert.alert_id,
-            alert.indicator,
-            alert.comparator,
-            float(alert.threshold),
-            float(value),
-            alert.severity,
-            alert.title,
-            alert.description,
-            observed_at,
-            now,
-            run_id,
-        ],
     )
 
 
 def _resolve_event(md, event_id: int, now: datetime) -> None:
     md.execute_query(
-        f"UPDATE {ALERT_EVENTS_TABLE} SET resolved_at = ? WHERE event_id = ?",
+        f"UPDATE {ALERT_EVENTS_TABLE} SET resolved_at = {_ts(now)} WHERE event_id = {event_id}",
         read_only=False,
-        params=[now, event_id],
     )
 
 
@@ -204,7 +204,7 @@ def evaluate_alerts(
     group_name="alerts",
 )
 def economic_alert_evaluations(context: dg.AssetExecutionContext):
-    md = context.resources.md
+    md = context.resources.bq
     _ensure_events_table(md, context)
     counts = evaluate_alerts(md, context)
     context.add_output_metadata({k: dg.MetadataValue.int(v) for k, v in counts.items()})

@@ -40,6 +40,14 @@ def _build_email_body(event: dict, alert: AlertDefinition) -> tuple[str, str]:
     return text, html
 
 
+def _id_list(alert_ids: list[str]) -> str:
+    return ", ".join(f"'{aid}'" for aid in alert_ids)
+
+
+def _ts(dt: datetime) -> str:
+    return f"TIMESTAMP('{dt.strftime('%Y-%m-%d %H:%M:%S UTC')}')"
+
+
 def _pending_events(
     md, alert_ids: list[str], cooldown_cutoff_by_id: dict[str, datetime]
 ):
@@ -49,11 +57,9 @@ def _pending_events(
         SELECT *
         FROM {ALERT_EVENTS_TABLE}
         WHERE notified_at IS NULL
-          AND alert_id IN ({", ".join(["?"] * len(alert_ids))})
+          AND alert_id IN ({_id_list(alert_ids)})
         ORDER BY breached_at ASC
-        """,
-        read_only=True,
-        params=alert_ids,
+        """
     )
     events = rows.to_dicts()
     pending = []
@@ -73,20 +79,17 @@ def _most_recent_notification_by_id(md, alert_ids: list[str]) -> dict[str, datet
         SELECT alert_id, MAX(notified_at) AS last_notified
         FROM {ALERT_EVENTS_TABLE}
         WHERE notified_at IS NOT NULL
-          AND alert_id IN ({", ".join(["?"] * len(alert_ids))})
+          AND alert_id IN ({_id_list(alert_ids)})
         GROUP BY alert_id
-        """,
-        read_only=True,
-        params=alert_ids,
+        """
     )
     return {row["alert_id"]: row["last_notified"] for row in rows.to_dicts()}
 
 
 def _mark_notified(md, event_id: int, now: datetime) -> None:
     md.execute_query(
-        f"UPDATE {ALERT_EVENTS_TABLE} SET notified_at = ? WHERE event_id = ?",
+        f"UPDATE {ALERT_EVENTS_TABLE} SET notified_at = {_ts(now)} WHERE event_id = {event_id}",
         read_only=False,
-        params=[now, event_id],
     )
 
 

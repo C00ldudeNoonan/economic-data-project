@@ -145,9 +145,18 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
     def execute_query(
         self, query: str, read_only: bool = True, params: list[Any] | None = None
     ) -> pl.DataFrame:
-        """Execute a SQL query and return results as a Polars DataFrame."""
+        """Execute a SQL query and return results as a Polars DataFrame.
+
+        Bare table names are resolved against self.dataset so callers don't
+        need to fully qualify every reference.
+        """
+        from google.cloud.bigquery import DatasetReference, QueryJobConfig
+
         client = self.get_client()
-        job = client.query(query)
+        job_config = QueryJobConfig(
+            default_dataset=DatasetReference(self.project, self.dataset)
+        )
+        job = client.query(query, job_config=job_config)
         try:
             return pl.from_arrow(job.result().to_arrow())
         except Exception:
