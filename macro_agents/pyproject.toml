@@ -57,6 +57,7 @@ dev = [
     "pytest-xdist",
     "mypy",
     "ty",
+    "duckdb>=1.0.0,<2.0.0",
     "ruff>=0.12.7,<1.0.0",  # Move ruff here
     "sqlfluff>=3.4.2,<4.0.0",  # Move sqlfluff here
     "sqlfluff-templater-dbt>=3.4.2,<4.0.0",  # Move here
