@@ -1,0 +1,53 @@
+name: "Wizard — quality and uptime"
+
+on:
+  repository_dispatch:
+    types: [dbt-job-failure]
+  # Uncomment to enable scheduled runs:
+  # schedule:
+  #   - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "dbt platform run ID to investigate"
+        required: false
+        type: string
+
+concurrency:
+  group: wizard-loop-2
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  quality-loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dbt Wizard CLI
+        run: |
+          curl -fsSL https://cli.getdbt.com/install-wizard.sh | bash
+
+      - name: Run Loop 2 (gpt-5.4-mini)
+        env:
+          WIZARD_API_KEY: ${{ secrets.WIZARD_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/loop-2.sh scripts/common.sh
+          ARGS=""
+          if [[ -n "${{ inputs.run_id }}" ]]; then
+            ARGS="--run-id ${{ inputs.run_id }}"
+          fi
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            RUN_ID="${{ github.event.client_payload.run_id }}"
+            if [[ -n "$RUN_ID" ]]; then
+              ARGS="--run-id ${RUN_ID}"
+            fi
+          fi
+          ./scripts/loop-2.sh ${ARGS:+"$ARGS"}

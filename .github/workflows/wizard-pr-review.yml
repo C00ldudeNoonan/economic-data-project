@@ -1,0 +1,78 @@
+name: "Wizard — PR review"
+
+on:
+  # Uncomment to enable automatic PR reviews:
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+  #   paths:
+  #     - "dbt_project/**"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to review"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dbt Wizard CLI
+        run: |
+          curl -fsSL https://cli.getdbt.com/install-wizard.sh | bash
+
+      - name: Get PR details
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -n "${{ inputs.pr_number }}" ]]; then
+            PR_NUM="${{ inputs.pr_number }}"
+          else
+            PR_NUM="${{ github.event.pull_request.number }}"
+          fi
+          echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
+          PR_TITLE=$(gh pr view "$PR_NUM" --json title -q '.title')
+          echo "title=${PR_TITLE}" >> "$GITHUB_OUTPUT"
+
+      - name: Review PR (gpt-5.5)
+        env:
+          WIZARD_API_KEY: ${{ secrets.WIZARD_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_TITLE: ${{ steps.pr.outputs.title }}
+        run: |
+          wizard exec \
+            --dangerously-bypass-approvals-and-sandbox \
+            --dangerously-bypass-hook-trust \
+            "You are reviewing PR #${PR_NUMBER}: '${PR_TITLE}'.
+
+          Review the diff on this branch against the base branch. Use AGENTS.md and
+          .claude/skills/dbt-development/dbt_skill.md as your reference for conventions.
+
+          For each changed file in dbt_project/, check:
+
+          1. **Naming**: model prefixes (stg_, fct_, dim_), column naming, CTE naming.
+          2. **Tests**: required tests present for new/modified models (per .claude/skills/testing-strategies/SKILL.md).
+          3. **Modeling**: correct materialization, clean CTE structure, no business logic in staging.
+          4. **Risk**: does the change modify grain, remove columns, change materialization,
+             or touch contracted models? Classify per AGENTS.md 'Fix Risk Classification'.
+          5. **General**: SQL correctness, downstream impact, missing schema.yml entries.
+
+          Post your review as a comment on PR #${PR_NUMBER} using the GitHub CLI:
+            - Start with a one-line summary: approve, request changes, or comment.
+            - List specific findings with file and line references.
+            - If no issues found, approve with a brief note.
+
+          Do not modify any files. Review only."
