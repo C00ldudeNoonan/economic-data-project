@@ -87,9 +87,14 @@ jobs:
         run: |
           curl -fsSL https://cli.getdbt.com/install-wizard.sh | bash
 
+      - name: Configure Wizard provider
+        run: |
+          mkdir -p ~/.dbt/wizard
+          echo '{"provider": "openai", "model": "gpt-5.4-mini"}' > ~/.dbt/wizard/provider-auth.json
+
       - name: Run Loop 1 (gpt-5.4-mini)
         env:
-          WIZARD_API_KEY: ${{ secrets.WIZARD_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           chmod +x scripts/loop-1.sh scripts/common.sh
