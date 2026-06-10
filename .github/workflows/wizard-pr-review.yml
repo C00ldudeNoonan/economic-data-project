@@ -28,8 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install dbt Wizard CLI
-        run: |
-          curl -fsSL https://cli.getdbt.com/install-wizard.sh | bash
+        run: curl -fsSL https://cli.getdbt.com/install-wizard.sh | bash
 
       - name: Get PR details
         id: pr
@@ -41,14 +40,11 @@ jobs:
           else
             PR_NUM="${{ github.event.pull_request.number }}"
           fi
-          echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
           PR_TITLE=$(gh pr view "$PR_NUM" --json title -q '.title')
-          echo "title=${PR_TITLE}" >> "$GITHUB_OUTPUT"
-
-      - name: Configure Wizard provider
-        run: |
-          mkdir -p ~/.dbt/wizard
-          echo '{"provider": "openai", "model": "gpt-5.5"}' > ~/.dbt/wizard/provider-auth.json
+          {
+            echo "number=${PR_NUM}"
+            echo "title=${PR_TITLE}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Review PR (gpt-5.5)
         env:
@@ -57,26 +53,33 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           PR_TITLE: ${{ steps.pr.outputs.title }}
         run: |
-          wizard exec \
-            --dangerously-bypass-approvals-and-sandbox \
-            --dangerously-bypass-hook-trust \
+          wizard review \
+            --base ${{ github.base_ref || 'main' }} \
+            --title "${PR_TITLE}" \
+            -m gpt-5.5 \
+            --json \
+            -o review-output.md \
             "You are reviewing PR #${PR_NUMBER}: '${PR_TITLE}'.
 
-          Review the diff on this branch against the base branch. Use AGENTS.md and
-          .claude/skills/dbt-development/dbt_skill.md as your reference for conventions.
+          Use AGENTS.md and .claude/skills/dbt-development/dbt_skill.md as your reference.
 
           For each changed file in dbt_project/, check:
-
-          1. **Naming**: model prefixes (stg_, fct_, dim_), column naming, CTE naming.
-          2. **Tests**: required tests present for new/modified models (per .claude/skills/testing-strategies/SKILL.md).
-          3. **Modeling**: correct materialization, clean CTE structure, no business logic in staging.
-          4. **Risk**: does the change modify grain, remove columns, change materialization,
+          1. Naming: model prefixes (stg_, fct_, dim_), column naming, CTE naming.
+          2. Tests: required tests present for new/modified models.
+          3. Modeling: correct materialization, clean CTE structure, no business logic in staging.
+          4. Risk: does the change modify grain, remove columns, change materialization,
              or touch contracted models? Classify per AGENTS.md 'Fix Risk Classification'.
-          5. **General**: SQL correctness, downstream impact, missing schema.yml entries.
+          5. General: SQL correctness, downstream impact, missing schema.yml entries.
 
-          Post your review as a comment on PR #${PR_NUMBER} using the GitHub CLI:
-            - Start with a one-line summary: approve, request changes, or comment.
-            - List specific findings with file and line references.
-            - If no issues found, approve with a brief note.
+          Post your review as a comment on PR #${PR_NUMBER} using gh CLI.
+          Start with a one-line summary: approve, request changes, or comment.
+          List specific findings with file and line references." \
+          2>&1 | tee review-log.jsonl
 
-          Do not modify any files. Review only."
+          echo "::group::Review output"
+          cat review-output.md 2>/dev/null || echo "No output"
+          echo "::endgroup::"
+
+          echo "::group::Token usage"
+          grep -o '"usage":{[^}]*}' review-log.jsonl 2>/dev/null | tail -5 || true
+          echo "::endgroup::"
