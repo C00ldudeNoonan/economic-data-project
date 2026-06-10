@@ -3,9 +3,8 @@ name: "Wizard — quality and uptime"
 on:
   repository_dispatch:
     types: [dbt-job-failure]
-  # Uncomment to enable scheduled runs:
-  # schedule:
-  #   - cron: "0 */2 * * *"
+  schedule:
+    - cron: "0 */2 * * *"
   workflow_dispatch:
     inputs:
       run_id:

@@ -1,11 +1,10 @@
 name: "Wizard — PR review"
 
 on:
-  # Uncomment to enable automatic PR reviews:
-  # pull_request:
-  #   types: [opened, synchronize, reopened]
-  #   paths:
-  #     - "dbt_project/**"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "dbt_project/**"
   workflow_dispatch:
     inputs:
       pr_number:
