@@ -41,11 +41,13 @@ jobs:
           else
             NUM="${{ github.event.issue.number }}"
           fi
-          echo "number=${NUM}" >> "$GITHUB_OUTPUT"
           BODY=$(gh api repos/${{ github.repository }}/issues/${NUM} --jq '.title + " " + .body')
-          echo "body<<GHEOF" >> "$GITHUB_OUTPUT"
-          echo "$BODY" >> "$GITHUB_OUTPUT"
-          echo "GHEOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "number=${NUM}"
+            echo "body<<GHEOF"
+            echo "$BODY"
+            echo "GHEOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Classify issue (gpt-5.4-nano)
         id: classify
