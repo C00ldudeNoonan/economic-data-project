@@ -1,6 +1,6 @@
 import dagster as dg
 
-from macro_agents.defs.transformation.dbt import dbt_cli_resource, full_dbt_assets
+from macro_agents.defs.transformation.dbt import dbt_resource, full_dbt_assets
 from macro_agents.defs.transformation.checks import transformation_checks
 from macro_agents.defs.transformation.financial_condition_index import (
     fci_weights_config,
@@ -116,5 +116,5 @@ defs = dg.Definitions(
         dbt_data_quality_models_job,
         dbt_backtesting_models_job,
     ],
-    resources={"dbt": dbt_cli_resource},
+    resources={"dbt": dbt_resource},
 )
