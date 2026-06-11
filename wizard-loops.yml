@@ -1,0 +1,13 @@
+projects:
+  - name: econ-data
+    type: local
+    path: ./dbt_project
+
+  # Uncomment after dbt platform onboarding (#82):
+  # - name: econ-data
+  #   type: platform
+  #   project_id: "${DBT_PLATFORM_PROJECT_ID}"
+  #   environment_id: "${DBT_PLATFORM_ENV_ID}"
+
+defaults:
+  active_project: econ-data
