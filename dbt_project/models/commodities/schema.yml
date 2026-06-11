@@ -5,7 +5,8 @@ models:
     description: "Summary statistics for energy commodities across different time periods"
     tests:
       - unique_combination:
-          combination_of_columns: ['commodity_name', 'time_period']
+          arguments:
+            combination_of_columns: ['commodity_name', 'time_period']
     columns:
       - name: commodity_name
         description: "Name of the commodity"
@@ -28,19 +29,22 @@ models:
         description: "Annualized volatility percentage"
         tests:
           - value_in_range:
-              min_value: 0
+              arguments:
+                min_value: 0
       - name: win_rate_pct
         description: "Percentage of days with positive price changes"
         tests:
           - value_in_range:
-              min_value: 0
-              max_value: 100
+              arguments:
+                min_value: 0
+                max_value: 100
 
   - name: input_commodities_summary
     description: "Summary statistics for input/industrial commodities across different time periods"
     tests:
       - unique_combination:
-          combination_of_columns: ['commodity_name', 'time_period']
+          arguments:
+            combination_of_columns: ['commodity_name', 'time_period']
     columns:
       - name: commodity_name
         description: "Name of the commodity"
@@ -63,19 +67,22 @@ models:
         description: "Annualized volatility percentage"
         tests:
           - value_in_range:
-              min_value: 0
+              arguments:
+                min_value: 0
       - name: win_rate_pct
         description: "Percentage of days with positive price changes"
         tests:
           - value_in_range:
-              min_value: 0
-              max_value: 100
+              arguments:
+                min_value: 0
+                max_value: 100
 
   - name: agriculture_commodities_summary
     description: "Summary statistics for agricultural commodities across different time periods"
     tests:
       - unique_combination:
-          combination_of_columns: ['commodity_name', 'time_period']
+          arguments:
+            combination_of_columns: ['commodity_name', 'time_period']
     columns:
       - name: commodity_name
         description: "Name of the commodity"
@@ -98,13 +105,15 @@ models:
         description: "Annualized volatility percentage"
         tests:
           - value_in_range:
-              min_value: 0
+              arguments:
+                min_value: 0
       - name: win_rate_pct
         description: "Percentage of days with positive price changes"
         tests:
           - value_in_range:
-              min_value: 0
-              max_value: 100
+              arguments:
+                min_value: 0
+                max_value: 100
 
   - name: energy_commodities_analysis_return
     description: >
