@@ -78,11 +78,10 @@ def _required_env_var(*names: str) -> dg.EnvVar:
         joined_names = " or ".join(names)
         raise RuntimeError(f"Set {joined_names} to enable dbt Platform orchestration.")
 
+
 if orchestration_mode in {"dbt_platform", "dbt_cloud", "platform", "cloud"}:
     dbt_cloud_credentials = DbtCloudCredentials(
-        account_id=_required_int_env(
-            "DBT_PLATFORM_ACCOUNT_ID", "DBT_CLOUD_ACCOUNT_ID"
-        ),
+        account_id=_required_int_env("DBT_PLATFORM_ACCOUNT_ID", "DBT_CLOUD_ACCOUNT_ID"),
         token=_required_env_var("DBT_PLATFORM_TOKEN", "DBT_CLOUD_API_TOKEN"),
         access_url=_first_env("DBT_PLATFORM_ACCESS_URL", "DBT_CLOUD_ACCESS_URL")
         or "https://cloud.getdbt.com",
@@ -90,9 +89,7 @@ if orchestration_mode in {"dbt_platform", "dbt_cloud", "platform", "cloud"}:
 
     dbt_resource = DbtCloudWorkspace(
         credentials=dbt_cloud_credentials,
-        project_id=_required_int_env(
-            "DBT_PLATFORM_PROJECT_ID", "DBT_CLOUD_PROJECT_ID"
-        ),
+        project_id=_required_int_env("DBT_PLATFORM_PROJECT_ID", "DBT_CLOUD_PROJECT_ID"),
         environment_id=_required_int_env(
             "DBT_PLATFORM_ENVIRONMENT_ID", "DBT_CLOUD_ENVIRONMENT_ID"
         ),
@@ -174,7 +171,9 @@ else:
     dbt_project_dir_path = dbt_project_dir
 
     dbt_packages_dir = dbt_project_dir_path / "dbt_packages"
-    dbt_utils_dir = dbt_packages_dir / "dbt_utils" if dbt_packages_dir.exists() else None
+    dbt_utils_dir = (
+        dbt_packages_dir / "dbt_utils" if dbt_packages_dir.exists() else None
+    )
 
     if not dbt_packages_dir.exists() or not dbt_utils_dir or not dbt_utils_dir.exists():
         import subprocess
@@ -230,7 +229,9 @@ else:
             or not dbt_utils_dir
             or not dbt_utils_dir.exists()
         ):
-            context.log.info("dbt packages not found. Running 'dbt deps' before build...")
+            context.log.info(
+                "dbt packages not found. Running 'dbt deps' before build..."
+            )
             try:
                 deps_result = dbt.cli(["deps"], context=context).wait()
                 return_code = getattr(deps_result, "return_code", None)
