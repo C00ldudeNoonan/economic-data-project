@@ -6,50 +6,50 @@
 
 -- Sector-to-name mapping for readable output
 WITH sector_names AS (
-    SELECT sector_names.*
-    FROM (VALUES
-        ('XLK', 'Technology'),
-        ('XLC', 'Communication Services'),
-        ('XLY', 'Consumer Discretionary'),
-        ('XLF', 'Financial'),
-        ('XLI', 'Industrial'),
-        ('XLU', 'Utilities'),
-        ('XLP', 'Consumer Staples'),
-        ('XLRE', 'Real Estate'),
-        ('XLB', 'Materials'),
-        ('XLE', 'Energy'),
-        ('XLV', 'Health Care')
-    ) AS sector_names (symbol, sector_name)
+    SELECT *
+    FROM UNNEST([
+        STRUCT('XLK' AS symbol, 'Technology' AS sector_name),
+        STRUCT('XLC' AS symbol, 'Communication Services' AS sector_name),
+        STRUCT('XLY' AS symbol, 'Consumer Discretionary' AS sector_name),
+        STRUCT('XLF' AS symbol, 'Financial' AS sector_name),
+        STRUCT('XLI' AS symbol, 'Industrial' AS sector_name),
+        STRUCT('XLU' AS symbol, 'Utilities' AS sector_name),
+        STRUCT('XLP' AS symbol, 'Consumer Staples' AS sector_name),
+        STRUCT('XLRE' AS symbol, 'Real Estate' AS sector_name),
+        STRUCT('XLB' AS symbol, 'Materials' AS sector_name),
+        STRUCT('XLE' AS symbol, 'Energy' AS sector_name),
+        STRUCT('XLV' AS symbol, 'Health Care' AS sector_name)
+    ])
 ),
 
 -- Get monthly sector returns (last trading day of each month)
 sector_monthly AS (
     SELECT
         symbol,
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         -- Use the last available data point for each month
         LAST_VALUE(pct_change_1mo) OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
         ) AS return_1mo,
         LAST_VALUE(pct_change_3mo) OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
         ) AS return_3mo,
         LAST_VALUE(pct_change_6mo) OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
         ) AS return_6mo,
         LAST_VALUE(pct_change_1yr) OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
         ) AS return_12mo,
         ROW_NUMBER() OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date DESC
         ) AS rn
     FROM {{ ref('us_sector_analysis_return') }}
@@ -73,7 +73,7 @@ indicator_monthly AS (
     SELECT
         series_code,
         series_name,
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         value,
         -- Calculate month-over-month percentage change
         CASE

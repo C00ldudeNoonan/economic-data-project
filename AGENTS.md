@@ -66,7 +66,7 @@
 - Prefer small, focused commits with clear intent.
 - PRs should include a concise summary, linked issues (if applicable), and screenshots for UI changes.
 - Never merge PRs. Always leave merging to a human reviewer.
-- Add a PR comment tagging `@codex` to request review.
+- Add a PR comment tagging `@codex` to request review immediately after opening every PR. Use `gh pr comment <PR_NUMBER> --body "@codex please review this PR."` and mention the review request in the handoff.
 
 ## Data Request Scoping (Wizard Loop 1)
 

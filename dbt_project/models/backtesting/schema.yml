@@ -12,7 +12,7 @@ models:
     config:
       materialized: incremental
       unique_key: ['snapshot_date', 'symbol', 'asset_type', 'time_period']
-      incremental_strategy: delete+insert
+      incremental_strategy: merge
     columns:
       - name: snapshot_date
         tests:
@@ -31,7 +31,7 @@ models:
     config:
       materialized: incremental
       unique_key: ['snapshot_date', 'symbol', 'series_name', 'category', 'economic_category']
-      incremental_strategy: delete+insert
+      incremental_strategy: merge
     columns:
       - name: snapshot_date
         tests:
@@ -50,7 +50,7 @@ models:
     config:
       materialized: incremental
       unique_key: ['snapshot_date', 'series_code', 'month']
-      incremental_strategy: delete+insert
+      incremental_strategy: merge
     columns:
       - name: snapshot_date
         tests:
@@ -70,7 +70,7 @@ models:
     config:
       materialized: incremental
       unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
-      incremental_strategy: delete+insert
+      incremental_strategy: merge
     columns:
       - name: snapshot_date
         tests:
@@ -90,7 +90,7 @@ models:
     config:
       materialized: incremental
       unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
-      incremental_strategy: delete+insert
+      incremental_strategy: merge
     columns:
       - name: snapshot_date
         tests:
@@ -110,7 +110,7 @@ models:
     config:
       materialized: incremental
       unique_key: ['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period']
-      incremental_strategy: delete+insert
+      incremental_strategy: merge
     columns:
       - name: snapshot_date
         tests:
@@ -118,4 +118,3 @@ models:
       - name: commodity_name
         tests:
           - not_null
-

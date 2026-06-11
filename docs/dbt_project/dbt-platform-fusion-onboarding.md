@@ -46,6 +46,31 @@ Required environment variables:
 | `ICEBERG_BUCKET_NAME` | GCS bucket backing BigLake Iceberg tables. |
 | `DBT_TARGET` | `dev`, `staging`, or `prod`. |
 
+## Local ADC Setup
+
+Local dbt runs use Application Default Credentials through `method: oauth` in
+`dbt_project/profiles.yml`. No service-account keyfile is required for the
+standard path.
+
+For user ADC:
+
+```bash
+gcloud auth application-default login
+gcloud auth application-default set-quota-project "$BIGQUERY_PROJECT"
+```
+
+For service-account ADC via impersonation:
+
+```bash
+gcloud auth application-default login \
+  --impersonate-service-account service-account@project.iam.gserviceaccount.com
+gcloud auth application-default set-quota-project "$BIGQUERY_PROJECT"
+```
+
+The impersonating user needs `roles/iam.serviceAccountTokenCreator` on the
+service account. The service account still needs the BigQuery permissions listed
+above.
+
 ## Environments
 
 Configure three environments:
@@ -113,6 +138,8 @@ Local Wizard validation after issue setup:
   - moving source freshness settings under `config:`;
   - moving generic test parameters under `arguments:`;
   - updating `catalogs.yml` to the Fusion BigLake catalog schema.
+- BigQuery auth remains ADC-based through `method: oauth`; local compile requires
+  `gcloud auth application-default login` or service-account ADC impersonation.
 
 ## Dagster Orchestration Decision
 

@@ -214,5 +214,5 @@ SELECT
     END AS vix_mean_reversion_status
 
 FROM combined
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

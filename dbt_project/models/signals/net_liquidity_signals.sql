@@ -20,32 +20,32 @@
 
 WITH walcl_weekly AS (
     SELECT
-        DATE_TRUNC('week', date) AS week_date,
+        DATE_TRUNC(date, WEEK) AS week_date,
         AVG(literal) AS walcl
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'WALCL'
       AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('week', date)
+    GROUP BY DATE_TRUNC(date, WEEK)
 ),
 
 wtregen_weekly AS (
     SELECT
-        DATE_TRUNC('week', date) AS week_date,
+        DATE_TRUNC(date, WEEK) AS week_date,
         AVG(literal) AS wtregen
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'WTREGEN'
       AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('week', date)
+    GROUP BY DATE_TRUNC(date, WEEK)
 ),
 
 rrp_weekly AS (
     SELECT
-        DATE_TRUNC('week', date) AS week_date,
+        DATE_TRUNC(date, WEEK) AS week_date,
         AVG(literal) AS rrpontsyd
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'RRPONTSYD'
       AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('week', date)
+    GROUP BY DATE_TRUNC(date, WEEK)
 ),
 
 combined AS (
@@ -120,5 +120,5 @@ SELECT
     END AS rrp_depletion_status
 
 FROM with_trends
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

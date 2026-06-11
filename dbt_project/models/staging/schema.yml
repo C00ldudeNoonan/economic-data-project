@@ -12,8 +12,7 @@ models:
         tests:
           - not_null
       - name: value
-        tests:
-          - not_null
+        description: Numeric FRED observation value; null when FRED reports a missing-value sentinel.
 
   - name: stg_housing_inventory
     description: >
@@ -417,6 +416,7 @@ models:
           - accepted_values:
               arguments:
                 values: [1, 2, 3, 4]
+                quote: false
       - name: num_sections
         description: Number of sections in the meeting minutes
       - name: content_length

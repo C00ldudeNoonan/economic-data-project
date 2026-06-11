@@ -70,6 +70,8 @@ WITH economic_changes AS (
     LEFT JOIN {{ ref('fred_series_mapping') }} AS fsm
         ON bha.series_name = fsm.series_name
     WHERE bha.value IS NOT NULL
+      AND bha.series_name IS NOT NULL
+      AND fsm.category IS NOT NULL
 ),
 
 correlation_analysis AS (

@@ -19,7 +19,7 @@ WITH iwd_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'IWD'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 iwf_prices AS (
@@ -29,7 +29,7 @@ iwf_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'IWF'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 iwm_prices AS (
@@ -39,7 +39,7 @@ iwm_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'IWM'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 spy_prices AS (
@@ -49,7 +49,7 @@ spy_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'SPY'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 value_growth_ratio AS (

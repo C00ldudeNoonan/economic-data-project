@@ -87,8 +87,13 @@ start_prices AS (
     FROM period_boundaries AS pb
     INNER JOIN filtered_data AS fd ON
         pb.commodity_name = fd.commodity_name
+        AND pb.commodity_unit = fd.commodity_unit
         AND pb.time_period = fd.time_period
         AND pb.period_start_date = fd.trade_date
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY pb.commodity_name, pb.commodity_unit, pb.time_period
+        ORDER BY fd.trade_date ASC, fd.price ASC
+    ) = 1
 ),
 
 end_prices AS (
@@ -100,8 +105,13 @@ end_prices AS (
     FROM period_boundaries AS pb
     INNER JOIN filtered_data AS fd ON
         pb.commodity_name = fd.commodity_name
+        AND pb.commodity_unit = fd.commodity_unit
         AND pb.time_period = fd.time_period
         AND pb.period_end_date = fd.trade_date
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY pb.commodity_name, pb.commodity_unit, pb.time_period
+        ORDER BY fd.trade_date DESC, fd.price DESC
+    ) = 1
 ),
 
 -- Main aggregation
@@ -140,10 +150,12 @@ combined_results AS (
     LEFT JOIN start_prices AS sp
         ON
             ar.commodity_name = sp.commodity_name
+            AND ar.commodity_unit = sp.commodity_unit
             AND ar.time_period = sp.time_period
     LEFT JOIN end_prices AS ep
         ON
             ar.commodity_name = ep.commodity_name
+            AND ar.commodity_unit = ep.commodity_unit
             AND ar.time_period = ep.time_period
 ),
 

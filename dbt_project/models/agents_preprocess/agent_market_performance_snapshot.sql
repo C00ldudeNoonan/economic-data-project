@@ -2,7 +2,7 @@
     config(
         materialized='incremental',
         unique_key=['snapshot_date', 'market_category', 'symbol', 'asset_type', 'time_period'],
-        incremental_strategy='delete+insert',
+        incremental_strategy='merge',
         tags=['agents_preprocess']
     )
 }}
@@ -73,18 +73,27 @@ major_index_snapshot as (
         period_start_price,
         period_end_price,
         'major_index' as market_category,
-        DATE_TRUNC('month', period_end_date) as snapshot_date
+        DATE_TRUNC(period_end_date, MONTH) as snapshot_date
     from {{ ref('major_indicies_summary') }}
     {% if is_incremental() %}
-    where DATE_TRUNC('month', period_end_date) >= COALESCE(
+    where DATE_TRUNC(period_end_date, MONTH) >= COALESCE(
         (select max(snapshot_date) from {{ this }}),
         DATE '1900-01-01'
     ) - INTERVAL 1 MONTH
     {% endif %}
+),
+
+combined_snapshots as (
+    select * from sector_snapshot
+
+    union all
+
+    select * from major_index_snapshot
 )
 
-select * from sector_snapshot
-
-union all
-
-select * from major_index_snapshot
+select *
+from combined_snapshots
+qualify row_number() over (
+    partition by snapshot_date, market_category, symbol, asset_type, time_period
+    order by period_end_date desc, period_start_date desc
+) = 1

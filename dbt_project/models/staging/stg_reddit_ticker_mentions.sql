@@ -1,5 +1,6 @@
 {{
     config(
+        enabled=false,
         materialized='view',
         tags=['staging', 'reddit', 'tickers']
     )

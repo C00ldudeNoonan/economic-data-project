@@ -2,7 +2,7 @@
     config(
         materialized='incremental',
         unique_key=['snapshot_date', 'commodity_category', 'commodity_name', 'commodity_unit', 'time_period'],
-        incremental_strategy='delete+insert',
+        incremental_strategy='merge',
         tags=['agents_preprocess']
     )
 }}
@@ -113,14 +113,23 @@ agriculture_snapshot as (
         DATE '1900-01-01'
     ) - INTERVAL 1 MONTH
     {% endif %}
+),
+
+combined_snapshots as (
+    select * from energy_snapshot
+
+    union all
+
+    select * from input_snapshot
+
+    union all
+
+    select * from agriculture_snapshot
 )
 
-select * from energy_snapshot
-
-union all
-
-select * from input_snapshot
-
-union all
-
-select * from agriculture_snapshot
+select *
+from combined_snapshots
+qualify row_number() over (
+    partition by snapshot_date, commodity_category, commodity_name, commodity_unit, time_period
+    order by period_end_date desc, period_start_date desc
+) = 1

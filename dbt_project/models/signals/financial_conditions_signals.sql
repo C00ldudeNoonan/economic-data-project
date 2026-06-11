@@ -65,36 +65,36 @@ nfci_leverage AS (
 
 cc_delinquency AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS cc_delinquency_rate
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'DRCCLACBS'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 -- Bank lending standards (large and small firms)
 lending_large AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS lending_standards_large
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'DRTSCILM'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 lending_small AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS lending_standards_small
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'DRTSCIS'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 -- Combine NFCI components (weekly data)
@@ -159,7 +159,7 @@ final AS (
     FROM nfci_combined AS nc
     FULL OUTER JOIN lending_combined AS lc ON nc.date = lc.date
     FULL OUTER JOIN cc_delinquency AS cd
-        ON DATE_TRUNC('month', COALESCE(nc.date, lc.date)) = cd.month_date
+        ON DATE_TRUNC(COALESCE(nc.date, lc.date), MONTH) = cd.month_date
 )
 
 SELECT
@@ -204,5 +204,5 @@ SELECT
     END AS lending_status
 
 FROM final
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

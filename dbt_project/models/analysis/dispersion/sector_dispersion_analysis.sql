@@ -5,20 +5,20 @@
 }}
 
 WITH sector_mapping AS (
-    SELECT sector_mapping.*
-    FROM (VALUES
-        ('Information Technology', 'XLK', 'Technology'),
-        ('Communication Services', 'XLC', 'Communication Services'),
-        ('Consumer Discretionary', 'XLY', 'Consumer Discretionary'),
-        ('Financials', 'XLF', 'Financial'),
-        ('Industrials', 'XLI', 'Industrial'),
-        ('Utilities', 'XLU', 'Utilities'),
-        ('Consumer Staples', 'XLP', 'Consumer Staples'),
-        ('Real Estate', 'XLRE', 'Real Estate'),
-        ('Materials', 'XLB', 'Materials'),
-        ('Energy', 'XLE', 'Energy'),
-        ('Health Care', 'XLV', 'Health Care')
-    ) AS sector_mapping (gics_sector, etf_symbol, sector_display_name)
+    SELECT *
+    FROM UNNEST([
+        STRUCT('Information Technology' AS gics_sector, 'XLK' AS etf_symbol, 'Technology' AS sector_display_name),
+        STRUCT('Communication Services', 'XLC', 'Communication Services'),
+        STRUCT('Consumer Discretionary', 'XLY', 'Consumer Discretionary'),
+        STRUCT('Financials', 'XLF', 'Financial'),
+        STRUCT('Industrials', 'XLI', 'Industrial'),
+        STRUCT('Utilities', 'XLU', 'Utilities'),
+        STRUCT('Consumer Staples', 'XLP', 'Consumer Staples'),
+        STRUCT('Real Estate', 'XLRE', 'Real Estate'),
+        STRUCT('Materials', 'XLB', 'Materials'),
+        STRUCT('Energy', 'XLE', 'Energy'),
+        STRUCT('Health Care', 'XLV', 'Health Care')
+    ])
 ),
 
 -- Compute true trailing-12M returns directly from price data
@@ -34,7 +34,7 @@ trailing_prices AS (
     FROM {{ ref('stg_sp500_companies_prices') }} p
     WHERE p.adj_close IS NOT NULL
         AND p.adj_close > 0
-        AND p.date >= CURRENT_DATE - INTERVAL 1 YEAR
+        AND p.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)
 ),
 
 stock_trailing_returns AS (
@@ -75,7 +75,7 @@ sector_stats AS (
         ROUND(STDDEV_SAMP(return_1y), 2) AS intra_sector_std_dev,
         ROUND(MAX(return_1y) - MIN(return_1y), 2) AS best_worst_spread,
         ROUND(AVG(return_1y), 2) AS avg_return,
-        ROUND(MEDIAN(return_1y), 2) AS median_return
+        ROUND(APPROX_QUANTILES(return_1y, 100)[OFFSET(50)], 2) AS median_return
     FROM company_returns
     GROUP BY gics_sector, etf_symbol, sector_display_name
 ),

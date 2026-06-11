@@ -4,5 +4,5 @@ select *
 from {{ model }}
 where
     {{ column_name }} is not null
-    and cast({{ column_name }} as double) <= 0
+    and cast({{ column_name }} as float64) <= 0
 {% endtest %}

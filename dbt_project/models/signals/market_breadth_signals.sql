@@ -23,7 +23,7 @@ WITH RECURSIVE stock_prices AS (
     WHERE
         adj_close IS NOT NULL
         AND adj_close > 0
-        AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 -- Calculate moving averages for each stock
@@ -100,14 +100,14 @@ daily_breadth AS (
         SUM(advancing_volume) AS total_advancing_volume,
         SUM(declining_volume) AS total_declining_volume,
         -- Percentage metrics
-        ROUND(100.0 * SUM(above_200_ma) / NULLIF(COUNT(DISTINCT symbol), 0), 2) AS pct_above_200_ma,
-        ROUND(100.0 * SUM(above_50_ma) / NULLIF(COUNT(DISTINCT symbol), 0), 2) AS pct_above_50_ma,
+        ROUND(SAFE_DIVIDE(100.0 * SUM(above_200_ma), COUNT(DISTINCT symbol)), 2) AS pct_above_200_ma,
+        ROUND(SAFE_DIVIDE(100.0 * SUM(above_50_ma), COUNT(DISTINCT symbol)), 2) AS pct_above_50_ma,
         -- Advance/Decline ratio
-        ROUND(1.0 * SUM(is_advancing) / NULLIF(SUM(is_declining), 0), 3) AS ad_ratio,
+        ROUND(SAFE_DIVIDE(1.0 * SUM(is_advancing), SUM(is_declining)), 3) AS ad_ratio,
         -- Advance/Decline line contribution (advances - declines)
         SUM(is_advancing) - SUM(is_declining) AS ad_line_delta
     FROM stock_signals
-    WHERE date >= CURRENT_DATE - INTERVAL 2 YEAR
+    WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 YEAR)
     GROUP BY date
     HAVING COUNT(DISTINCT symbol) >= 400  -- Ensure we have most S&P 500 stocks
 ),
@@ -116,21 +116,14 @@ breadth_base AS (
     SELECT
         *,
         (advancing_stocks - declining_stocks) AS net_advances,
-        CASE
-            WHEN advancing_stocks + declining_stocks > 0 THEN ROUND(
-                (advancing_stocks - declining_stocks) * 1000.0
-                / (advancing_stocks + declining_stocks),
-                2
-            )
-            ELSE 0
-        END AS rana,
-        CASE
-            WHEN advancing_stocks + declining_stocks > 0 THEN ROUND(
-                1.0 * advancing_stocks / (advancing_stocks + declining_stocks),
-                6
-            )
-            ELSE 0.5
-        END AS adv_ratio
+        COALESCE(
+            ROUND(SAFE_DIVIDE((advancing_stocks - declining_stocks) * 1000.0, advancing_stocks + declining_stocks), 2),
+            0
+        ) AS rana,
+        COALESCE(
+            ROUND(SAFE_DIVIDE(1.0 * advancing_stocks, advancing_stocks + declining_stocks), 6),
+            0.5
+        ) AS adv_ratio
     FROM daily_breadth
 ),
 
@@ -157,7 +150,7 @@ breadth_with_cum AS (
         pct_above_200_ma - LAG(pct_above_200_ma, 5) OVER (ORDER BY date) AS breadth_5d_change,
         pct_above_200_ma - LAG(pct_above_200_ma, 20) OVER (ORDER BY date) AS breadth_20d_change,
         -- % advancing for thrust calculations
-        ROUND(100.0 * advancing_stocks / NULLIF(advancing_stocks + declining_stocks, 0), 2) AS pct_advancing
+        ROUND(SAFE_DIVIDE(100.0 * advancing_stocks, advancing_stocks + declining_stocks), 2) AS pct_advancing
     FROM breadth_base
 ),
 
@@ -230,7 +223,7 @@ spy_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'SPY'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 spy_with_highs AS (
@@ -249,7 +242,7 @@ sector_prices AS (
         adj_close AS price
     FROM {{ ref('stg_us_sectors') }}
     WHERE adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 sector_with_sma AS (
@@ -287,7 +280,7 @@ internals_prices AS (
         adj_close AS price
     FROM {{ ref('stg_us_sectors') }}
     WHERE adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 
     UNION ALL
 
@@ -298,7 +291,7 @@ internals_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol IN ('SPY', 'QQQ')
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 internals_returns AS (
@@ -306,7 +299,7 @@ internals_returns AS (
         symbol,
         date,
         price,
-        (price / LAG(price) OVER (PARTITION BY symbol ORDER BY date) - 1.0) AS daily_return
+        (SAFE_DIVIDE(price, LAG(price) OVER (PARTITION BY symbol ORDER BY date)) - 1.0) AS daily_return
     FROM internals_prices
 ),
 
@@ -407,7 +400,7 @@ SELECT
     ROUND(b.breadth_5d_change, 2) AS breadth_5d_change,
     ROUND(b.breadth_20d_change, 2) AS breadth_20d_change,
     -- Volume A/D ratio
-    ROUND(1.0 * b.total_advancing_volume / NULLIF(b.total_declining_volume, 0), 3) AS volume_ad_ratio,
+    ROUND(SAFE_DIVIDE(1.0 * b.total_advancing_volume, b.total_declining_volume), 3) AS volume_ad_ratio,
     -- McClellan + Zweig
     b.net_advances,
     b.rana AS ratio_adjusted_net_advances,
@@ -431,7 +424,7 @@ SELECT
     -- Sector participation
     sp.sector_participation_count,
     sp.sector_total,
-    ROUND(100.0 * sp.sector_participation_count / NULLIF(sp.sector_total, 0), 2) AS sector_participation_pct,
+    ROUND(SAFE_DIVIDE(100.0 * sp.sector_participation_count, sp.sector_total), 2) AS sector_participation_pct,
     -- Internals correlation/dispersion
     ROUND(ic.avg_pair_correlation_63d, 4) AS avg_pair_correlation_63d,
     ROUND(id.return_dispersion, 4) AS return_dispersion,

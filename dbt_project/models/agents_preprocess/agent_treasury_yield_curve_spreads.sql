@@ -2,34 +2,33 @@
     config(
         materialized='incremental',
         unique_key='date',
-        incremental_strategy='delete+insert',
+        incremental_strategy='merge',
         tags=['agents_preprocess']
     )
 }}
 
 with pivoted_yields as (
     select
-        date,
-        max(case when yield_type = 'BC_1MONTH' then value end) as yield_1m,
-        max(case when yield_type = 'BC_3MONTH' then value end) as yield_3m,
-        max(case when yield_type = 'BC_6MONTH' then value end) as yield_6m,
-        max(case when yield_type = 'BC_1YEAR' then value end) as yield_1y,
-        max(case when yield_type = 'BC_2YEAR' then value end) as yield_2y,
-        max(case when yield_type = 'BC_3YEAR' then value end) as yield_3y,
-        max(case when yield_type = 'BC_5YEAR' then value end) as yield_5y,
-        max(case when yield_type = 'BC_7YEAR' then value end) as yield_7y,
-        max(case when yield_type = 'BC_10YEAR' then value end) as yield_10y,
-        max(case when yield_type = 'BC_20YEAR' then value end) as yield_20y,
-        max(case when yield_type = 'BC_30YEAR' then value end) as yield_30y
+        safe_cast(date as date) as date,
+        safe_cast(bc_1month as float64) as yield_1m,
+        bc_3month as yield_3m,
+        bc_6month as yield_6m,
+        bc_1year as yield_1y,
+        bc_2year as yield_2y,
+        bc_3year as yield_3y,
+        bc_5year as yield_5y,
+        bc_7year as yield_7y,
+        bc_10year as yield_10y,
+        safe_cast(bc_20year as float64) as yield_20y,
+        bc_30year as yield_30y
     from {{ ref('stg_treasury_yields') }}
     where date is not null
     {% if is_incremental() %}
-    and date >= COALESCE(
+    and safe_cast(date as date) >= COALESCE(
         (select max(date) from {{ this }}),
         DATE '1900-01-01'
     ) - INTERVAL 7 DAY
     {% endif %}
-    group by date
 ),
 
 yield_spreads as (
