@@ -2,15 +2,16 @@ version: 2
 
 sources:
   - name: staging
-    database: "{{ env_var('BIGQUERY_PROJECT') }}"
+    database: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
     schema: economics_raw
     tables:
       # FRED Data
       - name: fred_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 7, period: day}
-          error_after: {count: 14, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 7, period: day}
+            error_after: {count: 14, period: day}
 
       # Financial Conditions Index
       - name: financial_conditions_index
@@ -41,55 +42,65 @@ sources:
       
       # MarketStack Data
       - name: us_sector_etfs_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: currency_etfs_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: major_indices_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: fixed_income_etfs_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: global_markets_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: sp500_companies_prices_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: nasdaq_companies_prices_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: energy_commodities_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: input_commodities_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
       - name: agriculture_commodities_raw
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 5, period: day}
-          error_after: {count: 10, period: day}
+        config:
+          loaded_at_field: date
+          freshness:
+            warn_after: {count: 5, period: day}
+            error_after: {count: 10, period: day}
 
       # News Feed Data
       - name: reddit_posts_raw

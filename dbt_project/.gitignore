@@ -2,3 +2,4 @@
 /logs
 .user.yml
 /dbt_packages
+dbt_internal_packages/

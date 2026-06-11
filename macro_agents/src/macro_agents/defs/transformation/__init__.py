@@ -1,6 +1,10 @@
 import dagster as dg
 
-from macro_agents.defs.transformation.dbt import dbt_cli_resource, full_dbt_assets
+from macro_agents.defs.transformation.dbt import (
+    dbt_cloud_polling_sensor,
+    dbt_resource,
+    full_dbt_assets,
+)
 from macro_agents.defs.transformation.checks import transformation_checks
 from macro_agents.defs.transformation.financial_condition_index import (
     fci_weights_config,
@@ -100,6 +104,11 @@ dbt_backtesting_models_job = dg.define_asset_job(
 )
 
 
+transformation_sensors = []
+if dbt_cloud_polling_sensor is not None:
+    transformation_sensors.append(dbt_cloud_polling_sensor)
+
+
 defs = dg.Definitions(
     assets=[full_dbt_assets, financial_conditions_index, fci_weights_config],
     asset_checks=transformation_checks,
@@ -116,5 +125,6 @@ defs = dg.Definitions(
         dbt_data_quality_models_job,
         dbt_backtesting_models_job,
     ],
-    resources={"dbt": dbt_cli_resource},
+    resources={"dbt": dbt_resource},
+    sensors=transformation_sensors,
 )

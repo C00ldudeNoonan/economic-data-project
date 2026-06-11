@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: raw_telemetry
     description: Raw telemetry data
-    database: "{{ env_var('BIGQUERY_PROJECT') }}"
+    database: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
     schema: economics_raw
     tables:
       - name: telemetry_events_raw
