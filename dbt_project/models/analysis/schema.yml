@@ -100,11 +100,11 @@ models:
       - name: score_momentum_pct
         description: "Percentage change from 7-day average score"
       - name: sentiment_trend
-        description: "Overall sentiment direction based on score and comment trends"
+        description: "Overall sentiment classification based on score and compound sentiment trends"
         tests:
           - accepted_values:
               arguments:
-                values: ['increasing', 'decreasing', 'stable']
+                values: ['bullish', 'bearish', 'positive', 'negative', 'neutral']
 
   - name: sector_indicator_sensitivity
     description: >
@@ -244,7 +244,7 @@ models:
       macro sensitivity data at the individual stock level. Enables watchlist impact analysis by
       linking stocks to their sector's economic indicator sensitivity scores.
     columns:
-      - name: symbol
+      - name: ticker
         description: "Stock ticker symbol"
         tests:
           - not_null
@@ -276,11 +276,11 @@ models:
       - name: top_sensitive_indicators
         description: "Top 5 economic indicators the sector is most sensitive to"
       - name: sector_type
-        description: "Whether the sector is Cyclical or Defensive based on regime performance"
+        description: "Whether the sector is Cyclical, Defensive, or Interest-Sensitive based on regime performance"
         tests:
           - accepted_values:
               arguments:
-                values: ['Cyclical', 'Defensive']
+                values: ['Cyclical', 'Defensive', 'Interest-Sensitive']
 
   - name: portfolio_macro_factors
     description: >

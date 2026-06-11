@@ -1,15 +1,15 @@
 {{ config(
     unique_key=['snapshot_date', 'series_code', 'month'],
-    incremental_strategy='delete+insert'
+    incremental_strategy='merge'
 ) }}
 
 WITH snapshot_dates AS (
     -- Generate snapshot dates (first day of each month) from available data
-    SELECT DISTINCT DATE_TRUNC('month', date) AS snapshot_date
+    SELECT DISTINCT DATE_TRUNC(date, MONTH) AS snapshot_date
     FROM {{ ref('stg_fred_series') }}
     WHERE date >= '2020-01-01'  -- Adjust based on your data availability
     {% if is_incremental() %}
-    AND DATE_TRUNC('month', date) >= COALESCE(
+    AND DATE_TRUNC(date, MONTH) >= COALESCE(
         (SELECT MAX(snapshot_date) FROM {{ this }}),
         DATE '1900-01-01'
     ) - INTERVAL 1 MONTH
@@ -29,10 +29,10 @@ series_dates AS (
         db.snapshot_date,
         fred_data.series_code,
         fred_data.series_name,
-        LAG(CAST(NULLIF(fred_data.value, '.') AS FLOAT), -2)
+        LAG(fred_data.value, -2)
             OVER (PARTITION BY db.snapshot_date, fred_data.series_code ORDER BY fred_data.date DESC)
             AS previous_date,
-        LAG(CAST(NULLIF(fred_data.value, '.') AS FLOAT), -3)
+        LAG(fred_data.value, -3)
             OVER (PARTITION BY db.snapshot_date, fred_data.series_code ORDER BY fred_data.date DESC)
             AS two_events_ago
     FROM {{ ref('stg_fred_series') }} AS fred_data
@@ -40,7 +40,7 @@ series_dates AS (
     WHERE fred_data.date >= db.start_date AND fred_data.date <= db.end_date
 ),
 
-date_grain AS (
+series_grain AS (
     SELECT
         s.snapshot_date,
         s.series_code,
@@ -63,24 +63,24 @@ aggregates AS (
         db.snapshot_date,
         fred_data.series_code,
         fred_data.series_name,
-        date_grain.date_grain,
-        DATE_TRUNC('month', fred_data.date) AS month,
-        ROUND(AVG(CAST(NULLIF(fred_data.value, '.') AS FLOAT)), 4) AS clean_value
+        series_grain.date_grain,
+        DATE_TRUNC(fred_data.date, MONTH) AS month,
+        ROUND(AVG(fred_data.value), 4) AS clean_value
     FROM {{ ref('stg_fred_series') }} AS fred_data
     CROSS JOIN date_bounds AS db
-    LEFT JOIN date_grain
+    LEFT JOIN series_grain
         ON
-            db.snapshot_date = date_grain.snapshot_date
-            AND fred_data.series_code = date_grain.series_code
+            db.snapshot_date = series_grain.snapshot_date
+            AND fred_data.series_code = series_grain.series_code
     WHERE
         fred_data.date >= db.start_date
         AND fred_data.date <= db.end_date
-        AND date_grain.date_grain IN ('Daily', 'Monthly', 'Quarterly', 'Weekly')
+        AND series_grain.date_grain IN ('Daily', 'Monthly', 'Quarterly', 'Weekly')
     GROUP BY
         db.snapshot_date,
-        DATE_TRUNC('month', fred_data.date),
+        DATE_TRUNC(fred_data.date, MONTH),
         fred_data.series_code,
-        date_grain.date_grain,
+        series_grain.date_grain,
         fred_data.series_name
 ),
 

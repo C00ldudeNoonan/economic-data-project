@@ -57,8 +57,8 @@ sector_stats AS (
     SELECT
         date,
         MAX(avg_momentum) - MIN(avg_momentum) AS dispersion,
-        ARG_MAX(symbol, avg_momentum) AS top_sector,
-        ARG_MIN(symbol, avg_momentum) AS bottom_sector
+        ARRAY_AGG(symbol ORDER BY avg_momentum DESC LIMIT 1)[OFFSET(0)] AS top_sector,
+        ARRAY_AGG(symbol ORDER BY avg_momentum ASC LIMIT 1)[OFFSET(0)] AS bottom_sector
     FROM sector_returns
     GROUP BY date
 ),
@@ -185,5 +185,5 @@ final AS (
 
 SELECT *
 FROM final
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

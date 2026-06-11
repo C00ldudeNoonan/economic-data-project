@@ -11,7 +11,7 @@ WITH spy_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'SPY'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 spy_indicators AS (
@@ -40,7 +40,7 @@ hyg_prices AS (
     FROM {{ ref('stg_fixed_income') }}
     WHERE symbol = 'HYG'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 hyg_indicators AS (
@@ -54,14 +54,14 @@ hyg_indicators AS (
     FROM hyg_prices
 ),
 
-hy_spread AS (
+hy_spread_data AS (
     SELECT
         date,
         value AS hy_spread
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'BAMLH0A0HYM2'
       AND value IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 hy_spread_indicators AS (
@@ -69,7 +69,7 @@ hy_spread_indicators AS (
         date,
         hy_spread,
         hy_spread - LAG(hy_spread, 20) OVER (ORDER BY date) AS hy_spread_20d_change
-    FROM hy_spread
+    FROM hy_spread_data
 ),
 
 hy_equity_divergence AS (
@@ -102,7 +102,7 @@ spy_returns AS (
     SELECT
         date,
         spy_close,
-        (spy_close / LAG(spy_close) OVER (ORDER BY date) - 1.0) AS spy_return
+        (SAFE_DIVIDE(spy_close, LAG(spy_close) OVER (ORDER BY date)) - 1.0) AS spy_return
     FROM spy_prices
 ),
 
@@ -113,14 +113,14 @@ govt_prices AS (
     FROM {{ ref('stg_fixed_income') }}
     WHERE symbol = 'GOVT'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 govt_returns AS (
     SELECT
         date,
         govt_close,
-        (govt_close / LAG(govt_close) OVER (ORDER BY date) - 1.0) AS govt_return
+        (SAFE_DIVIDE(govt_close, LAG(govt_close) OVER (ORDER BY date)) - 1.0) AS govt_return
     FROM govt_prices
 ),
 
@@ -145,7 +145,7 @@ xlp_prices AS (
     FROM {{ ref('stg_us_sectors') }}
     WHERE symbol = 'XLP'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 xly_prices AS (
@@ -155,16 +155,16 @@ xly_prices AS (
     FROM {{ ref('stg_us_sectors') }}
     WHERE symbol = 'XLY'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
-xlp_xly_ratio AS (
+xlp_xly_ratio_data AS (
     SELECT
         xlp.date,
         xlp.xlp_close,
         xly.xly_close,
         CASE
-            WHEN xly.xly_close > 0 THEN xlp.xlp_close / xly.xly_close
+            WHEN xly.xly_close > 0 THEN SAFE_DIVIDE(xlp.xlp_close, xly.xly_close)
         END AS xlp_xly_ratio
     FROM xlp_prices xlp
     INNER JOIN xly_prices xly
@@ -183,7 +183,7 @@ xlp_xly_indicators AS (
             ORDER BY date
             ROWS BETWEEN 199 PRECEDING AND CURRENT ROW
         ) AS xlp_xly_sma_200
-    FROM xlp_xly_ratio
+    FROM xlp_xly_ratio_data
 ),
 
 gold_prices AS (
@@ -194,7 +194,7 @@ gold_prices AS (
     WHERE commodity_name = 'gold'
       AND price IS NOT NULL
       AND price > 0
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 copper_prices AS (
@@ -205,7 +205,7 @@ copper_prices AS (
     WHERE commodity_name = 'copper'
       AND price IS NOT NULL
       AND price > 0
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 real_yields AS (
@@ -215,7 +215,7 @@ real_yields AS (
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'DFII10'
       AND value IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 gold_real_base AS (
@@ -251,15 +251,19 @@ gold_real_residual AS (
         real_yield_10y,
         CASE
             WHEN (avg_x2 - (avg_real_yield * avg_real_yield)) <> 0 THEN
-                (avg_xy - (avg_real_yield * avg_gold_price))
-                / (avg_x2 - (avg_real_yield * avg_real_yield))
+                SAFE_DIVIDE(
+                    avg_xy - (avg_real_yield * avg_gold_price),
+                    avg_x2 - (avg_real_yield * avg_real_yield)
+                )
         END AS beta,
         CASE
             WHEN (avg_x2 - (avg_real_yield * avg_real_yield)) <> 0 THEN
                 avg_gold_price
                 - (
-                    (avg_xy - (avg_real_yield * avg_gold_price))
-                    / (avg_x2 - (avg_real_yield * avg_real_yield))
+                    SAFE_DIVIDE(
+                        avg_xy - (avg_real_yield * avg_gold_price),
+                        avg_x2 - (avg_real_yield * avg_real_yield)
+                    )
                 ) * avg_real_yield
         END AS alpha
     FROM gold_real_regression
@@ -300,7 +304,7 @@ iwm_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'IWM'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 rsp_prices AS (
@@ -310,14 +314,14 @@ rsp_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'RSP'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
-iwm_spy_ratio AS (
+iwm_spy_ratio_data AS (
     SELECT
         s.date,
         CASE
-            WHEN s.spy_close > 0 THEN i.iwm_close / s.spy_close
+            WHEN s.spy_close > 0 THEN SAFE_DIVIDE(i.iwm_close, s.spy_close)
         END AS iwm_spy_ratio
     FROM spy_prices s
     INNER JOIN iwm_prices i
@@ -336,14 +340,14 @@ iwm_spy_indicators AS (
             ORDER BY date
             ROWS BETWEEN 199 PRECEDING AND CURRENT ROW
         ) AS iwm_spy_sma_200
-    FROM iwm_spy_ratio
+    FROM iwm_spy_ratio_data
 ),
 
-rsp_spy_ratio AS (
+rsp_spy_ratio_data AS (
     SELECT
         s.date,
         CASE
-            WHEN s.spy_close > 0 THEN r.rsp_close / s.spy_close
+            WHEN s.spy_close > 0 THEN SAFE_DIVIDE(r.rsp_close, s.spy_close)
         END AS rsp_spy_ratio
     FROM spy_prices s
     INNER JOIN rsp_prices r
@@ -362,7 +366,7 @@ rsp_spy_indicators AS (
             ORDER BY date
             ROWS BETWEEN 199 PRECEDING AND CURRENT ROW
         ) AS rsp_spy_sma_200
-    FROM rsp_spy_ratio
+    FROM rsp_spy_ratio_data
 ),
 
 copper_gold_base AS (
@@ -371,7 +375,7 @@ copper_gold_base AS (
         g.gold_price,
         c.copper_price,
         CASE
-            WHEN g.gold_price > 0 THEN (c.copper_price / g.gold_price) * 1000
+            WHEN g.gold_price > 0 THEN SAFE_DIVIDE(c.copper_price, g.gold_price) * 1000
         END AS copper_gold_ratio
     FROM gold_prices g
     INNER JOIN copper_prices c
@@ -380,11 +384,11 @@ copper_gold_base AS (
 
 treasury_yields AS (
     SELECT
-        date,
+        SAFE_CAST(date AS DATE) AS date,
         bc_10year AS treasury_10y_yield
     FROM {{ ref('stg_treasury_yields') }}
     WHERE bc_10year IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND SAFE_CAST(date AS DATE) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 copper_gold_yield_corr AS (
@@ -408,14 +412,14 @@ fxa_prices AS (
     FROM {{ ref('stg_currency') }}
     WHERE symbol = 'FXA'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
-fxa_spy_ratio AS (
+fxa_spy_ratio_data AS (
     SELECT
         s.date,
         CASE
-            WHEN s.spy_close > 0 THEN f.fxa_close / s.spy_close
+            WHEN s.spy_close > 0 THEN SAFE_DIVIDE(f.fxa_close, s.spy_close)
         END AS fxa_spy_ratio
     FROM spy_prices s
     INNER JOIN fxa_prices f
@@ -430,7 +434,7 @@ fxa_spy_indicators AS (
             ORDER BY date
             ROWS BETWEEN 49 PRECEDING AND CURRENT ROW
         ) AS fxa_spy_sma_50
-    FROM fxa_spy_ratio
+    FROM fxa_spy_ratio_data
 ),
 
 dia_prices AS (
@@ -440,7 +444,7 @@ dia_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'DIA'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 iyt_prices AS (
@@ -450,7 +454,7 @@ iyt_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'IYT'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 dow_theory AS (
@@ -478,14 +482,14 @@ soxx_prices AS (
     FROM {{ ref('stg_major_indices') }}
     WHERE symbol = 'SOXX'
       AND adj_close IS NOT NULL
-      AND date >= CURRENT_DATE - INTERVAL 3 YEAR
+      AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
-soxx_spy_ratio AS (
+soxx_spy_ratio_data AS (
     SELECT
         s.date,
         CASE
-            WHEN s.spy_close > 0 THEN x.soxx_close / s.spy_close
+            WHEN s.spy_close > 0 THEN SAFE_DIVIDE(x.soxx_close, s.spy_close)
         END AS soxx_spy_ratio
     FROM spy_prices s
     INNER JOIN soxx_prices x
@@ -500,7 +504,7 @@ soxx_spy_indicators AS (
             ORDER BY date
             ROWS BETWEEN 199 PRECEDING AND CURRENT ROW
         ) AS soxx_spy_sma_200
-    FROM soxx_spy_ratio
+    FROM soxx_spy_ratio_data
 )
 
 SELECT
@@ -536,7 +540,7 @@ SELECT
     gr.real_yield_10y,
     gr.gold_real_residual,
     CASE
-        WHEN gr.residual_std > 0 THEN (gr.gold_real_residual - gr.residual_avg) / gr.residual_std
+        WHEN gr.residual_std > 0 THEN SAFE_DIVIDE(gr.gold_real_residual - gr.residual_avg, gr.residual_std)
     END AS gold_real_residual_zscore,
 
     iwm.iwm_spy_ratio,
@@ -588,5 +592,5 @@ LEFT JOIN fxa_spy_indicators fxa ON h.date = fxa.date
 LEFT JOIN dow_theory dow ON h.date = dow.date
 LEFT JOIN soxx_spy_indicators soxx ON h.date = soxx.date
 
-WHERE h.date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE h.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY h.date DESC

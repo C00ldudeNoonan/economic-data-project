@@ -17,5 +17,5 @@ SELECT
     price_currency,
     symbol,
     exchange,
-    cast(date AS date) AS date
+    SAFE_CAST(SUBSTR(CAST(date AS STRING), 1, 10) AS DATE) AS date
 FROM {{ source('staging', 'global_markets_raw') }}

@@ -1,14 +1,14 @@
 {{ config(
     unique_key=['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period'],
-    incremental_strategy='delete+insert'
+    incremental_strategy='merge'
 ) }}
 
 WITH snapshot_dates AS (
-    SELECT DISTINCT DATE_TRUNC('month', date) AS snapshot_date
+    SELECT DISTINCT DATE_TRUNC(date, MONTH) AS snapshot_date
     FROM {{ ref('stg_agriculture_commodities') }}
     WHERE date >= '2020-01-01'
     {% if is_incremental() %}
-    AND DATE_TRUNC('month', date) >= COALESCE(
+    AND DATE_TRUNC(date, MONTH) >= COALESCE(
         (SELECT MAX(snapshot_date) FROM {{ this }}),
         DATE '1900-01-01'
     ) - INTERVAL 1 MONTH
@@ -49,8 +49,8 @@ base_data AS (
         price IS NOT NULL
         AND date IS NOT NULL
         AND price > 0
-        AND trade_date <= sd.snapshot_date
-        AND trade_date >= sd.snapshot_date - INTERVAL 5 YEAR
+        AND CAST(date AS DATE) <= sd.snapshot_date
+        AND CAST(date AS DATE) >= sd.snapshot_date - INTERVAL 5 YEAR
 ),
 
 date_boundaries AS (

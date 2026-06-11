@@ -60,7 +60,7 @@ spy_prices AS (
 -- Get all unique dates where we have at least gold or SPY data
 all_dates AS (
     SELECT DISTINCT date FROM gold_prices
-    UNION
+    UNION DISTINCT
     SELECT DISTINCT date FROM spy_prices
 ),
 
@@ -163,5 +163,5 @@ SELECT
     END AS oil_trend_signal
 
 FROM with_calculations
-WHERE date >= CURRENT_DATE - INTERVAL 2 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 YEAR)
 ORDER BY date DESC

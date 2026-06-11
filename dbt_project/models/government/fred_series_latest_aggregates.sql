@@ -1,24 +1,24 @@
 WITH date_bounds AS (
     SELECT
-        CURRENT_DATE AS end_date,
-        CURRENT_DATE - INTERVAL 12 MONTH AS start_date
+        CURRENT_DATE() AS end_date,
+        DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH) AS start_date
 ),
 
 series_dates AS (
     SELECT
         series_code,
         series_name,
-        LAG(CAST(NULLIF(value, '.') AS FLOAT), -2)
+        LAG(fred_data.value, -2)
             OVER (PARTITION BY series_code ORDER BY date DESC)
             AS previous_date,
-        LAG(CAST(NULLIF(value, '.') AS FLOAT), -3)
+        LAG(fred_data.value, -3)
             OVER (PARTITION BY series_code ORDER BY date DESC)
             AS two_events_ago
     FROM {{ ref('stg_fred_series') }} AS fred_data, date_bounds AS d
     WHERE fred_data.date >= d.start_date AND fred_data.date <= d.end_date
 ),
 
-date_grain AS (
+series_grain AS (
     SELECT
         s.series_code,
         s.series_name,
@@ -44,20 +44,20 @@ aggregates AS (
     SELECT
         fred_data.series_code,
         fred_data.series_name,
-        date_grain.date_grain,
-        DATE_TRUNC('month', fred_data.date) AS month,
-        ROUND(AVG(CAST(NULLIF(fred_data.value, '.') AS FLOAT)), 4)
+        series_grain.date_grain,
+        DATE_TRUNC(fred_data.date, MONTH) AS month,
+        ROUND(AVG(fred_data.value), 4)
             AS clean_value
     FROM {{ ref('stg_fred_series') }} AS fred_data
-    LEFT JOIN date_grain
-        ON fred_data.series_code = date_grain.series_code
-    WHERE date_grain.date_grain IN ('Daily', 'Monthly', 'Quarterly', 'Weekly')
+    LEFT JOIN series_grain
+        ON fred_data.series_code = series_grain.series_code
+    WHERE series_grain.date_grain IN ('Daily', 'Monthly', 'Quarterly', 'Weekly')
     GROUP BY
-        DATE_TRUNC('month', fred_data.date),
+        DATE_TRUNC(fred_data.date, MONTH),
         fred_data.series_code,
-        date_grain.date_grain,
+        series_grain.date_grain,
         fred_data.series_name
-    ORDER BY DATE_TRUNC('month', fred_data.date) DESC
+    ORDER BY DATE_TRUNC(fred_data.date, MONTH) DESC
 ),
 
 date_ranges AS (
@@ -114,7 +114,7 @@ max_date_view AS (
 
     FROM calc_view
     GROUP BY
-        series_code,
+        series_code
 ),
 
 final AS (
@@ -126,15 +126,12 @@ final AS (
         calc_view.pct_change_3m,
         calc_view.pct_change_6m,
         calc_view.pct_change_1y,
-        date_grain.date_grain
+        calc_view.date_grain
     FROM calc_view
     INNER JOIN max_date_view
         ON
             calc_view.series_code = max_date_view.series_code
             AND calc_view.month = max_date_view.month
-    LEFT JOIN date_grain
-        ON calc_view.series_code = date_grain.series_code
-
 )
 
 SELECT * FROM final

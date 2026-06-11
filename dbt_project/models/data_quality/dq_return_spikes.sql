@@ -9,12 +9,12 @@
 
 {% for table_name in tables %}
 (
-with {{ table_name }}_returns as (
-    select
-        symbol,
-        cast(date as date) as date,
-        close,
-        open,
+	with {{ table_name }}_returns as (
+	    select
+	        symbol,
+	        safe_cast(substr(cast(date as string), 1, 10) as date) as date,
+	        close,
+	        open,
         high,
         low,
         lag(close) over (partition by symbol order by date) as prev_close,

@@ -20,27 +20,21 @@ WITH regime_history AS (
 ),
 
 regime_mapping AS (
-    SELECT
-        t.*
-    FROM (
-        VALUES
-            ('Expansion', 'Neutral', 'Overweight', 'Neutral', 'Underweight', 'Neutral',
-             'Momentum tends to lead in sustained expansions.'),
-            ('Slowdown', 'Overweight', 'Neutral', 'Overweight', 'Neutral', 'Neutral',
-             'Value and financial strength tend to outperform late-cycle.'),
-            ('Contraction', 'Neutral', 'Underweight', 'Overweight', 'Overweight', 'Underweight',
-             'Quality and low volatility typically hold up best in recessions.'),
-            ('Recovery', 'Overweight', 'Neutral', 'Neutral', 'Underweight', 'Overweight',
-             'Early recoveries favor value and size as risk appetite returns.')
-    ) AS t (
-        regime,
-        value_tilt,
-        momentum_tilt,
-        quality_tilt,
-        low_vol_tilt,
-        size_tilt,
-        notes
-    )
+    SELECT *
+    FROM UNNEST([
+        STRUCT(
+            'Expansion' AS regime,
+            'Neutral' AS value_tilt,
+            'Overweight' AS momentum_tilt,
+            'Neutral' AS quality_tilt,
+            'Underweight' AS low_vol_tilt,
+            'Neutral' AS size_tilt,
+            'Momentum tends to lead in sustained expansions.' AS notes
+        ),
+        STRUCT('Slowdown', 'Overweight', 'Neutral', 'Overweight', 'Neutral', 'Neutral', 'Value and financial strength tend to outperform late-cycle.'),
+        STRUCT('Contraction', 'Neutral', 'Underweight', 'Overweight', 'Overweight', 'Underweight', 'Quality and low volatility typically hold up best in recessions.'),
+        STRUCT('Recovery', 'Overweight', 'Neutral', 'Neutral', 'Underweight', 'Overweight', 'Early recoveries favor value and size as risk appetite returns.')
+    ])
 )
 
 SELECT

@@ -16,24 +16,24 @@
 
 WITH housing_starts AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS starts
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'HOUST'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 building_permits AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS permits
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'PERMIT'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 mortgage_rate AS (
@@ -48,22 +48,22 @@ mortgage_rate AS (
 
 mortgage_monthly AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         AVG(rate_30y) AS avg_mortgage_rate,
         MAX(rate_30y) AS max_mortgage_rate
     FROM mortgage_rate
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 months_supply AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS months_of_supply
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'MSACSR'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 combined AS (
@@ -150,5 +150,5 @@ SELECT
     END AS supply_status
 
 FROM with_trends
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

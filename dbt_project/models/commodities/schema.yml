@@ -6,7 +6,7 @@ models:
     tests:
       - unique_combination:
           arguments:
-            combination_of_columns: ['commodity_name', 'time_period']
+            combination_of_columns: ['commodity_name', 'commodity_unit', 'time_period']
     columns:
       - name: commodity_name
         description: "Name of the commodity"
@@ -44,7 +44,7 @@ models:
     tests:
       - unique_combination:
           arguments:
-            combination_of_columns: ['commodity_name', 'time_period']
+            combination_of_columns: ['commodity_name', 'commodity_unit', 'time_period']
     columns:
       - name: commodity_name
         description: "Name of the commodity"
@@ -82,7 +82,7 @@ models:
     tests:
       - unique_combination:
           arguments:
-            combination_of_columns: ['commodity_name', 'time_period']
+            combination_of_columns: ['commodity_name', 'commodity_unit', 'time_period']
     columns:
       - name: commodity_name
         description: "Name of the commodity"
@@ -294,4 +294,3 @@ models:
         description: Standard deviation of daily price differences over the past 1 month
       - name: pct_change_1mo
         description: Percentage change from 1 month ago to current price
-

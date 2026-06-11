@@ -1,6 +1,6 @@
 SELECT
-    fr.date,
-    fr.value,
+    CAST(fr.date AS DATE) AS date,
+    SAFE_CAST(NULLIF(fr.value, '.') AS FLOAT64) AS value,
     fr.series_code,
     fr.literal,
     map.series_name,

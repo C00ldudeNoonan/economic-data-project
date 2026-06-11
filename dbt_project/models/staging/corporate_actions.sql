@@ -40,39 +40,46 @@ WITH splits_api AS (
 -- factors (e.g. 1.01) where normal daily volatility could match.
 splits_api_adjusted AS (
     SELECT
-        sa.source_table,
-        sa.symbol,
+        source_table,
+        symbol,
         CASE
-            WHEN sa.split_factor >= 1.2
-                 AND p.prev_close IS NOT NULL
-                 AND p.prev_close > 0
-                 AND p.open > 0
+            WHEN split_factor >= 1.2
+                 AND prev_close IS NOT NULL
+                 AND prev_close > 0
+                 AND open > 0
                  AND ABS(
-                     p.open / p.prev_close - 1.0 / sa.split_factor
-                 ) / (1.0 / sa.split_factor) < 0.10
-            THEN p.date  -- shift to the day-before date
-            ELSE sa.date
+                     open / prev_close - 1.0 / split_factor
+                 ) / (1.0 / split_factor) < 0.10
+            THEN prior_price_date  -- shift to the day-before date
+            ELSE date
         END AS date,
-        sa.action_type,
-        sa.split_factor,
-        sa.dividend_amount,
-        sa.detection_method
-    FROM splits_api AS sa
-    LEFT JOIN (
+        action_type,
+        split_factor,
+        dividend_amount,
+        detection_method
+    FROM (
         SELECT
-            symbol,
-            CAST(date AS DATE) AS date,
-            open,
-            LAG(close) OVER (PARTITION BY symbol ORDER BY date) AS prev_close
-        FROM {{ ref('stg_sp500_companies_prices') }}
-    ) AS p
-        ON sa.symbol = p.symbol
-        AND p.date = (
-            SELECT MAX(CAST(d.date AS DATE))
-            FROM {{ ref('stg_sp500_companies_prices') }} AS d
-            WHERE d.symbol = sa.symbol
-              AND CAST(d.date AS DATE) < sa.date
-        )
+            sa.*,
+            p.date AS prior_price_date,
+            p.open,
+            p.prev_close,
+            ROW_NUMBER() OVER (
+                PARTITION BY sa.source_table, sa.symbol, sa.date, sa.action_type
+                ORDER BY p.date DESC
+            ) AS prior_price_rank
+        FROM splits_api AS sa
+        LEFT JOIN (
+            SELECT
+                symbol,
+                CAST(date AS DATE) AS date,
+                open,
+                LAG(close) OVER (PARTITION BY symbol ORDER BY date) AS prev_close
+            FROM {{ ref('stg_sp500_companies_prices') }}
+        ) AS p
+            ON sa.symbol = p.symbol
+            AND p.date < sa.date
+    )
+    WHERE prior_price_rank = 1
 ),
 
 -- Collect all OHLC-based split and dividend detections
@@ -170,25 +177,29 @@ UNION ALL
 -- the authoritative date by 1+ days when raw prices were already post-split.
 SELECT o.*
 FROM ohlc_based AS o
-LEFT JOIN splits_api_adjusted AS s
-    ON o.source_table = s.source_table
-    AND o.symbol = s.symbol
-    AND o.action_type = 'split'
-    AND s.action_type = 'split'
-    AND ABS(DATEDIFF('day', o.date, s.date)) <= 5
 WHERE o.detection_method != 'heuristic'
-  AND s.symbol IS NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM splits_api_adjusted AS s
+      WHERE o.source_table = s.source_table
+        AND o.symbol = s.symbol
+        AND o.action_type = 'split'
+        AND s.action_type = 'split'
+        AND ABS(DATE_DIFF(o.date, s.date, DAY)) <= 5
+  )
 
 UNION ALL
 
 -- heuristic rows: wider ±5 day window dedup against splits_api_adjusted
 SELECT o.*
 FROM ohlc_based AS o
-LEFT JOIN splits_api_adjusted AS s
-    ON o.source_table = s.source_table
-    AND o.symbol = s.symbol
-    AND o.action_type = 'split'
-    AND s.action_type = 'split'
-    AND ABS(DATEDIFF('day', o.date, s.date)) <= 5
 WHERE o.detection_method = 'heuristic'
-  AND s.symbol IS NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM splits_api_adjusted AS s
+      WHERE o.source_table = s.source_table
+        AND o.symbol = s.symbol
+        AND o.action_type = 'split'
+        AND s.action_type = 'split'
+        AND ABS(DATE_DIFF(o.date, s.date, DAY)) <= 5
+  )

@@ -16,46 +16,46 @@
 
 WITH m2_data AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS m2_level
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'M2SL'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 m1_data AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS m1_level
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'M1SL'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 business_loans AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS busloans
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'BUSLOANS'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 total_credit AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS total_consumer_credit
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'TOTALSL'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 -- M2 Velocity (quarterly data)
@@ -86,13 +86,13 @@ velocity_with_trend AS (
 -- Fed Balance Sheet (weekly -> monthly)
 walcl_data AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         AVG(literal) AS walcl_avg
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'WALCL'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 walcl_with_changes AS (
@@ -107,13 +107,13 @@ walcl_with_changes AS (
 -- Reverse Repo (daily -> monthly)
 rrp_data AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         AVG(literal) AS rrp_avg
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'RRPONTSYD'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 rrp_with_changes AS (
@@ -227,5 +227,5 @@ SELECT
 
 FROM with_growth wg
 CROSS JOIN velocity_with_trend vt
-WHERE wg.date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE wg.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY wg.date DESC

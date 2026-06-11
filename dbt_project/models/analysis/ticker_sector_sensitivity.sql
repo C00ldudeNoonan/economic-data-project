@@ -9,20 +9,20 @@
 
 -- Mapping from GICS sector names to sector ETF symbols
 WITH sector_etf_mapping AS (
-    SELECT sector_etf_mapping.*
-    FROM (VALUES
-        ('Information Technology', 'XLK', 'Technology'),
-        ('Communication Services', 'XLC', 'Communication Services'),
-        ('Consumer Discretionary', 'XLY', 'Consumer Discretionary'),
-        ('Financials', 'XLF', 'Financial'),
-        ('Industrials', 'XLI', 'Industrial'),
-        ('Utilities', 'XLU', 'Utilities'),
-        ('Consumer Staples', 'XLP', 'Consumer Staples'),
-        ('Real Estate', 'XLRE', 'Real Estate'),
-        ('Materials', 'XLB', 'Materials'),
-        ('Energy', 'XLE', 'Energy'),
-        ('Health Care', 'XLV', 'Health Care')
-    ) AS sector_etf_mapping (gics_sector, etf_symbol, sector_display_name)
+    SELECT *
+    FROM UNNEST([
+        STRUCT('Information Technology' AS gics_sector, 'XLK' AS etf_symbol, 'Technology' AS sector_display_name),
+        STRUCT('Communication Services', 'XLC', 'Communication Services'),
+        STRUCT('Consumer Discretionary', 'XLY', 'Consumer Discretionary'),
+        STRUCT('Financials', 'XLF', 'Financial'),
+        STRUCT('Industrials', 'XLI', 'Industrial'),
+        STRUCT('Utilities', 'XLU', 'Utilities'),
+        STRUCT('Consumer Staples', 'XLP', 'Consumer Staples'),
+        STRUCT('Real Estate', 'XLRE', 'Real Estate'),
+        STRUCT('Materials', 'XLB', 'Materials'),
+        STRUCT('Energy', 'XLE', 'Energy'),
+        STRUCT('Health Care', 'XLV', 'Health Care')
+    ])
 ),
 
 -- Get S&P 500 company metadata with sector info
@@ -86,8 +86,8 @@ sector_sensitivity_agg AS (
         COUNT(*) AS n_sensitive_indicators,
         AVG(sensitivity_score) AS avg_sensitivity_score,
         MAX(sensitivity_score) AS max_sensitivity_score,
-        STRING_AGG(DISTINCT series_code, ', ' ORDER BY sensitivity_score DESC) AS top_indicator_codes,
-        STRING_AGG(DISTINCT series_name, '; ' ORDER BY sensitivity_score DESC) AS top_indicator_names
+        STRING_AGG(series_code, ', ' ORDER BY sensitivity_score DESC) AS top_indicator_codes,
+        STRING_AGG(series_name, '; ' ORDER BY sensitivity_score DESC) AS top_indicator_names
     FROM sector_top_indicators
     GROUP BY sector_etf
 )

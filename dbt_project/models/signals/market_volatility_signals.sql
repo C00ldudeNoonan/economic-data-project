@@ -47,7 +47,7 @@ returns AS (
         adj_high,
         adj_low,
         adj_close,
-        (adj_close / LAG(adj_close) OVER (PARTITION BY symbol ORDER BY date) - 1.0) AS daily_return
+        (SAFE_DIVIDE(adj_close, LAG(adj_close) OVER (PARTITION BY symbol ORDER BY date)) - 1.0) AS daily_return
     FROM price_base
 ),
 
@@ -66,8 +66,8 @@ vol_inputs AS (
             ORDER BY date
             ROWS BETWEEN 29 PRECEDING AND CURRENT ROW
         ) * SQRT(252) * 100 AS realized_vol_30d,
-        LN(adj_high / adj_low) AS log_hl,
-        LN(adj_close / NULLIF(adj_open, 0)) AS log_co
+        LN(SAFE_DIVIDE(adj_high, adj_low)) AS log_hl,
+        LN(SAFE_DIVIDE(adj_close, adj_open)) AS log_co
     FROM returns
     WHERE adj_high > 0
       AND adj_low > 0
@@ -142,7 +142,7 @@ SELECT
     v.vix_prev_close,
     v.vix_close - v.vix_prev_close AS vix_daily_change,
     CASE
-        WHEN v.vix_prev_close > 0 THEN ((v.vix_close - v.vix_prev_close) / v.vix_prev_close) * 100
+        WHEN v.vix_prev_close > 0 THEN SAFE_DIVIDE(v.vix_close - v.vix_prev_close, v.vix_prev_close) * 100
         ELSE 0
     END AS vix_daily_change_pct,
     spy.realized_vol_20d AS spy_realized_vol_20d,
@@ -164,5 +164,5 @@ SELECT
 FROM vix_stats v
 LEFT JOIN spy ON v.date = spy.date
 LEFT JOIN qqq ON v.date = qqq.date
-WHERE v.date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE v.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY v.date DESC

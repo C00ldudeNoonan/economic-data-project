@@ -53,50 +53,53 @@ filtered_data AS (
 period_boundaries AS (
     SELECT
         symbol,
-        asset_type,
         time_period,
         MIN(trade_date) AS period_start_date,
         MAX(trade_date) AS period_end_date
     FROM filtered_data
     WHERE time_period != 'older'
-    GROUP BY symbol, asset_type, time_period
+    GROUP BY symbol, time_period
 ),
 
 start_prices AS (
     SELECT
         pb.symbol,
-        pb.asset_type,
         pb.time_period,
         fd.adj_open AS period_start_price
     FROM period_boundaries AS pb
     INNER JOIN filtered_data AS fd ON
         pb.symbol = fd.symbol
-        AND pb.asset_type = fd.asset_type
         AND pb.time_period = fd.time_period
         AND pb.period_start_date = fd.trade_date
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY pb.symbol, pb.time_period
+        ORDER BY fd.trade_date ASC, fd.adj_open ASC
+    ) = 1
 ),
 
 end_prices AS (
     SELECT
         pb.symbol,
-        pb.asset_type,
         pb.time_period,
         fd.adj_close AS period_end_price
     FROM period_boundaries AS pb
     INNER JOIN filtered_data AS fd ON
         pb.symbol = fd.symbol
-        AND pb.asset_type = fd.asset_type
         AND pb.time_period = fd.time_period
         AND pb.period_end_date = fd.trade_date
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY pb.symbol, pb.time_period
+        ORDER BY fd.trade_date DESC, fd.adj_close DESC
+    ) = 1
 ),
 
 aggregated_results AS (
     SELECT
         symbol,
-        asset_type,
+        ARRAY_AGG(asset_type ORDER BY trade_date DESC LIMIT 1)[SAFE_OFFSET(0)] AS asset_type,
         time_period,
-        exchange,
-        name,
+        ARRAY_AGG(exchange ORDER BY trade_date DESC LIMIT 1)[SAFE_OFFSET(0)] AS exchange,
+        ARRAY_AGG(name ORDER BY trade_date DESC LIMIT 1)[SAFE_OFFSET(0)] AS name,
         MIN(trade_date) AS period_start_date,
         MAX(trade_date) AS period_end_date,
         COUNT(*) AS trading_days,
@@ -125,10 +128,7 @@ aggregated_results AS (
     WHERE time_period != 'older'
     GROUP BY
         symbol,
-        asset_type,
-        time_period,
-        exchange,
-        name
+        time_period
 ),
 
 combined_results AS (
@@ -140,11 +140,9 @@ combined_results AS (
     LEFT JOIN start_prices AS sp
         ON
             ar.symbol = sp.symbol
-            AND ar.asset_type = sp.asset_type
             AND ar.time_period = sp.time_period
     LEFT JOIN end_prices AS ep ON
         ar.symbol = ep.symbol
-        AND ar.asset_type = ep.asset_type
         AND ar.time_period = ep.time_period
 ),
 
@@ -192,6 +190,10 @@ SELECT
     ROUND(period_start_price, 2) AS period_start_price,
     ROUND(period_end_price, 2) AS period_end_price
 FROM final_metrics
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY symbol, time_period
+    ORDER BY period_end_date DESC, period_start_date DESC
+) = 1
 ORDER BY
     time_period,
     asset_type,

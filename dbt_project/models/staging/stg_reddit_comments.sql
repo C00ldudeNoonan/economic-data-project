@@ -27,7 +27,7 @@ cleaned as (
         coalesce(links != '' and links is not null, false) as has_links,
         coalesce(author = '[deleted]', false) as is_deleted,
         -- Is this a top-level comment (reply to post, not another comment)?
-        coalesce(parent_id like 't3\_%' escape '\', false) as is_top_level,
+        coalesce(starts_with(parent_id, 't3_'), false) as is_top_level,
         -- Engagement bucket
         case
             when score >= 50 then 'high'

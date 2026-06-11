@@ -2,7 +2,7 @@ select
     data_type_code as data_code,
     seasonally_adj,
     category_code,
-    cast(cell_value as float) as series_value,
+    cast(cell_value as float64) as series_value,
     error_data,
     time,
     series_name,

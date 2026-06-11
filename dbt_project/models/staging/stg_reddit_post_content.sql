@@ -42,7 +42,7 @@ cleaned as (
     left join posts p on s.post_id = p.post_id
     where
         -- Filter out ads that may have slipped through
-        lower(s.subreddit) not like 'u\_%' escape '\'
+        not starts_with(lower(s.subreddit), 'u_')
 )
 
 select * from cleaned
