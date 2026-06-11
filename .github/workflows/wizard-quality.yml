@@ -1,0 +1,137 @@
+name: "Wizard — quality and uptime"
+
+on:
+  repository_dispatch:
+    types: [dbt-job-failure]
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "dbt platform run ID to investigate"
+        required: false
+        type: string
+
+concurrency:
+  group: wizard-loop-2
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  quality-loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dbt Wizard CLI
+        run: curl -fsSL https://cli.getdbt.com/install-wizard.sh | bash
+
+      - name: Resolve run ID
+        id: run
+        run: |
+          RUN_ID=""
+          if [[ -n "${{ inputs.run_id }}" ]]; then
+            RUN_ID="${{ inputs.run_id }}"
+          elif [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            RUN_ID="${{ github.event.client_payload.run_id }}"
+          fi
+          echo "id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Triage (gpt-5.4-mini)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_CONTEXT=""
+          if [[ -n "${{ steps.run.outputs.id }}" ]]; then
+            RUN_CONTEXT="Also investigate dbt run ID: ${{ steps.run.outputs.id }}."
+          fi
+
+          wizard exec \
+            -m gpt-5.4-mini \
+            --json \
+            -o triage-output.md \
+            "You are an autonomous dbt quality agent running in CI. Do not ask for user input.
+
+          Reference AGENTS.md for incident triage severity levels and common failure patterns.
+          Working with the dbt project at ./dbt_project/.
+
+          ${RUN_CONTEXT}
+
+          Steps:
+          1. Read health/triage.md for current state.
+          2. Check the dbt project for: failing tests, stale models, models with no tests,
+             broken contracts. Use dbt ls and dbt test --no-run if available.
+          3. Classify each finding as P1/P2/P3 per AGENTS.md 'Pipeline Incident Triage'.
+          4. De-duplicate against existing findings in health/triage.md.
+          5. Write new findings to health/triage.md and append to health/uptime-log.md.
+
+          Output a summary table of findings with severity and status." \
+          2>&1 | tee triage-log.jsonl
+
+          echo "::group::Triage output"
+          cat triage-output.md 2>/dev/null || echo "No output"
+          echo "::endgroup::"
+
+          echo "::group::Token usage"
+          grep -o '"usage":{[^}]*}' triage-log.jsonl 2>/dev/null | tail -5 || true
+          echo "::endgroup::"
+
+      - name: Commit triage state
+        run: |
+          git config user.name "dbt-wizard[bot]"
+          git config user.email "wizard@users.noreply.github.com"
+          git add health/ requests/ || true
+          git diff --cached --quiet || git commit -m "wizard: update triage state [loop-2]"
+          git push || true
+
+      - name: Investigate and fix (gpt-5.4-mini)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          wizard exec \
+            -m gpt-5.4-mini \
+            -s workspace-write \
+            --json \
+            -o fix-output.md \
+            "You are an autonomous dbt quality agent running in CI. Do not ask for user input.
+
+          Reference AGENTS.md for fix risk classification and common failure patterns.
+          Reference .claude/skills/dbt-development/dbt_skill.md for dbt conventions.
+          Working with the dbt project at ./dbt_project/.
+
+          Steps:
+          1. Read health/triage.md. For each P1 or P2 finding with status 'new':
+             - Trace lineage to identify root cause.
+             - Write investigation to health/investigations/<id>.md.
+             - Update health/triage.md status.
+          2. For each investigated finding rated low or medium risk (per AGENTS.md):
+             - Implement the fix.
+             - Run dbt compile to validate.
+             - Commit to a branch and open a PR labeled 'wizard-auto-fix'.
+             - For medium risk: make it a draft PR with 'needs-review' label.
+          3. For high-risk findings: write to health/needs-human/<id>.md.
+
+          Output a summary of investigations, fixes applied, and PRs opened." \
+          2>&1 | tee fix-log.jsonl
+
+          echo "::group::Fix output"
+          cat fix-output.md 2>/dev/null || echo "No output"
+          echo "::endgroup::"
+
+          echo "::group::Token usage"
+          grep -o '"usage":{[^}]*}' fix-log.jsonl 2>/dev/null | tail -5 || true
+          echo "::endgroup::"
+
+      - name: Commit fix state
+        run: |
+          git add health/ requests/ || true
+          git diff --cached --quiet || git commit -m "wizard: update investigation state [loop-2]"
+          git push || true
