@@ -1,0 +1,112 @@
+version: 2
+
+semantic_models:
+  - name: commodity_daily_prices
+    description: >
+      Daily spot prices and rolling returns for industrial/input commodities
+      (e.g. crude oil, natural gas, copper, aluminum).
+      Grain: one row per commodity per unit per trading day.
+    model: ref('input_commodities_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
+    entities:
+      - name: commodity
+        type: primary
+        expr: "commodity_name || '|' || commodity_unit"
+    dimensions:
+      - name: trade_date
+        type: time
+        type_params:
+          time_granularity: day
+        expr: date
+      - name: commodity_name
+        type: categorical
+      - name: commodity_unit
+        type: categorical
+    measures:
+      - name: spot_price
+        agg: max
+        expr: current_price
+        description: Daily spot price in commodity_unit terms
+      - name: commodity_return_1mo
+        agg: average
+        expr: pct_change_1mo
+      - name: commodity_return_3mo
+        agg: average
+        expr: pct_change_3mo
+      - name: commodity_return_6mo
+        agg: average
+        expr: pct_change_6mo
+      - name: commodity_return_1yr
+        agg: average
+        expr: pct_change_1yr
+      - name: commodity_price_std_1yr
+        agg: average
+        expr: std_diff_1yr
+        description: 1-year standard deviation of daily price changes
+
+  - name: energy_commodity_prices
+    description: >
+      Daily spot prices and rolling returns for energy commodities
+      (crude oil, natural gas, gasoline, heating oil).
+      Grain: one row per commodity per unit per trading day.
+    model: ref('energy_commodities_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
+    entities:
+      - name: energy_commodity
+        type: primary
+        expr: "commodity_name || '|' || commodity_unit"
+    dimensions:
+      - name: trade_date
+        type: time
+        type_params:
+          time_granularity: day
+        expr: date
+      - name: commodity_name
+        type: categorical
+      - name: commodity_unit
+        type: categorical
+    measures:
+      - name: energy_spot_price
+        agg: max
+        expr: current_price
+      - name: energy_return_1mo
+        agg: average
+        expr: pct_change_1mo
+      - name: energy_return_1yr
+        agg: average
+        expr: pct_change_1yr
+
+  - name: agriculture_commodity_prices
+    description: >
+      Daily spot prices and rolling returns for agricultural commodities
+      (corn, wheat, soybeans, etc.).
+      Grain: one row per commodity per unit per trading day.
+    model: ref('agriculture_commodities_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
+    entities:
+      - name: agri_commodity
+        type: primary
+        expr: "commodity_name || '|' || commodity_unit"
+    dimensions:
+      - name: trade_date
+        type: time
+        type_params:
+          time_granularity: day
+        expr: date
+      - name: commodity_name
+        type: categorical
+      - name: commodity_unit
+        type: categorical
+    measures:
+      - name: agri_spot_price
+        agg: max
+        expr: current_price
+      - name: agri_return_1mo
+        agg: average
+        expr: pct_change_1mo
+      - name: agri_return_1yr
+        agg: average
+        expr: pct_change_1yr

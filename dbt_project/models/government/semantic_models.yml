@@ -1,0 +1,42 @@
+version: 2
+
+semantic_models:
+  - name: economic_indicators
+    description: >
+      Monthly FRED economic indicator values with period-over-period change.
+      Grain: one row per series_code per month.
+      Covers: GDP, CPI, PCE, unemployment rate, Fed funds rate, housing starts,
+      industrial production, and 100+ other macro series.
+    model: ref('fred_monthly_diff')
+    defaults:
+      agg_time_dimension: observation_date
+    entities:
+      - name: fred_series
+        type: primary
+        expr: "series_code || '|' || CAST(date AS VARCHAR)"
+    dimensions:
+      - name: observation_date
+        type: time
+        type_params:
+          time_granularity: month
+        expr: date
+      - name: series_code
+        type: categorical
+        description: FRED series identifier (e.g. UNRATE, FEDFUNDS, CPIAUCSL)
+      - name: series_name
+        type: categorical
+        description: Human-readable series name
+      - name: data_source
+        type: categorical
+    measures:
+      - name: indicator_value
+        agg: max
+        expr: value
+        description: Series value for the observation period
+      - name: indicator_mom_change
+        agg: max
+        expr: period_diff
+        description: Absolute month-over-month change in indicator value
+      - name: series_count
+        agg: count_distinct
+        expr: series_code

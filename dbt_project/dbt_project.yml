@@ -40,6 +40,9 @@ models:
     signals:
       +schema: economics_signals
       +materialized: table
+    semantic_layer:
+      +schema: economics_marts
+      +materialized: table
     agents_preprocess:
       +schema: economics_analysis
       +materialized: view

@@ -1,0 +1,129 @@
+version: 2
+
+saved_queries:
+
+  - name: equity_performance_by_symbol
+    label: Equity Performance by Symbol
+    description: >
+      1-month, 6-month, and 1-year trailing returns for each S&P 500 symbol
+      as of the most recent trading day. Use this to rank stocks by momentum
+      or identify outlier performers.
+    query_params:
+      metrics:
+        - avg_return_1mo
+        - avg_return_6mo
+        - avg_return_1yr
+        - max_close_price
+        - annualized_volatility_ratio
+      group_by:
+        - "Dimension('stock__symbol')"
+        - "Dimension('stock__exchange')"
+
+  - name: sector_relative_performance
+    label: Sector Relative Performance
+    description: >
+      1-month and 1-year returns for US sector ETFs. Useful for sector
+      rotation analysis — which sectors are leading/lagging the broad market?
+    query_params:
+      metrics:
+        - sector_avg_return_1mo
+        - sector_avg_return_1yr
+        - sector_volatility_proxy
+        - sector_max_close_price
+      group_by:
+        - "Dimension('sector_etf__symbol')"
+
+  - name: currency_performance_by_pair
+    label: Currency Performance by Pair
+    description: >
+      Spot rate plus 1-month and 1-year FX returns for each currency pair.
+      Useful for dollar strength, carry proxy, and cross-asset macro checks.
+    query_params:
+      metrics:
+        - fx_spot_rate
+        - fx_return_1mo
+        - fx_return_1yr
+      group_by:
+        - "Dimension('currency_pair__symbol')"
+        - "Dimension('currency_pair__exchange')"
+
+  - name: fixed_income_performance_by_instrument
+    label: Fixed Income Performance by Instrument
+    description: >
+      Price, 1-month return, 1-year return, and volatility proxy for fixed income
+      instruments. Useful for duration, rates, and risk-off regime analysis.
+    query_params:
+      metrics:
+        - bond_max_price
+        - bond_return_1mo
+        - bond_return_1yr
+        - bond_volatility_proxy
+      group_by:
+        - "Dimension('bond_instrument__symbol')"
+        - "Dimension('bond_instrument__exchange')"
+
+  - name: inflation_dashboard
+    label: Inflation Dashboard
+    description: >
+      Monthly CPI, core PCE, and breakeven inflation readings over the past
+      2 years. Core inputs for assessing Fed policy stance.
+    query_params:
+      metrics:
+        - cpi_yoy
+        - cpi_3m_annualized
+        - inflation_momentum
+        - core_pce_yoy
+        - pce_above_target
+        - breakeven_inflation_5y
+        - breakeven_inflation_10y
+        - breakeven_term_spread
+      group_by:
+        - "TimeDimension('inflation_month__signal_date', 'month')"
+
+  - name: labor_market_dashboard
+    label: Labor Market Dashboard
+    description: >
+      Monthly labor market composite: Sahm Rule, job openings/unemployed ratio,
+      unemployment rate, quits rate, and initial claims. Core inputs for
+      assessing recession risk and Fed dual-mandate.
+    query_params:
+      metrics:
+        - unemployment_rate
+        - labor_market_tightness
+        - labor_tightness_momentum
+        - sahm_rule_indicator
+        - worker_confidence
+        - initial_claims
+        - employment_population_ratio
+        - unrate_3m_momentum
+      group_by:
+        - "TimeDimension('labor_month__signal_date', 'month')"
+
+  - name: macro_indicators_by_series
+    label: Macro Indicators by FRED Series
+    description: >
+      Latest value and month-over-month change for each FRED economic series.
+      Use this to scan across GDP, rates, housing, and employment indicators
+      in a single query. Filter by series_code to drill into a specific indicator.
+    query_params:
+      metrics:
+        - fred_indicator_value
+        - fred_mom_change
+      group_by:
+        - "Dimension('fred_series__series_code')"
+        - "Dimension('fred_series__series_name')"
+        - "TimeDimension('fred_series__observation_date', 'month')"
+
+  - name: commodity_price_overview
+    label: Commodity Price Overview
+    description: >
+      1-month and 1-year returns for input commodities. Useful for tracking
+      cost-of-production pressures and upstream inflation signals.
+    query_params:
+      metrics:
+        - commodity_spot_price
+        - commodity_return_1mo
+        - commodity_return_1yr
+      group_by:
+        - "Dimension('commodity__commodity_name')"
+        - "Dimension('commodity__commodity_unit')"
