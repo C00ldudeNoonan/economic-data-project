@@ -6,6 +6,8 @@ semantic_models:
       Daily OHLCV price data and rolling returns for S&P 500 companies.
       Grain: one row per symbol per exchange per trading day.
     model: ref('sp500_companies_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
     entities:
       - name: stock
         type: primary
@@ -70,6 +72,8 @@ semantic_models:
       Daily OHLCV price data and rolling returns for US sector ETFs.
       Grain: one row per sector symbol per exchange per trading day.
     model: ref('us_sector_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
     entities:
       - name: sector_etf
         type: primary
@@ -109,6 +113,8 @@ semantic_models:
       Daily forex exchange rates and rolling returns.
       Grain: one row per currency pair per trading day.
     model: ref('currency_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
     entities:
       - name: currency_pair
         type: primary
@@ -139,6 +145,8 @@ semantic_models:
       Daily price data and rolling returns for fixed income instruments (bonds, Treasuries).
       Grain: one row per symbol per exchange per trading day.
     model: ref('fixed_income_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
     entities:
       - name: bond_instrument
         type: primary

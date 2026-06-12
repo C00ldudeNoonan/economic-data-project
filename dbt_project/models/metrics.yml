@@ -6,9 +6,11 @@ metrics:
   # EQUITY MARKET METRICS
   # ============================================================
 
-  - name: avg_close_price
-    label: Average Close Price
-    description: Average daily closing price across selected symbols and time range.
+  - name: max_close_price
+    label: Max Close Price
+    description: >
+      Maximum daily closing price across the selected symbols and time range.
+      Group by stock and trade_date for point-in-time close price analysis.
     type: simple
     type_params:
       measure:
@@ -81,7 +83,7 @@ metrics:
       numerator:
         name: price_volatility_proxy
       denominator:
-        name: avg_close_price
+        name: max_close_price
 
   - name: unique_symbols
     label: Distinct Symbols
@@ -118,6 +120,84 @@ metrics:
     type_params:
       measure:
         name: sector_price_std_1yr
+
+  - name: sector_max_close_price
+    label: Sector Max Close Price
+    description: >
+      Maximum daily closing price for sector ETFs across the selected time range.
+      Group by sector ETF and trade_date for point-in-time price analysis.
+    type: simple
+    type_params:
+      measure:
+        name: sector_close_price
+
+  # ============================================================
+  # CURRENCY METRICS
+  # ============================================================
+
+  - name: fx_spot_rate
+    label: FX Spot Rate
+    description: >
+      Maximum daily FX rate across the selected currency pairs and time range.
+      Group by currency pair and trade_date for point-in-time rates.
+    type: simple
+    type_params:
+      measure:
+        name: fx_rate
+
+  - name: fx_return_1mo
+    label: FX 1-Month Return (%)
+    description: Average 1-month trailing return across selected currency pairs.
+    type: simple
+    type_params:
+      measure:
+        name: fx_return_1mo
+
+  - name: fx_return_1yr
+    label: FX 1-Year Return (%)
+    description: Average 1-year trailing return across selected currency pairs.
+    type: simple
+    type_params:
+      measure:
+        name: fx_return_1yr
+
+  # ============================================================
+  # FIXED INCOME METRICS
+  # ============================================================
+
+  - name: bond_max_price
+    label: Fixed Income Max Price
+    description: >
+      Maximum daily price for fixed income instruments across the selected time range.
+      Group by bond instrument and trade_date for point-in-time price analysis.
+    type: simple
+    type_params:
+      measure:
+        name: bond_price
+
+  - name: bond_return_1mo
+    label: Fixed Income 1-Month Return (%)
+    description: Average 1-month trailing return across selected fixed income instruments.
+    type: simple
+    type_params:
+      measure:
+        name: bond_return_1mo
+
+  - name: bond_return_1yr
+    label: Fixed Income 1-Year Return (%)
+    description: Average 1-year trailing return across selected fixed income instruments.
+    type: simple
+    type_params:
+      measure:
+        name: bond_return_1yr
+
+  - name: bond_volatility_proxy
+    label: Fixed Income Price Volatility (1-Year StdDev)
+    description: Average 1-year standard deviation of daily price changes for fixed income instruments.
+    type: simple
+    type_params:
+      measure:
+        name: bond_price_std_1yr
 
   # ============================================================
   # COMMODITY METRICS

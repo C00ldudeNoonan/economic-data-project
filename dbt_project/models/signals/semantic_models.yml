@@ -6,6 +6,8 @@ semantic_models:
       Monthly composite inflation signal model combining CPI, core PCE, and
       Treasury inflation breakeven rates. Grain: one row per month.
     model: ref('inflation_signals')
+    defaults:
+      agg_time_dimension: signal_date
     entities:
       - name: inflation_month
         type: primary
@@ -66,6 +68,8 @@ semantic_models:
       Monthly composite labor market signal model combining job openings,
       unemployment, claims, and the Sahm Rule. Grain: one row per month.
     model: ref('labor_signals')
+    defaults:
+      agg_time_dimension: signal_date
     entities:
       - name: labor_month
         type: primary

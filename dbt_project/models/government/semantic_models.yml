@@ -8,6 +8,8 @@ semantic_models:
       Covers: GDP, CPI, PCE, unemployment rate, Fed funds rate, housing starts,
       industrial production, and 100+ other macro series.
     model: ref('fred_monthly_diff')
+    defaults:
+      agg_time_dimension: observation_date
     entities:
       - name: fred_series
         type: primary

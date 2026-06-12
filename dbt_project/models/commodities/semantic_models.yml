@@ -7,6 +7,8 @@ semantic_models:
       (e.g. crude oil, natural gas, copper, aluminum).
       Grain: one row per commodity per unit per trading day.
     model: ref('input_commodities_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
     entities:
       - name: commodity
         type: primary
@@ -49,6 +51,8 @@ semantic_models:
       (crude oil, natural gas, gasoline, heating oil).
       Grain: one row per commodity per unit per trading day.
     model: ref('energy_commodities_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
     entities:
       - name: energy_commodity
         type: primary
@@ -80,6 +84,8 @@ semantic_models:
       (corn, wheat, soybeans, etc.).
       Grain: one row per commodity per unit per trading day.
     model: ref('agriculture_commodities_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
     entities:
       - name: agri_commodity
         type: primary

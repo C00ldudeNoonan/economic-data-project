@@ -13,7 +13,7 @@ saved_queries:
         - avg_return_1mo
         - avg_return_6mo
         - avg_return_1yr
-        - avg_close_price
+        - max_close_price
         - annualized_volatility_ratio
       group_by:
         - "Dimension('stock__symbol')"
@@ -29,8 +29,38 @@ saved_queries:
         - sector_avg_return_1mo
         - sector_avg_return_1yr
         - sector_volatility_proxy
+        - sector_max_close_price
       group_by:
         - "Dimension('sector_etf__symbol')"
+
+  - name: currency_performance_by_pair
+    label: Currency Performance by Pair
+    description: >
+      Spot rate plus 1-month and 1-year FX returns for each currency pair.
+      Useful for dollar strength, carry proxy, and cross-asset macro checks.
+    query_params:
+      metrics:
+        - fx_spot_rate
+        - fx_return_1mo
+        - fx_return_1yr
+      group_by:
+        - "Dimension('currency_pair__symbol')"
+        - "Dimension('currency_pair__exchange')"
+
+  - name: fixed_income_performance_by_instrument
+    label: Fixed Income Performance by Instrument
+    description: >
+      Price, 1-month return, 1-year return, and volatility proxy for fixed income
+      instruments. Useful for duration, rates, and risk-off regime analysis.
+    query_params:
+      metrics:
+        - bond_max_price
+        - bond_return_1mo
+        - bond_return_1yr
+        - bond_volatility_proxy
+      group_by:
+        - "Dimension('bond_instrument__symbol')"
+        - "Dimension('bond_instrument__exchange')"
 
   - name: inflation_dashboard
     label: Inflation Dashboard
