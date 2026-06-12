@@ -24,11 +24,22 @@ models:
 
   - name: inflation_signals
     description: >
-      Inflation signals derived from FRED data: CPI momentum (3mo annualized vs 12mo YoY),
-      Core PCE deviation from Fed's 2% target, and breakeven inflation spread (5Y vs 10Y).
+      Monthly composite inflation signal model combining CPI, core PCE, and
+      Treasury inflation breakeven rates. Grain: one row per month.
+    semantic_model:
+      enabled: true
+      name: inflation_indicators
+    agg_time_dimension: signal_date
     columns:
       - name: date
         description: Observation date
+        entity:
+          name: inflation_month
+          type: primary
+        granularity: month
+        dimension:
+          name: signal_date
+          type: time
         tests:
           - not_null
       - name: cpi_3m_annualized
@@ -45,20 +56,99 @@ models:
         description: 5Y breakeven minus 10Y breakeven (positive = near-term inflation stress)
       - name: cpi_momentum_status
         description: "Signal severity: high (re-accelerating), medium, low (decelerating), normal"
+        dimension:
+          type: categorical
         tests:
           - not_null
       - name: core_pce_status
         description: "Signal severity based on distance from 2% target"
+        dimension:
+          type: categorical
       - name: breakeven_status
         description: "Signal severity based on breakeven spread"
+        dimension:
+          type: categorical
+    metrics:
+      - name: cpi_yoy
+        label: CPI Year-over-Year (%)
+        description: Consumer Price Index year-over-year percent change. Core inflation gauge.
+        type: simple
+        agg: max
+        expr: cpi_12m_yoy
+      - name: cpi_3m_annualized
+        label: CPI 3-Month Annualized (%)
+        description: >
+          CPI 3-month annualized rate — a forward-looking inflation momentum signal.
+          When above cpi_yoy, inflation is re-accelerating.
+        type: simple
+        agg: max
+        expr: cpi_3m_annualized
+      - name: inflation_momentum
+        label: CPI Momentum Spread
+        description: >
+          3-month annualized CPI minus 12-month YoY CPI. Positive = re-accelerating
+          inflation pressure. Negative = inflation decelerating.
+        type: simple
+        agg: max
+        expr: cpi_momentum_spread
+      - name: core_pce_yoy
+        label: Core PCE Year-over-Year (%)
+        description: >
+          Core Personal Consumption Expenditures year-over-year change (%).
+          The Federal Reserve's preferred inflation gauge (2% target).
+        type: simple
+        agg: max
+        expr: core_pce_yoy
+      - name: pce_above_target
+        label: PCE Deviation from 2% Target
+        description: >
+          Core PCE minus 2% Fed target. Positive = above target (hawkish signal),
+          negative = below target (dovish signal).
+        type: simple
+        agg: max
+        expr: pce_deviation_from_target
+      - name: breakeven_inflation_5y
+        label: 5-Year Breakeven Inflation Rate (%)
+        description: >
+          Market-implied 5-year inflation expectation from TIPS breakeven.
+          Reflects bond market inflation pricing over the near-term horizon.
+        type: simple
+        agg: max
+        expr: breakeven_5y
+      - name: breakeven_inflation_10y
+        label: 10-Year Breakeven Inflation Rate (%)
+        description: Market-implied 10-year inflation expectation from TIPS breakeven.
+        type: simple
+        agg: max
+        expr: breakeven_10y
+      - name: breakeven_term_spread
+        label: 5y/10y Breakeven Spread
+        description: >
+          5-year minus 10-year breakeven spread. Positive = near-term inflation
+          expectations exceed long-term (front-loaded inflation). Useful for
+          identifying transitory vs. structural inflation regimes.
+        type: simple
+        agg: max
+        expr: breakeven_5y_10y_spread
 
   - name: labor_signals
     description: >
-      Labor market signals: job openings to unemployed ratio, initial claims trends,
-      quits rate direction, and Sahm Rule indicator (SAHMCURRENT).
+      Monthly composite labor market signal model combining job openings,
+      unemployment, claims, and the Sahm Rule. Grain: one row per month.
+    semantic_model:
+      enabled: true
+      name: labor_market_indicators
+    agg_time_dimension: signal_date
     columns:
       - name: date
         description: Monthly observation date
+        entity:
+          name: labor_month
+          type: primary
+        granularity: month
+        dimension:
+          name: signal_date
+          type: time
         tests:
           - not_null
       - name: jo_unemployed_ratio
@@ -67,14 +157,87 @@ models:
         description: Sahm Rule recession indicator (SAHMCURRENT)
       - name: jo_ratio_status
         description: "Signal severity: high (<0.5 recessionary), medium (<1.0 slack), normal"
+        dimension:
+          type: categorical
         tests:
           - not_null
       - name: claims_trend_status
         description: "Signal severity based on 3-month claims trend"
+        dimension:
+          type: categorical
       - name: sahm_approx_status
         description: "Signal severity: high (>=0.50 recession), medium (>=0.30 warning)"
+        dimension:
+          type: categorical
       - name: quits_trend_status
         description: "Signal severity based on quits rate decline"
+        dimension:
+          type: categorical
+    metrics:
+      - name: unemployment_rate
+        label: Unemployment Rate (%)
+        description: Civilian unemployment rate. Fed dual-mandate metric.
+        type: simple
+        agg: max
+        expr: unrate
+      - name: labor_market_tightness
+        label: Job Openings / Unemployed Ratio
+        description: >
+          Job openings divided by unemployed workers. > 1.0 = more openings than
+          job seekers (tight market). < 1.0 = labor slack. Fed watches this closely.
+        type: simple
+        agg: max
+        expr: jo_unemployed_ratio
+      - name: labor_tightness_momentum
+        label: Labor Tightness 3-Month Change
+        description: >
+          3-month change in the job openings / unemployed ratio. Negative = labor
+          market loosening. Key leading indicator for Fed pivot timing.
+        type: simple
+        agg: max
+        expr: jo_ratio_3m_change
+      - name: sahm_rule_indicator
+        label: Sahm Rule Indicator
+        description: >
+          Sahm Rule recession indicator. Based on 3-month average unemployment rate
+          minus prior 12-month minimum. >= 0.5 historically signals recession onset.
+          Original work: Claudia Sahm, Fed (2019).
+        type: simple
+        agg: max
+        expr: sahm_approx
+      - name: worker_confidence
+        label: Quits Rate
+        description: >
+          Job quits rate. Higher = workers more confident in finding new jobs
+          (tight market). Declining quits rate signals workers becoming less
+          confident — often leads unemployment rate rises.
+        type: simple
+        agg: max
+        expr: quits_rate
+      - name: initial_claims
+        label: Average Monthly Initial Claims
+        description: >
+          Average monthly initial unemployment insurance claims. Rising claims
+          are an early warning of labor market deterioration.
+        type: simple
+        agg: max
+        expr: avg_monthly_claims
+      - name: employment_population_ratio
+        label: Employment-Population Ratio (%)
+        description: >
+          Share of working-age population that is employed. More stable than
+          unemployment rate since it does not move with labor force participation.
+        type: simple
+        agg: max
+        expr: emratio
+      - name: unrate_3m_momentum
+        label: Unemployment Rate 3-Month Change
+        description: >
+          3-month change in unemployment rate (percentage points). Component of
+          the Sahm Rule calculation. Positive = rising unemployment (deteriorating).
+        type: simple
+        agg: max
+        expr: unrate_3m_change
 
   - name: housing_signals
     description: >

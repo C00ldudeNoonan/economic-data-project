@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "dbt_index": {
+      "command": "dbt-index",
+      "args": [
+        "--auto-reingest",
+        "serve"
+      ]
+    },
     "motherduck": {
       "type": "http",
       "url": "https://mcp.motherduck.com/mcp",
