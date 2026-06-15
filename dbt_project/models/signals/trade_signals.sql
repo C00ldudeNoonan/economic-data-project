@@ -3,7 +3,7 @@
 
 with dollar_broad as (
     select
-        date_trunc('month', date) as month,
+        DATE_TRUNC(date, MONTH) as month,
         avg(value) as dollar_broad_avg
     from {{ ref('stg_fred_series') }}
     where series_code = 'DTWEXBGS'
@@ -13,7 +13,7 @@ with dollar_broad as (
 
 dollar_em as (
     select
-        date_trunc('month', date) as month,
+        DATE_TRUNC(date, MONTH) as month,
         avg(value) as em_dollar_avg
     from {{ ref('stg_fred_series') }}
     where series_code = 'DTWEXEMEGS'

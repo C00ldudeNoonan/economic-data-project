@@ -11,20 +11,20 @@ WITH sector_monthly AS (
     -- Get monthly sector returns
     SELECT
         symbol,
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         -- Use the last day's data for each month
         LAST_VALUE(pct_change_1mo) OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
         ) AS monthly_return,
         LAST_VALUE(pct_change_3mo) OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
         ) AS return_3mo,
         ROW_NUMBER() OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date DESC
         ) AS rn
     FROM {{ ref('us_sector_analysis_return') }}
@@ -43,20 +43,20 @@ sector_returns AS (
 
 -- Sector name mapping
 sector_names AS (
-    SELECT sector_names.*
-    FROM (VALUES
-        ('XLK', 'Technology', 'Cyclical'),
-        ('XLC', 'Communication Services', 'Cyclical'),
-        ('XLY', 'Consumer Discretionary', 'Cyclical'),
-        ('XLF', 'Financial', 'Cyclical'),
-        ('XLI', 'Industrial', 'Cyclical'),
-        ('XLU', 'Utilities', 'Defensive'),
-        ('XLP', 'Consumer Staples', 'Defensive'),
-        ('XLRE', 'Real Estate', 'Interest-Sensitive'),
-        ('XLB', 'Materials', 'Cyclical'),
-        ('XLE', 'Energy', 'Cyclical'),
-        ('XLV', 'Health Care', 'Defensive')
-    ) AS sector_names (symbol, sector_name, sector_type)
+    SELECT *
+    FROM UNNEST([
+        STRUCT('XLK' AS symbol, 'Technology' AS sector_name, 'Cyclical' AS sector_type),
+        STRUCT('XLC' AS symbol, 'Communication Services' AS sector_name, 'Cyclical' AS sector_type),
+        STRUCT('XLY' AS symbol, 'Consumer Discretionary' AS sector_name, 'Cyclical' AS sector_type),
+        STRUCT('XLF' AS symbol, 'Financial' AS sector_name, 'Cyclical' AS sector_type),
+        STRUCT('XLI' AS symbol, 'Industrial' AS sector_name, 'Cyclical' AS sector_type),
+        STRUCT('XLU' AS symbol, 'Utilities' AS sector_name, 'Defensive' AS sector_type),
+        STRUCT('XLP' AS symbol, 'Consumer Staples' AS sector_name, 'Defensive' AS sector_type),
+        STRUCT('XLRE' AS symbol, 'Real Estate' AS sector_name, 'Interest-Sensitive' AS sector_type),
+        STRUCT('XLB' AS symbol, 'Materials' AS sector_name, 'Cyclical' AS sector_type),
+        STRUCT('XLE' AS symbol, 'Energy' AS sector_name, 'Cyclical' AS sector_type),
+        STRUCT('XLV' AS symbol, 'Health Care' AS sector_name, 'Defensive' AS sector_type)
+    ])
 ),
 
 -- Join sector returns with regime classification
@@ -89,11 +89,11 @@ regime_performance AS (
         ROUND(AVG(monthly_return), 2) AS avg_monthly_return,
         ROUND(STDDEV(monthly_return), 2) AS return_volatility,
         ROUND(AVG(monthly_return) / NULLIF(STDDEV(monthly_return), 0), 2) AS sharpe_proxy,
-        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY monthly_return), 2) AS median_return,
+        ROUND(APPROX_QUANTILES(monthly_return, 100)[OFFSET(50)], 2) AS median_return,
         ROUND(MIN(monthly_return), 2) AS worst_month,
         ROUND(MAX(monthly_return), 2) AS best_month,
         SUM(CASE WHEN monthly_return > 0 THEN 1 ELSE 0 END) AS positive_months,
-        ROUND(SUM(CASE WHEN monthly_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS win_rate
+        ROUND(SAFE_DIVIDE(SUM(CASE WHEN monthly_return > 0 THEN 1 ELSE 0 END) * 100.0, COUNT(*)), 1) AS win_rate
     FROM sector_regime_data
     GROUP BY symbol, sector_name, sector_type, regime
 ),
@@ -109,11 +109,11 @@ overall_performance AS (
         ROUND(AVG(monthly_return), 2) AS avg_monthly_return,
         ROUND(STDDEV(monthly_return), 2) AS return_volatility,
         ROUND(AVG(monthly_return) / NULLIF(STDDEV(monthly_return), 0), 2) AS sharpe_proxy,
-        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY monthly_return), 2) AS median_return,
+        ROUND(APPROX_QUANTILES(monthly_return, 100)[OFFSET(50)], 2) AS median_return,
         ROUND(MIN(monthly_return), 2) AS worst_month,
         ROUND(MAX(monthly_return), 2) AS best_month,
         SUM(CASE WHEN monthly_return > 0 THEN 1 ELSE 0 END) AS positive_months,
-        ROUND(SUM(CASE WHEN monthly_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS win_rate
+        ROUND(SAFE_DIVIDE(SUM(CASE WHEN monthly_return > 0 THEN 1 ELSE 0 END) * 100.0, COUNT(*)), 1) AS win_rate
     FROM sector_regime_data
     GROUP BY symbol, sector_name, sector_type
 ),

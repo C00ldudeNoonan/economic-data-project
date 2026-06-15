@@ -9,6 +9,7 @@ A data platform that ingests, transforms, and analyzes U.S. economic and financi
 | [Data Platform Overview](./architecture/data-platform-overview.md) | High-level architecture |
 | [Dagster Pipeline](./macro_agents/README.md) | Data orchestration documentation |
 | [dbt Models](./dbt_project/README.md) | SQL transformation documentation |
+| [dbt Platform + Fusion Onboarding](./dbt_project/dbt-platform-fusion-onboarding.md) | Issue #82 setup runbook |
 | [GCP Deployment](./GCP_DEPLOYMENT_GUIDE.md) | Cloud deployment guide |
 
 ## System Architecture

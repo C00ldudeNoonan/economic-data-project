@@ -1,14 +1,14 @@
 {{ config(
     unique_key=['snapshot_date', 'commodity_name', 'commodity_unit', 'time_period'],
-    incremental_strategy='delete+insert'
+    incremental_strategy='merge'
 ) }}
 
 WITH snapshot_dates AS (
-    SELECT DISTINCT DATE_TRUNC('month', date) AS snapshot_date
+    SELECT DISTINCT DATE_TRUNC(date, MONTH) AS snapshot_date
     FROM {{ ref('stg_input_commodities') }}
     WHERE date >= '2020-01-01'
     {% if is_incremental() %}
-    AND DATE_TRUNC('month', date) >= COALESCE(
+    AND DATE_TRUNC(date, MONTH) >= COALESCE(
         (SELECT MAX(snapshot_date) FROM {{ this }}),
         DATE '1900-01-01'
     ) - INTERVAL 1 MONTH
@@ -49,8 +49,8 @@ base_data AS (
         price IS NOT NULL
         AND date IS NOT NULL
         AND price > 0
-        AND trade_date <= sd.snapshot_date
-        AND trade_date >= sd.snapshot_date - INTERVAL 5 YEAR
+        AND CAST(date AS DATE) <= sd.snapshot_date
+        AND CAST(date AS DATE) >= sd.snapshot_date - INTERVAL 5 YEAR
 ),
 
 date_boundaries AS (
@@ -106,8 +106,13 @@ start_prices AS (
     INNER JOIN filtered_data AS fd ON
         pb.snapshot_date = fd.snapshot_date
         AND pb.commodity_name = fd.commodity_name
+        AND pb.commodity_unit = fd.commodity_unit
         AND pb.time_period = fd.time_period
         AND pb.period_start_date = fd.trade_date
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY pb.snapshot_date, pb.commodity_name, pb.commodity_unit, pb.time_period
+        ORDER BY fd.trade_date ASC, fd.price ASC
+    ) = 1
 ),
 
 end_prices AS (
@@ -121,8 +126,13 @@ end_prices AS (
     INNER JOIN filtered_data AS fd ON
         pb.snapshot_date = fd.snapshot_date
         AND pb.commodity_name = fd.commodity_name
+        AND pb.commodity_unit = fd.commodity_unit
         AND pb.time_period = fd.time_period
         AND pb.period_end_date = fd.trade_date
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY pb.snapshot_date, pb.commodity_name, pb.commodity_unit, pb.time_period
+        ORDER BY fd.trade_date DESC, fd.price DESC
+    ) = 1
 ),
 
 aggregated_results AS (
@@ -161,11 +171,13 @@ combined_results AS (
         ON
             ar.snapshot_date = sp.snapshot_date
             AND ar.commodity_name = sp.commodity_name
+            AND ar.commodity_unit = sp.commodity_unit
             AND ar.time_period = sp.time_period
     LEFT JOIN end_prices AS ep
         ON
             ar.snapshot_date = ep.snapshot_date
             AND ar.commodity_name = ep.commodity_name
+            AND ar.commodity_unit = ep.commodity_unit
             AND ar.time_period = ep.time_period
 ),
 
@@ -205,4 +217,8 @@ SELECT
     ROUND(period_start_price, 2) AS period_start_price,
     ROUND(period_end_price, 2) AS period_end_price
 FROM final_metrics
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY snapshot_date, commodity_name, commodity_unit, time_period
+    ORDER BY period_end_date DESC, period_start_date DESC
+) = 1
 ORDER BY snapshot_date DESC, time_period ASC, commodity_name ASC

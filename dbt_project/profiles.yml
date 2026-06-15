@@ -3,8 +3,10 @@ econ_database:
   outputs:
     dev:
       type: bigquery
+      # ADC-backed auth. Locally run `gcloud auth application-default login`;
+      # deployed environments should use an attached or federated service account.
       method: oauth
-      project: "{{ env_var('BIGQUERY_PROJECT', 'econ-data-project-478800') }}"
+      project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
       # Models land in *_dev datasets: economics_staging_dev, economics_marts_dev, etc.
       # The generate_schema_name macro appends the _dev suffix automatically.
       dataset: economics_staging_dev
@@ -14,8 +16,10 @@ econ_database:
 
     staging:
       type: bigquery
+      # ADC-backed auth. Locally run `gcloud auth application-default login`;
+      # deployed environments should use an attached or federated service account.
       method: oauth
-      project: "{{ env_var('BIGQUERY_PROJECT', 'econ-data-project-478800') }}"
+      project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
       # Models land in *_staging datasets for pre-prod validation.
       dataset: economics_staging_staging
       threads: 6
@@ -23,12 +27,12 @@ econ_database:
       timeout_seconds: 300
 
     prod:
-      # On GCE, ADC automatically uses the attached VM service account —
-      # no keyfile needed. Ensure the service account has bigquery.dataEditor
-      # and bigquery.jobUser on the project (provisioned in Terraform Phase 0).
       type: bigquery
+      # ADC-backed auth. On GCE, ADC automatically uses the attached VM service
+      # account — no keyfile needed. Ensure the service account has
+      # bigquery.dataEditor and bigquery.jobUser on the project.
       method: oauth
-      project: "{{ env_var('BIGQUERY_PROJECT', 'econ-data-project-478800') }}"
+      project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
       # Models land in canonical datasets: economics_staging, economics_marts, etc.
       dataset: economics_staging
       threads: 8

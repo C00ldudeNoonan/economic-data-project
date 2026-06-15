@@ -16,79 +16,79 @@
 
 WITH consumer_sentiment AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS umcsent
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'UMCSENT'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 consumer_confidence AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS confidence
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'CSCICP03USM665S'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 mfg_production AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS ipman
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'IPMAN'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 mfg_new_orders AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS new_orders
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'NEWORDER'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 mfg_prices AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS prices
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'PCUOMFG'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 mfg_employment AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS employment
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'MANEMP'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 mfg_inventories AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS inventories
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'MNFCTRMPCIMSA'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 combined AS (
@@ -210,5 +210,5 @@ SELECT
     END AS orders_inventories_status
 
 FROM with_yoy
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

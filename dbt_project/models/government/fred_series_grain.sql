@@ -1,7 +1,7 @@
 WITH date_bounds AS (
     SELECT
-        CURRENT_DATE AS end_date,
-        CURRENT_DATE - INTERVAL 12 MONTH AS start_date
+        CURRENT_DATE() AS end_date,
+        DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH) AS start_date
 ),
 
 series_dates AS (

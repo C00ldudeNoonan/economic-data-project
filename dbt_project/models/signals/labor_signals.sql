@@ -18,46 +18,46 @@
 
 WITH job_openings AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS job_openings
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'JTSJOL'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 unemployed AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS unemployed_count
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'UNEMPLOY'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 unemployment_rate AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS unrate
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'UNRATE'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 sahm_rule AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS sahm_rule
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'SAHMCURRENT'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 initial_claims AS (
@@ -72,34 +72,34 @@ initial_claims AS (
 
 claims_monthly AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         AVG(claims) AS avg_monthly_claims,
         MAX(claims) AS max_monthly_claims,
         MIN(claims) AS min_monthly_claims
     FROM initial_claims
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 emp_pop_ratio AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS emratio
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'EMRATIO'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 quits_rate AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(literal) AS quits_rate
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'JTSQUR'
         AND literal IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 combined AS (
@@ -182,5 +182,5 @@ SELECT
     END AS quits_trend_status
 
 FROM with_trends
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

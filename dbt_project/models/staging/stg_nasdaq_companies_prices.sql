@@ -1,3 +1,5 @@
+{{ config(enabled=false) }}
+
 SELECT
     open,
     high,

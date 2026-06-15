@@ -19,7 +19,7 @@
 
 WITH series_monthly AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         series_code,
         MAX(value) AS val
     FROM {{ ref('stg_fred_series') }}
@@ -52,7 +52,7 @@ WITH series_monthly AS (
         'PI'            -- Personal income
     )
     AND value IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date), series_code
+    GROUP BY DATE_TRUNC(date, MONTH), series_code
 ),
 
 with_changes AS (
@@ -87,10 +87,10 @@ scored AS (
 monthly_diffusion AS (
     SELECT
         month_date AS date,
-        COUNT(*) FILTER (WHERE is_improving IS NOT NULL) AS total_count,
+        COUNTIF(is_improving IS NOT NULL) AS total_count,
         COALESCE(SUM(is_improving), 0) AS improving_count,
         ROUND(
-            COALESCE(SUM(is_improving), 0) * 100.0 / NULLIF(COUNT(*) FILTER (WHERE is_improving IS NOT NULL), 0),
+            COALESCE(SUM(is_improving), 0) * 100.0 / NULLIF(COUNTIF(is_improving IS NOT NULL), 0),
             1
         ) AS diffusion_pct
     FROM scored
@@ -143,5 +143,5 @@ SELECT
     END AS diffusion_status
 
 FROM with_stats
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

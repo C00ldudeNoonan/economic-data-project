@@ -66,7 +66,53 @@
 - Prefer small, focused commits with clear intent.
 - PRs should include a concise summary, linked issues (if applicable), and screenshots for UI changes.
 - Never merge PRs. Always leave merging to a human reviewer.
-- Add a PR comment tagging `@codex` to request review.
+- Add a PR comment tagging `@codex` to request review immediately after opening every PR. Use `gh pr comment <PR_NUMBER> --body "@codex please review this PR."` and mention the review request in the handoff.
+
+## Data Request Scoping (Wizard Loop 1)
+
+A GitHub issue is dbt-workable if it involves models, tests, sources, metrics, schema,
+SQL transformations, data quality, or freshness. When scoping a request:
+
+- **Identify the domain**: staging, markets, government, commodities, signals, analysis,
+  backtesting, data_quality, agents_preprocess, telemetry, SEC, FOMC, social/Reddit.
+- **Identify affected models**: which models need to be created or modified?
+- **Trace upstream**: which sources or raw tables feed the affected area?
+- **Trace downstream**: which marts, signals, or agent inputs depend on it?
+- **Estimate scope**: single model addition, multi-model refactor, or new domain?
+
+Mark as **blocked** if the request requires new data source ingestion (Dagster asset work),
+infrastructure changes, or is too ambiguous to scope without human clarification.
+
+## Pipeline Incident Triage (Wizard Loop 2)
+
+| Severity | Criteria | Response |
+|----------|----------|----------|
+| **P1** | Production data incorrect — wrong values in marts, signals, or agent inputs | Investigate immediately, escalate to human if fix is high-risk |
+| **P2** | Test failures, stale models (>24hr not refreshed), broken contracts | Investigate and draft fix PR within the loop run |
+| **P3** | Coverage gaps — models with no tests, missing descriptions, undocumented columns | Batch into weekly coverage PR (Mondays) |
+
+## Common Failure Patterns
+
+| Source | Pattern | Likely cause | Diagnosis |
+|--------|---------|--------------|-----------|
+| FRED API | `429 Too Many Requests` | Rate limit (30 req/min) | Check ingestion batch size, add backoff |
+| FRED API | Series returns empty | Series discontinued or ID changed | Verify series ID at fred.stlouisfed.org |
+| MarketStack | Timeout on batch request | Too many tickers in one call | Reduce partition batch size |
+| MarketStack | Missing weekend/holiday data | Market closed | Not a bug — filter expected gaps |
+| BigQuery | `quotaExceeded` | Project quota hit | Check BQ console, reduce concurrent queries |
+| BigQuery | `notFound` on table | Schema drift or dataset mismatch | Verify dataset name matches `DBT_TARGET` environment |
+| SEC EDGAR | `403 Forbidden` / slow responses | 10 req/sec throttle | Check rate limiting in `sec_edgar.py` |
+| dbt | Incremental model stale | Full refresh needed after schema change | Run `dbt run --full-refresh --select model_name` |
+| dbt | Source freshness failure | Upstream ingestion didn't run | Check Dagster asset materialization status |
+| Dagster | Asset materialization timeout | Long-running query or API delay | Check `dagster.yaml` timeout config (2hr default) |
+
+## Fix Risk Classification
+
+| Risk level | PR type | Examples |
+|------------|---------|----------|
+| **Low** (auto-PR) | Regular PR, labeled `wizard-auto-fix` | Add missing test, update description, fix typo in schema.yml, add missing `not_null` test |
+| **Medium** (draft PR, needs review) | Draft PR, labeled `wizard-auto-fix` + `needs-review` | Fix SQL logic bug, add missing model, change source config, update freshness thresholds |
+| **High** (escalate to human) | No PR — write to `health/needs-human/` | Change materialization strategy, modify grain, alter contracted model, change incremental strategy, delete model |
 
 ## Configuration & Secrets
 - Create `macro_agents/.env` with required API keys (FRED, MarketStack, OpenAI, MotherDuck).

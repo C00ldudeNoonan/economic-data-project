@@ -5,20 +5,20 @@
 }}
 
 WITH sector_mapping AS (
-    SELECT sector_mapping.*
-    FROM (VALUES
-        ('Information Technology', 'XLK', 'Technology'),
-        ('Communication Services', 'XLC', 'Communication Services'),
-        ('Consumer Discretionary', 'XLY', 'Consumer Discretionary'),
-        ('Financials', 'XLF', 'Financial'),
-        ('Industrials', 'XLI', 'Industrial'),
-        ('Utilities', 'XLU', 'Utilities'),
-        ('Consumer Staples', 'XLP', 'Consumer Staples'),
-        ('Real Estate', 'XLRE', 'Real Estate'),
-        ('Materials', 'XLB', 'Materials'),
-        ('Energy', 'XLE', 'Energy'),
-        ('Health Care', 'XLV', 'Health Care')
-    ) AS sector_mapping (gics_sector, etf_symbol, sector_display_name)
+    SELECT *
+    FROM UNNEST([
+        STRUCT('Information Technology' AS gics_sector, 'XLK' AS etf_symbol, 'Technology' AS sector_display_name),
+        STRUCT('Communication Services', 'XLC', 'Communication Services'),
+        STRUCT('Consumer Discretionary', 'XLY', 'Consumer Discretionary'),
+        STRUCT('Financials', 'XLF', 'Financial'),
+        STRUCT('Industrials', 'XLI', 'Industrial'),
+        STRUCT('Utilities', 'XLU', 'Utilities'),
+        STRUCT('Consumer Staples', 'XLP', 'Consumer Staples'),
+        STRUCT('Real Estate', 'XLRE', 'Real Estate'),
+        STRUCT('Materials', 'XLB', 'Materials'),
+        STRUCT('Energy', 'XLE', 'Energy'),
+        STRUCT('Health Care', 'XLV', 'Health Care')
+    ])
 ),
 
 -- Load 4 years of data: 3 years of output + ~1 year lookback for 200-day MA warm-up
@@ -30,7 +30,7 @@ stock_prices AS (
     FROM {{ ref('stg_sp500_companies_prices') }}
     WHERE adj_close IS NOT NULL
         AND adj_close > 0
-        AND date >= CURRENT_DATE - INTERVAL 4 YEAR
+        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 4 YEAR)
 ),
 
 -- 200-day SMA per stock (computed on the full 4-year range)
@@ -60,7 +60,7 @@ stock_ma_flags AS (
         CASE WHEN ma_200_days_count >= 200 AND price > sma_200 THEN 1 ELSE 0 END AS above_200_ma,
         CASE WHEN ma_200_days_count >= 200 THEN 1 ELSE 0 END AS has_valid_ma
     FROM stock_with_ma
-    WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+    WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ),
 
 -- Join with sector metadata
@@ -97,7 +97,7 @@ weekly_breadth AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY gics_sector, DATE_TRUNC('week', date)
+            PARTITION BY gics_sector, DATE_TRUNC(date, WEEK)
             ORDER BY date DESC
         ) AS rn
     FROM sector_daily_breadth

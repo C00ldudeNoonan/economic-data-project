@@ -1,41 +1,37 @@
-"""Migrate raw data tables from MotherDuck to BigQuery.
-
-Phase 4 of the BigQuery migration (issue #79).
+"""Migrate data tables from MotherDuck to BigQuery.
 
 Usage:
     # Dry run — print what would be migrated without doing anything
     uv run python scripts/migrate_motherduck_to_bq.py --dry-run
 
-    # Migrate all raw tables
+    # Migrate all non-empty tables from econ_agent
     uv run python scripts/migrate_motherduck_to_bq.py
 
-    # Migrate specific tables only
-    uv run python scripts/migrate_motherduck_to_bq.py --tables sp500_companies_raw fred_series_raw
+    # Migrate a specific database
+    uv run python scripts/migrate_motherduck_to_bq.py --database prod_econ
 
-    # Skip the GCS intermediate step and load directly (requires enough local memory)
-    uv run python scripts/migrate_motherduck_to_bq.py --direct
+    # Migrate specific tables only
+    uv run python scripts/migrate_motherduck_to_bq.py --tables sp500_companies_prices_raw fred_raw
+
+    # Include empty tables (skipped by default)
+    uv run python scripts/migrate_motherduck_to_bq.py --include-empty
 
 Prerequisites:
-    - MOTHERDUCK_TOKEN set in environment (for duckdb motherduck connection)
-    - BIGQUERY_PROJECT, BIGQUERY_DATASET set (or defaults used)
-    - GCS_BUCKET_NAME set (used as staging area for large tables)
-    - GOOGLE_APPLICATION_CREDENTIALS pointing to service account JSON
-    - uv environment with both duckdb and google-cloud-bigquery installed
+    - MOTHERDUCK_TOKEN set in environment
+    - MOTHERDUCK_DATABASE set (default: econ_agent)
+    - BIGQUERY_PROJECT set
+    - GOOGLE_APPLICATION_CREDENTIALS pointing to service account JSON, or gcloud ADC active
+    - uv environment with duckdb and google-cloud-bigquery installed
 
 Strategy:
-    1. Connect to MotherDuck
-    2. For each raw table: export to GCS as Parquet via DuckDB httpfs
-    3. Load each GCS Parquet into BigQuery via load job
-    4. Print row count reconciliation
-
-For tables too large to fit in memory, use GCS as an intermediate staging area.
+    Reads each table from MotherDuck into memory via Arrow and loads directly into
+    BigQuery. At ~11 MB total this is faster and cheaper than routing through GCS.
 """
 
 import argparse
 import logging
 import os
 import sys
-from datetime import datetime
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,39 +39,8 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Raw tables written by Dagster assets (in economics_raw dataset)
-RAW_TABLES = [
-    "sp500_companies_raw",
-    "nasdaq_companies_raw",
-    "stock_prices_raw",
-    "stock_splits_raw",
-    "stock_dividends_raw",
-    "commodity_prices_raw",
-    "fred_series_raw",
-    "fred_observations_raw",
-    "housing_zillow_raw",
-    "housing_realtor_raw",
-    "fomc_transcripts_raw",
-    "fomc_meeting_dates_raw",
-    "reddit_posts_raw",
-    "reddit_comments_raw",
-    "sec_company_cik",
-    "sec_company_cik_history",
-    "sec_filings",
-    "sec_filing_documents",
-    "sec_filing_content",
-    "sec_filing_markdown",
-    "sec_filing_llm_metadata",
-    "sec_filing_search_terms",
-    "sec_filing_chunks",
-    "telemetry_events_raw",
-    "economic_calendar_raw",
-    "ai_model_benchmarks_raw",
-]
 
-
-def get_motherduck_connection():
-    """Connect to MotherDuck using MOTHERDUCK_TOKEN env var."""
+def get_motherduck_connection(database: str):
     try:
         import duckdb
     except ImportError:
@@ -83,7 +48,6 @@ def get_motherduck_connection():
         sys.exit(1)
 
     token = os.environ.get("MOTHERDUCK_TOKEN")
-    database = os.environ.get("MOTHERDUCK_DATABASE", "my_db")
     if not token:
         log.error("MOTHERDUCK_TOKEN environment variable not set")
         sys.exit(1)
@@ -94,95 +58,37 @@ def get_motherduck_connection():
 
 
 def get_bq_client():
-    """Get a BigQuery client using ADC or service account credentials."""
     from google.cloud import bigquery
-
     project = os.environ.get("BIGQUERY_PROJECT")
     return bigquery.Client(project=project)
 
 
-def list_existing_tables(md_conn, schema: str = "main") -> list[str]:
-    """List all tables in the given MotherDuck schema."""
+def list_tables(md_conn, database: str, schema: str = "main", include_empty: bool = False) -> list[str]:
+    """List tables in the given database/schema, optionally filtering out empty ones."""
     rows = md_conn.execute(
-        f"SELECT table_name FROM information_schema.tables "
-        f"WHERE table_schema = '{schema}' AND table_type = 'BASE TABLE'"
+        f"""
+        SELECT t.table_name
+        FROM information_schema.tables t
+        JOIN duckdb_tables() d
+          ON d.table_name = t.table_name
+          AND d.schema_name = t.table_schema
+          AND d.database_name = t.table_catalog
+        WHERE t.table_catalog = '{database}'
+          AND t.table_schema = '{schema}'
+          AND t.table_type = 'BASE TABLE'
+          {'AND d.estimated_size > 0' if not include_empty else ''}
+        ORDER BY d.estimated_size DESC
+        """
     ).fetchall()
     return [r[0] for r in rows]
 
 
 def get_row_count(md_conn, table: str) -> int:
-    """Get approximate row count from MotherDuck."""
     row = md_conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
     return row[0] if row else 0
 
 
-def migrate_table_via_gcs(
-    md_conn,
-    bq_client,
-    table: str,
-    project: str,
-    dataset: str,
-    gcs_bucket: str,
-    dry_run: bool = False,
-) -> dict:
-    """Export table to GCS Parquet then load into BigQuery."""
-    from google.cloud import bigquery, storage
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    gcs_path = f"gs://{gcs_bucket}/migration/{timestamp}/{table}/*.parquet"
-    bq_table_ref = f"{project}.{dataset}.{table}"
-
-    md_count = get_row_count(md_conn, table)
-    log.info(f"  MotherDuck rows: {md_count:,}")
-
-    if dry_run:
-        return {"table": table, "md_rows": md_count, "bq_rows": 0, "status": "dry_run"}
-
-    # Export to GCS via DuckDB httpfs
-    log.info(f"  Exporting to {gcs_path}")
-    md_conn.execute("INSTALL httpfs; LOAD httpfs;")
-    md_conn.execute(
-        f"COPY (SELECT * FROM {table}) TO '{gcs_path}' (FORMAT PARQUET, OVERWRITE TRUE)"
-    )
-    log.info(f"  Export complete")
-
-    # Load from GCS into BigQuery
-    log.info(f"  Loading into {bq_table_ref}")
-    job_config = bigquery.LoadJobConfig(
-        source_format=bigquery.SourceFormat.PARQUET,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        autodetect=True,
-    )
-    load_job = bq_client.load_table_from_uri(
-        gcs_path,
-        bq_table_ref,
-        job_config=job_config,
-    )
-    load_job.result()
-    log.info(f"  Load complete")
-
-    bq_table = bq_client.get_table(bq_table_ref)
-    bq_count = bq_table.num_rows
-    log.info(f"  BigQuery rows: {bq_count:,}")
-
-    # Clean up GCS staging files
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(gcs_bucket)
-    prefix = f"migration/{timestamp}/{table}/"
-    blobs = list(bucket.list_blobs(prefix=prefix))
-    for blob in blobs:
-        blob.delete()
-    log.info(f"  Cleaned up {len(blobs)} staging files from GCS")
-
-    return {
-        "table": table,
-        "md_rows": md_count,
-        "bq_rows": bq_count,
-        "status": "ok" if md_count == bq_count else "row_count_mismatch",
-    }
-
-
-def migrate_table_direct(
+def migrate_table(
     md_conn,
     bq_client,
     table: str,
@@ -190,8 +96,7 @@ def migrate_table_direct(
     dataset: str,
     dry_run: bool = False,
 ) -> dict:
-    """Load table directly from MotherDuck into BigQuery via in-memory Pandas."""
-    import polars as pl
+    """Load table directly from MotherDuck into BigQuery via in-memory Arrow."""
     from google.cloud import bigquery
 
     bq_table_ref = f"{project}.{dataset}.{table}"
@@ -201,92 +106,91 @@ def migrate_table_direct(
     if dry_run:
         return {"table": table, "md_rows": md_count, "bq_rows": 0, "status": "dry_run"}
 
-    df = md_conn.execute(f"SELECT * FROM {table}").pl()
+    df = md_conn.execute(f"SELECT * FROM {table}").df()
     log.info(f"  Loaded {len(df):,} rows into memory")
 
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
         autodetect=True,
     )
-    bq_client.load_table_from_dataframe(
-        df.to_pandas(), bq_table_ref, job_config=job_config
-    ).result()
+    bq_client.load_table_from_dataframe(df, bq_table_ref, job_config=job_config).result()
 
     bq_table = bq_client.get_table(bq_table_ref)
     bq_count = bq_table.num_rows
     log.info(f"  BigQuery rows: {bq_count:,}")
 
-    return {
-        "table": table,
-        "md_rows": md_count,
-        "bq_rows": bq_count,
-        "status": "ok" if md_count == bq_count else "row_count_mismatch",
-    }
+    status = "ok" if md_count == bq_count else "row_count_mismatch"
+    return {"table": table, "md_rows": md_count, "bq_rows": bq_count, "status": status}
 
 
 def main():
     parser = argparse.ArgumentParser(description="Migrate MotherDuck tables to BigQuery")
-    parser.add_argument("--tables", nargs="*", help="Specific tables to migrate (default: all)")
+    parser.add_argument(
+        "--database",
+        default=os.environ.get("MOTHERDUCK_DATABASE", "econ_agent"),
+        help="MotherDuck source database (default: econ_agent)",
+    )
+    parser.add_argument(
+        "--schema",
+        default=os.environ.get("MOTHERDUCK_PROD_SCHEMA", "main"),
+        help="MotherDuck source schema (default: main)",
+    )
+    parser.add_argument("--tables", nargs="*", help="Specific tables to migrate (default: all non-empty)")
+    parser.add_argument("--include-empty", action="store_true", help="Also migrate empty tables")
     parser.add_argument("--dry-run", action="store_true", help="Print plan without migrating")
-    parser.add_argument("--direct", action="store_true", help="Load directly without GCS staging")
-    parser.add_argument("--dataset", default=os.environ.get("BIGQUERY_DATASET", "economics_raw"))
+    parser.add_argument(
+        "--dataset",
+        default=os.environ.get("BIGQUERY_DATASET", "economics_raw"),
+        help="Target BigQuery dataset (default: economics_raw)",
+    )
     args = parser.parse_args()
 
     project = os.environ.get("BIGQUERY_PROJECT")
-    gcs_bucket = os.environ.get("GCS_BUCKET_NAME")
-
     if not project:
         log.error("BIGQUERY_PROJECT environment variable not set")
         sys.exit(1)
-    if not args.direct and not gcs_bucket:
-        log.error("GCS_BUCKET_NAME not set. Use --direct to skip GCS staging.")
-        sys.exit(1)
 
-    md_conn = get_motherduck_connection()
+    md_conn = get_motherduck_connection(args.database)
     bq_client = get_bq_client()
 
-    available_tables = list_existing_tables(md_conn)
-    tables_to_migrate = args.tables if args.tables else RAW_TABLES
+    available = list_tables(md_conn, database=args.database, schema=args.schema, include_empty=args.include_empty)
 
-    # Filter to tables that actually exist in MotherDuck
-    tables_to_migrate = [t for t in tables_to_migrate if t in available_tables]
-    missing = [t for t in (args.tables or RAW_TABLES) if t not in available_tables]
-    if missing:
-        log.warning(f"Tables not found in MotherDuck (will skip): {missing}")
+    if args.tables:
+        tables_to_migrate = [t for t in args.tables if t in available]
+        missing = [t for t in args.tables if t not in available]
+        if missing:
+            log.warning(f"Tables not found in MotherDuck (skipping): {missing}")
+    else:
+        tables_to_migrate = available
 
     log.info(f"{'DRY RUN: ' if args.dry_run else ''}Migrating {len(tables_to_migrate)} tables")
-    log.info(f"  Source: MotherDuck → Target: {project}.{args.dataset}")
+    log.info(f"  Source: MotherDuck {args.database}.{args.schema}")
+    log.info(f"  Target: {project}.{args.dataset}")
 
     results = []
     for table in tables_to_migrate:
         log.info(f"\nMigrating: {table}")
         try:
-            if args.direct:
-                result = migrate_table_direct(
-                    md_conn, bq_client, table, project, args.dataset, args.dry_run
-                )
-            else:
-                result = migrate_table_via_gcs(
-                    md_conn, bq_client, table, project, args.dataset, gcs_bucket, args.dry_run
-                )
+            result = migrate_table(
+                md_conn, bq_client, table, project, args.dataset, args.dry_run
+            )
         except Exception as e:
             log.error(f"  FAILED: {e}")
             result = {"table": table, "md_rows": -1, "bq_rows": -1, "status": f"error: {e}"}
         results.append(result)
 
-    # Print reconciliation summary
-    print("\n" + "=" * 60)
-    print("MIGRATION RECONCILIATION REPORT")
-    print("=" * 60)
-    print(f"{'Table':<40} {'MD Rows':>10} {'BQ Rows':>10} {'Status'}")
-    print("-" * 70)
+    print("\n" + "=" * 70)
+    print("MIGRATION REPORT")
+    print(f"Source: MotherDuck {args.database} -> Target: {project}.{args.dataset}")
+    print("=" * 70)
+    print(f"{'Table':<45} {'MD Rows':>10} {'BQ Rows':>10} {'Status'}")
+    print("-" * 75)
     ok_count = 0
     for r in results:
-        status = r["status"]
-        if status == "ok":
+        if r["status"] == "ok":
             ok_count += 1
-        print(f"{r['table']:<40} {r['md_rows']:>10,} {r['bq_rows']:>10,} {status}")
-    print("-" * 70)
+        print(f"{r['table']:<45} {r['md_rows']:>10,} {r['bq_rows']:>10,} {r['status']}")
+    print("-" * 75)
     print(f"\nCompleted: {ok_count}/{len(results)} tables migrated successfully")
 
     if any(r["status"] not in ("ok", "dry_run") for r in results):

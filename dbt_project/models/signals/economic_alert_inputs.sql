@@ -87,13 +87,13 @@ hy_oas AS (
 
 all_dates AS (
     SELECT date FROM cpi_yoy
-    UNION
+    UNION DISTINCT
     SELECT date FROM t10y2y
-    UNION
+    UNION DISTINCT
     SELECT date FROM unrate_delta
-    UNION
+    UNION DISTINCT
     SELECT date FROM fedfunds_delta
-    UNION
+    UNION DISTINCT
     SELECT date FROM hy_oas
 )
 
@@ -110,5 +110,5 @@ LEFT JOIN t10y2y AS t ON d.date = t.date
 LEFT JOIN unrate_delta AS u ON d.date = u.date
 LEFT JOIN fedfunds_delta AS f ON d.date = f.date
 LEFT JOIN hy_oas AS h ON d.date = h.date
-WHERE d.date >= CURRENT_DATE - INTERVAL 2 YEAR
+WHERE d.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 YEAR)
 ORDER BY d.date DESC
