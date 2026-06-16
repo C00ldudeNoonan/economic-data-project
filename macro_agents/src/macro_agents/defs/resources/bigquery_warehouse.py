@@ -83,14 +83,20 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         table_ref = self._table_ref(table_name)
         staging_ref = f"{table_ref}_staging"
 
+        # If the target table exists, load staging with its schema so types match.
+        target_exists = self.table_exists(table_name)
+        staging_job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        if target_exists:
+            staging_job_config.schema = client.get_table(table_ref).schema
+
         client.load_table_from_dataframe(
             data.to_pandas(),
             staging_ref,
-            job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
+            job_config=staging_job_config,
         ).result()
         log.info(f"Loaded {len(data)} rows to staging table {staging_ref}")
 
-        if not self.table_exists(table_name):
+        if not target_exists:
             # First run: promote staging to target directly
             client.copy_table(
                 staging_ref,

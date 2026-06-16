@@ -19,10 +19,12 @@ def _check_signal_table(
             metadata={"error": f"{table_name} table does not exist"},
         )
 
+    table_name_only = table_name.split(".")[-1]
     cols_df = bq.execute_query(
-        f"SELECT column_name FROM (DESCRIBE {table_name})", read_only=True
+        f"SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{table_name_only}'",
+        read_only=True,
     )
-    actual_columns = cols_df["column_name"].to_list()
+    actual_columns = cols_df["column_name"].to_list() if not cols_df.is_empty() else []
     if value_column not in actual_columns:
         return dg.AssetCheckResult(
             passed=False,
@@ -40,7 +42,8 @@ def _check_signal_table(
             COUNT(*) AS row_count,
             MAX(date) AS max_date,
             SUM(CASE WHEN {value_column} IS NULL THEN 1 ELSE 0 END) AS null_values,
-            SUM(CASE WHEN ISNAN({value_column}) OR ISINF({value_column}) THEN 1 ELSE 0 END) AS invalid_values
+            SUM(CASE WHEN CAST({value_column} AS FLOAT64) IS NAN
+                       OR CAST({value_column} AS FLOAT64) IS INFINITE THEN 1 ELSE 0 END) AS invalid_values
         FROM {table_name}
         WHERE CAST(date AS DATE) >= '{cutoff}'
         """,
