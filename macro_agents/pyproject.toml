@@ -58,7 +58,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "dagster-webserver",
-    "pytest",
+    "pytest>=9.0.3,<9.1.0",
     "pytest-cov",
     "pytest-xdist",
     "mypy",
