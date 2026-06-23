@@ -41,6 +41,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
+.pytest_cache/
+.mypy_cache/
+.ty/
+.coverage
+coverage.xml
+htmlcov/
 
 # Docker and Dagster OSS
 docker-compose.override.yml
@@ -48,8 +54,15 @@ dagster_storage/
 postgres_data/
 
 # Local Dagster development storage
+/dagster_home_local/
+/dagster_home_local_telemetry/
+/.dagster/
 macro_agents/storage/*
 dagster_localscripts/analysis_report.md
+/visualization reports/
+/health/
+/requests/
+/scripts/
 logs/
 
 # Reference materials (large binaries stored in GCS)
