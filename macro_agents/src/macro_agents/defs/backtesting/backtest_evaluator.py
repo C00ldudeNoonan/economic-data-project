@@ -102,6 +102,34 @@ def recommendation_accuracy_metric(example, prediction, trace=None):
     return score
 
 
+def _period_result(
+    evaluation_result: dict[str, object], period: str
+) -> dict | None:
+    period_results = evaluation_result.get("period_results", {})
+    if not isinstance(period_results, dict):
+        return None
+
+    period_result = period_results.get(period)
+    if not isinstance(period_result, dict):
+        return None
+
+    return period_result
+
+
+def _period_outperformance(
+    evaluation_result: dict[str, object], period: str
+) -> float | None:
+    period_result = _period_result(evaluation_result, period)
+    if period_result is None:
+        return None
+
+    value = period_result.get("outperformance")
+    if not isinstance(value, (int, float)):
+        return None
+
+    return float(value)
+
+
 @dg.asset(
     kinds={"dspy", "duckdb"},
     group_name="backtesting",
@@ -228,7 +256,7 @@ def evaluate_backtest_recommendations(
             f"Running evaluation on {len(examples)} examples for {backtest_date}..."
         )
 
-        evaluation_results = []
+        evaluation_results: list[dict[str, object]] = []
         for example in examples:
             prediction = module(
                 recommendation=example.recommendation, outcomes=example.outcomes
@@ -238,7 +266,8 @@ def evaluate_backtest_recommendations(
 
             if hasattr(example, "_metric_details") and example._metric_details:
                 detail = list(example._metric_details.values())[0]
-                evaluation_results.append(detail)
+                if isinstance(detail, dict):
+                    evaluation_results.append(detail)
             else:
                 recommendation = example.recommendation
                 evaluation_results.append(
@@ -260,22 +289,23 @@ def evaluate_backtest_recommendations(
         misses_6m = 0
 
         for r in evaluation_results:
-            period_results = r.get("period_results", {})
-
-            if "1m" in period_results:
-                if period_results["1m"].get("is_hit", False):
+            period_result_1m = _period_result(r, "1m")
+            if period_result_1m is not None:
+                if period_result_1m.get("is_hit", False):
                     hits_1m += 1
                 else:
                     misses_1m += 1
 
-            if "3m" in period_results:
-                if period_results["3m"].get("is_hit", False):
+            period_result_3m = _period_result(r, "3m")
+            if period_result_3m is not None:
+                if period_result_3m.get("is_hit", False):
                     hits_3m += 1
                 else:
                     misses_3m += 1
 
-            if "6m" in period_results:
-                if period_results["6m"].get("is_hit", False):
+            period_result_6m = _period_result(r, "6m")
+            if period_result_6m is not None:
+                if period_result_6m.get("is_hit", False):
                     hits_6m += 1
                 else:
                     misses_6m += 1
@@ -289,10 +319,9 @@ def evaluate_backtest_recommendations(
         accuracy_6m = hits_6m / total_6m if total_6m > 0 else 0.0
 
         outperformance_1m = [
-            r.get("period_results", {}).get("1m", {}).get("outperformance", 0.0)
+            value
             for r in evaluation_results
-            if r.get("period_results", {}).get("1m", {}).get("outperformance")
-            is not None
+            if (value := _period_outperformance(r, "1m")) is not None
         ]
         avg_outperformance_1m = (
             sum(outperformance_1m) / len(outperformance_1m)
@@ -301,10 +330,9 @@ def evaluate_backtest_recommendations(
         )
 
         outperformance_3m = [
-            r.get("period_results", {}).get("3m", {}).get("outperformance", 0.0)
+            value
             for r in evaluation_results
-            if r.get("period_results", {}).get("3m", {}).get("outperformance")
-            is not None
+            if (value := _period_outperformance(r, "3m")) is not None
         ]
         avg_outperformance_3m = (
             sum(outperformance_3m) / len(outperformance_3m)
@@ -313,10 +341,9 @@ def evaluate_backtest_recommendations(
         )
 
         outperformance_6m = [
-            r.get("period_results", {}).get("6m", {}).get("outperformance", 0.0)
+            value
             for r in evaluation_results
-            if r.get("period_results", {}).get("6m", {}).get("outperformance")
-            is not None
+            if (value := _period_outperformance(r, "6m")) is not None
         ]
         avg_outperformance_6m = (
             sum(outperformance_6m) / len(outperformance_6m)

@@ -327,8 +327,11 @@ def detect_interesting_data_points_weekly(
 
     # 10. Return metadata
     finding_types = findings_df["finding_type"].unique().to_list()
-    top_finding = (
+    top_finding_value = (
         analyzed_findings[0]["significance_narrative"] if analyzed_findings else None
+    )
+    top_finding = (
+        top_finding_value if isinstance(top_finding_value, str) else None
     )
 
     context.log.info(
