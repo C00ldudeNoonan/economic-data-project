@@ -102,9 +102,7 @@ def recommendation_accuracy_metric(example, prediction, trace=None):
     return score
 
 
-def _period_result(
-    evaluation_result: dict[str, object], period: str
-) -> dict | None:
+def _period_result(evaluation_result: dict[str, object], period: str) -> dict | None:
     period_results = evaluation_result.get("period_results", {})
     if not isinstance(period_results, dict):
         return None
