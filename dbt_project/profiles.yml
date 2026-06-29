@@ -7,9 +7,9 @@ econ_database:
       # deployed environments should use an attached or federated service account.
       method: oauth
       project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
-      # Models land in *_dev datasets: economics_staging_dev, economics_marts_dev, etc.
-      # The generate_schema_name macro appends the _dev suffix automatically.
-      dataset: economics_staging_dev
+      # Base dataset for unconfigured resources. generate_schema_name appends
+      # _dev for dev targets, so this resolves to economics_staging_dev.
+      dataset: economics_staging
       threads: 4
       location: "{{ env_var('BIGQUERY_LOCATION', 'US') }}"
       timeout_seconds: 300
@@ -20,8 +20,9 @@ econ_database:
       # deployed environments should use an attached or federated service account.
       method: oauth
       project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
-      # Models land in *_staging datasets for pre-prod validation.
-      dataset: economics_staging_staging
+      # Base dataset for unconfigured resources. generate_schema_name appends
+      # _staging for staging targets, so this resolves to economics_staging_staging.
+      dataset: economics_staging
       threads: 6
       location: "{{ env_var('BIGQUERY_LOCATION', 'US') }}"
       timeout_seconds: 300
