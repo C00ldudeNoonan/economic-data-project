@@ -436,19 +436,10 @@ models:
         description: >
           Average 1-year standard deviation of daily dollar price changes.
           Higher = more price dispersion. For a normalized volatility ratio,
-          see annualized_volatility_ratio.
+          see the cross-asset annualized_volatility_ratio metric on asset_daily_returns.
         type: simple
         agg: average
         expr: std_diff_1yr
-      - name: annualized_volatility_ratio
-        label: Annualized Volatility Ratio
-        description: >
-          Average ratio of 1-year price StdDev to close price — a dimensionless
-          proxy for annualized volatility (analogous to daily vol * sqrt(252) / price).
-          Higher = more volatile relative to price level.
-        type: simple
-        agg: average
-        expr: std_diff_1yr / nullif(current_price, 0)
       - name: unique_symbols
         label: Distinct Symbols
         description: Count of distinct ticker symbols in the selection.
