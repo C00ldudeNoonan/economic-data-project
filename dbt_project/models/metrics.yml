@@ -14,7 +14,7 @@ metrics:
     type: simple
     type_params:
       measure:
-        name: close_price
+        name: cross_asset_close_price
         fill_nulls_with: 0
 
   - name: total_volume
@@ -64,13 +64,13 @@ metrics:
   - name: price_volatility_proxy
     label: Price Volatility (1-Year StdDev)
     description: >
-      Average 1-year standard deviation of daily dollar price changes.
+      Average 1-year standard deviation of daily dollar or spot price changes.
       Higher = more price dispersion. For a normalized volatility ratio,
       see annualized_volatility_ratio.
     type: simple
     type_params:
       measure:
-        name: price_std_1yr
+        name: cross_asset_price_std_1yr
 
   - name: annualized_volatility_ratio
     label: Annualized Volatility Ratio

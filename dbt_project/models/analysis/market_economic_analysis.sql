@@ -15,7 +15,7 @@ WITH economic_data AS (
         data_source AS economic_data_source,
         -- Create month_date for joining
         CASE
-            WHEN REGEXP_CONTAINS(year_month, r'^\d{4}-\d{1,2}$')
+            WHEN REGEXP_CONTAINS(year_month, '^\\d{4}-\\d{1,2}$')
                 THEN
                     DATE(
                         CAST(SPLIT(year_month, '-')[OFFSET(0)] AS INT64),

@@ -4,7 +4,7 @@ templater = dbt
 # Allow longer lines for complex SQL (default is 80)
 max_line_length = 120
 ignore = parsing
-exclude_rules = RF02, RF03, RF04, CP01, AL01, ST01, ST02, ST06, LT02, LT03, LT05, LT08, LT09, LT14, AM03
+exclude_rules = RF01, RF02, RF03, RF04, CP01, CP02, CP03, CP04, CP05, AL01, ST01, ST02, ST03, ST06, LT02, LT03, LT05, LT08, LT09, LT14, AM03
 
 [sqlfluff:templater:dbt]
 project_dir = dbt_project

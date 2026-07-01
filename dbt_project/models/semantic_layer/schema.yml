@@ -12,3 +12,30 @@ models:
         tests:
           - not_null
           - unique
+
+  - name: cross_asset_daily_volatility
+    description: >
+      Unified daily price and 1-year price volatility surface for stocks,
+      sector ETFs, and input commodities. This model exists to expose one
+      shared Semantic Layer annualized_volatility_ratio metric across asset
+      classes without duplicating measure names across semantic models.
+    columns:
+      - name: asset_class
+        description: "Asset class bucket: stock, sector_etf, or commodity."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['stock', 'sector_etf', 'commodity']
+      - name: asset_id
+        description: Stable asset identifier within asset_class.
+        tests:
+          - not_null
+      - name: date
+        description: Trading or observation date.
+        tests:
+          - not_null
+      - name: current_price
+        description: Close or spot price at daily grain.
+      - name: std_diff_1yr
+        description: 1-year standard deviation of daily price changes.

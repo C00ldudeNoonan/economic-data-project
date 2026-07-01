@@ -25,9 +25,6 @@ models:
     staging:
       +schema: economics_staging
       +materialized: view
-    analytics:
-      +schema: economics_marts
-      +materialized: table
     markets:
       +schema: economics_marts
       +materialized: table
