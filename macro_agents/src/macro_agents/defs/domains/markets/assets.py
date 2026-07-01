@@ -363,6 +363,7 @@ def _fetch_ticker_partitions(
 ) -> dg.MaterializeResult:
     """Fetch MarketStack data for batched ticker × date partitions."""
     total_rows = 0
+    frames: list[pl.DataFrame] = []
     empty_partitions: list[str] = []
     for partition_key in context.partition_keys:
         ticker = partition_key.keys_by_dimension["ticker"]
@@ -379,7 +380,7 @@ def _fetch_ticker_partitions(
         )
         if df.shape[0] > 0:
             context.log.debug(f"DataFrame columns: {df.columns}")
-            bq.upsert_data(table_name, df, ["symbol", "date"], context=context)
+            frames.append(df)
             total_rows += df.shape[0]
         else:
             empty_partitions.append(f"{ticker}/{date_partition}")
@@ -403,6 +404,14 @@ def _fetch_ticker_partitions(
             f"All {total_partitions} partitions returned 0 rows. "
             f"First 10: {empty_partitions[:10]}"
         )
+
+    if frames:
+        combined = pl.concat(frames, how="vertical_relaxed")
+        context.log.info(
+            f"Upserting {len(combined)} rows for {len(frames)} non-empty partitions "
+            f"into {table_name}"
+        )
+        bq.upsert_data(table_name, combined, ["symbol", "date"], context=context)
 
     return dg.MaterializeResult(
         metadata={
