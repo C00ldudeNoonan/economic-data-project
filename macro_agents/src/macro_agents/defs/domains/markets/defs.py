@@ -12,8 +12,6 @@ from macro_agents.defs.domains.markets.assets import (
     global_markets_raw,
     input_commodities_raw,
     major_indices_raw,
-    nasdaq_companies_prices_raw,
-    nasdaq_companies_raw,
     sp500_companies_prices_raw,
     sp500_companies_raw,
     sp500_splits_raw,
@@ -27,7 +25,6 @@ from macro_agents.defs.domains.markets.checks import (
     global_markets_weekly_coverage_check,
     input_commodities_weekly_coverage_check,
     major_indices_weekly_coverage_check,
-    nasdaq_companies_prices_weekly_coverage_check,
     sp500_companies_prices_weekly_coverage_check,
     us_sector_etfs_weekly_coverage_check,
 )
@@ -39,8 +36,6 @@ from macro_agents.defs.domains.markets.jobs import (
     global_markets_ingestion_job,
     input_commodities_ingestion_job,
     major_indices_ingestion_job,
-    nasdaq_companies_list_job,
-    nasdaq_companies_prices_ingestion_job,
     sp500_companies_list_job,
     sp500_companies_prices_ingestion_job,
     sp500_splits_ingestion_job,
@@ -48,7 +43,6 @@ from macro_agents.defs.domains.markets.jobs import (
 )
 from macro_agents.defs.domains.markets.schedules import (
     market_stack_ingestion_schedules,
-    monthly_nasdaq_companies_list_schedule,
     monthly_sp500_companies_list_schedule,
     monthly_sp500_splits_schedule,
 )
@@ -72,14 +66,12 @@ marketstack_automation_sensor = dg.AutomationConditionSensorDefinition(
 
 market_stack_jobs = [
     sp500_companies_list_job,
-    nasdaq_companies_list_job,
     us_sector_etfs_ingestion_job,
     currency_etfs_ingestion_job,
     major_indices_ingestion_job,
     fixed_income_etfs_ingestion_job,
     global_markets_ingestion_job,
     sp500_companies_prices_ingestion_job,
-    nasdaq_companies_prices_ingestion_job,
     energy_commodities_ingestion_job,
     input_commodities_ingestion_job,
     agriculture_commodities_ingestion_job,
@@ -95,10 +87,8 @@ defs = dg.Definitions(
         fixed_income_etfs_raw,
         global_markets_raw,
         sp500_companies_raw,
-        nasdaq_companies_raw,
         sp500_companies_prices_raw,
         sp500_splits_raw,
-        nasdaq_companies_prices_raw,
         energy_commodities_raw,
         input_commodities_raw,
         agriculture_commodities_raw,
@@ -112,7 +102,6 @@ defs = dg.Definitions(
         fixed_income_etfs_weekly_coverage_check,
         global_markets_weekly_coverage_check,
         sp500_companies_prices_weekly_coverage_check,
-        nasdaq_companies_prices_weekly_coverage_check,
         energy_commodities_weekly_coverage_check,
         input_commodities_weekly_coverage_check,
         agriculture_commodities_weekly_coverage_check,
@@ -122,7 +111,6 @@ defs = dg.Definitions(
     schedules=[
         *market_stack_ingestion_schedules,
         monthly_sp500_companies_list_schedule,
-        monthly_nasdaq_companies_list_schedule,
         monthly_sp500_splits_schedule,
     ],
     resources={

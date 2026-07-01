@@ -544,7 +544,7 @@ def global_markets_raw(
     group_name=MARKETS_GROUP,
     kinds={"polars", "duckdb"},
     partitions_def=sp500_companies_partitions,
-    backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=500),
+    backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
         "30 20 * * 5", "America/New_York"
     ),
