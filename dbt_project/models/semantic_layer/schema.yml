@@ -90,6 +90,60 @@ models:
       - name: pct_change_1yr
         description: Percentage change from 1 year ago to current price.
 
+  - name: current_data_coverage
+    description: >
+      Current ingestion coverage by raw source. Coverage is anchored to each
+      source's latest observed date and measures how many expected entities
+      have observations in that source's recent coverage window.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['coverage_id']
+    columns:
+      - name: coverage_id
+        description: Stable identifier for a source coverage snapshot.
+        tests:
+          - not_null
+          - unique
+      - name: source_name
+        description: Raw source table being evaluated.
+        tests:
+          - not_null
+      - name: source_domain
+        description: Business domain for the source.
+        tests:
+          - not_null
+      - name: grain
+        description: Expected observation grain for source entities.
+        tests:
+          - not_null
+      - name: coverage_date
+        description: Latest observed date in the source.
+        tests:
+          - not_null
+      - name: coverage_window_start
+        description: Start date of the rolling coverage window.
+      - name: lookback_days
+        description: Number of days included in the coverage window.
+      - name: expected_entity_count
+        description: Distinct entities historically expected for the source.
+      - name: observed_entity_count
+        description: Distinct expected entities observed in the coverage window.
+      - name: missing_entity_count
+        description: Expected entities not observed in the coverage window.
+      - name: observed_row_count
+        description: Rows observed in the coverage window.
+      - name: coverage_pct
+        description: Ratio of observed entities to expected entities.
+      - name: freshness_lag_days
+        description: Days between current date and the source coverage date.
+      - name: coverage_status
+        description: >
+          Current coverage health bucket. One of healthy, partial, lagging,
+          coverage_gap, stale, or no_expected_entities.
+      - name: generated_at
+        description: Timestamp when the coverage snapshot was generated.
+
 semantic_models:
   - name: asset_daily_returns
     description: >
@@ -137,6 +191,50 @@ semantic_models:
         agg: average
         expr: std_diff_1yr * sqrt(252) / nullif(current_price, 0)
 
+  - name: current_data_coverage
+    description: Current ingestion coverage by raw source.
+    model: ref('current_data_coverage')
+    defaults:
+      agg_time_dimension: coverage_date
+    entities:
+      - name: coverage_source
+        type: primary
+        expr: source_name
+    dimensions:
+      - name: source_name
+        type: categorical
+      - name: source_domain
+        type: categorical
+      - name: grain
+        type: categorical
+      - name: coverage_status
+        type: categorical
+      - name: coverage_date
+        type: time
+        type_params:
+          time_granularity: day
+    measures:
+      - name: current_data_coverage_pct_measure
+        description: Average current entity coverage percentage across selected sources.
+        agg: average
+        expr: coverage_pct
+      - name: expected_entities_measure
+        description: Total expected entities across selected sources.
+        agg: sum
+        expr: expected_entity_count
+      - name: observed_entities_measure
+        description: Total observed entities across selected sources in their coverage windows.
+        agg: sum
+        expr: observed_entity_count
+      - name: missing_entities_measure
+        description: Total missing entities across selected sources in their coverage windows.
+        agg: sum
+        expr: missing_entity_count
+      - name: freshness_lag_days_measure
+        description: Maximum freshness lag in days across selected sources.
+        agg: max
+        expr: freshness_lag_days
+
 metrics:
   - name: asset_volatility_proxy
     label: Asset Price Volatility (1-Year StdDev)
@@ -155,3 +253,38 @@ metrics:
     type_params:
       measure:
         name: annualized_volatility_ratio_measure
+  - name: current_data_coverage_pct
+    label: Current Data Coverage %
+    description: Average current entity coverage percentage across selected raw sources.
+    type: simple
+    type_params:
+      measure:
+        name: current_data_coverage_pct_measure
+  - name: expected_entities
+    label: Expected Entities
+    description: Total expected entities across selected raw sources.
+    type: simple
+    type_params:
+      measure:
+        name: expected_entities_measure
+  - name: observed_entities
+    label: Observed Entities
+    description: Total observed entities across selected raw sources in their coverage windows.
+    type: simple
+    type_params:
+      measure:
+        name: observed_entities_measure
+  - name: missing_entities
+    label: Missing Entities
+    description: Total missing entities across selected raw sources in their coverage windows.
+    type: simple
+    type_params:
+      measure:
+        name: missing_entities_measure
+  - name: max_freshness_lag_days
+    label: Max Freshness Lag Days
+    description: Maximum freshness lag in days across selected raw sources.
+    type: simple
+    type_params:
+      measure:
+        name: freshness_lag_days_measure
