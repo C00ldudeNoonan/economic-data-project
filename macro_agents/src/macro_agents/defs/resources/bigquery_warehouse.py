@@ -67,9 +67,7 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         """
         if self._client is None:
             self._prepare_google_application_credentials()
-            self._client = bigquery.Client(
-                project=self.project, location=self.location
-            )
+            self._client = bigquery.Client(project=self.project, location=self.location)
         return self._client
 
     def get_connection(self) -> bigquery.Client:
