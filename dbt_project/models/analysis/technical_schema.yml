@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: technical_signal_instances
+    description: >
+      Historical evaluation of every triggered technical signal (issue
+      #109 phase 1). One row per source_universe, symbol, exchange,
+      signal_name, entry_date. Forward returns at 1/5/10/21/63/126 trading
+      days, SPY benchmark and relative returns, max favorable/adverse
+      excursion over 21 bars, and benchmark-relative worked_* labels.
+      Forward-looking data exists ONLY here — never in events/setups.
+      Recent triggers keep NULL forward fields until enough bars elapse.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns:
+              ['source_universe', 'symbol', 'exchange', 'signal_name', 'entry_date']
+    columns:
+      - name: entry_date
+        tests:
+          - not_null
+      - name: entry_price
+        tests:
+          - not_null
+          - value_in_range:
+              arguments:
+                min_value: 0
+      - name: signal_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['bullish', 'bearish']
+      - name: max_adverse_excursion_21d
+        description: >
+          Lowest forward low vs entry over the next 21 bars. Usually
+          negative, but can be positive if price never trades below entry.
+      - name: max_favorable_excursion_21d
+        description: >
+          Highest forward high vs entry over the next 21 bars. Usually
+          positive, but can be negative if price gaps down and stays there.

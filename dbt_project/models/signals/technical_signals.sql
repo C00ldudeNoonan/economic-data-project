@@ -1,9 +1,16 @@
 {{ config(
-    description='Technical signals: RSI, Bollinger Bands, Z-Score, VIX Mean Reversion'
+    description='DEPRECATED (issue #109): SPY-only technical signals. Superseded by technical_indicator_daily / technical_signal_events for all symbols; only the VIX mean-reversion columns are unique to this model.'
 ) }}
 
 /*
     Technical Signals Model
+
+    DEPRECATED: superseded by the symbol-level technical-analysis
+    framework (technical_indicator_daily, technical_signal_events,
+    technical_current_setups) introduced for issue #109. The RSI,
+    Bollinger, and z-score columns here duplicate that framework for
+    SPY only. The VIX mean-reversion columns are NOT yet replicated —
+    migrate consumers of those before removing this model.
 
     Calculates technical and mean-reversion signals from daily price data:
     - RSI(14) and RSI(2): Relative Strength Index at two timeframes
