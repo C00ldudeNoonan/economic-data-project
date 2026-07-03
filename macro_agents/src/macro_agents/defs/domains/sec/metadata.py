@@ -17,6 +17,66 @@ from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 _FORM_TYPES = ["10-K", "10-Q", "10-K/A", "10-Q/A"]
 
 
+def build_ciks_to_fetch(primary_cik: str, historical_ciks: list[str]) -> list[str]:
+    """Primary CIK first, then historical CIKs, deduplicated preserving order.
+
+    Historical CIKs come from sec_company_cik_history (former names and
+    curated cross-CIK predecessors), so filings for predecessor entities
+    are fetched alongside the current entity's.
+    """
+    ciks = [primary_cik]
+    for extra in historical_ciks:
+        if extra != primary_cik and extra not in ciks:
+            ciks.append(extra)
+    return ciks
+
+
+def fetch_filings_across_ciks(
+    sec_edgar: SECEdgarResource,
+    symbol: str,
+    ciks_to_fetch: list[str],
+    latest_by_cik: dict[str, str],
+    context: dg.AssetExecutionContext,
+) -> tuple[list[pl.DataFrame], int, int]:
+    """Fetch filings for every CIK associated with a symbol.
+
+    CIKs with a known latest filing date get an incremental fetch; the
+    rest get a full backfill. Returns (frames, backfill_count,
+    incremental_count).
+    """
+    frames: list[pl.DataFrame] = []
+    backfills = 0
+    incrementals = 0
+
+    for fetch_cik in ciks_to_fetch:
+        latest_date = latest_by_cik.get(fetch_cik)
+
+        if latest_date:
+            context.log.debug(
+                f"Incremental fetch for {symbol} (CIK: {fetch_cik}) from {latest_date}"
+            )
+            filings_df = sec_edgar.get_company_filings(
+                cik=fetch_cik,
+                form_types=_FORM_TYPES,
+                start_date=latest_date,
+                context=context,
+            )
+            incrementals += 1
+        else:
+            context.log.debug(f"Full backfill for {symbol} (CIK: {fetch_cik})")
+            filings_df = sec_edgar.get_10k_10q_filings(
+                fetch_cik,
+                years_back=YEARS_BACK_FULL_BACKFILL,
+                context=context,
+            )
+            backfills += 1
+
+        if not filings_df.is_empty():
+            frames.append(filings_df)
+
+    return frames, backfills, incrementals
+
+
 @dg.asset(
     group_name="sec_ingestion",
     kinds={"api", "duckdb"},
@@ -142,43 +202,16 @@ def sec_filing_metadata(
                 )
 
             # Build list of all CIKs to fetch for this company
-            ciks_to_fetch = [cik]
-            extra_ciks = historical_ciks_by_symbol.get(symbol, [])
-            for extra_cik in extra_ciks:
-                if extra_cik != cik and extra_cik not in ciks_to_fetch:
-                    ciks_to_fetch.append(extra_cik)
+            ciks_to_fetch = build_ciks_to_fetch(
+                cik, historical_ciks_by_symbol.get(symbol, [])
+            )
 
             try:
-                company_filings = []
-
-                for fetch_cik in ciks_to_fetch:
-                    latest_date = latest_by_cik.get(fetch_cik)
-
-                    if latest_date:
-                        context.log.debug(
-                            f"Incremental fetch for {symbol} (CIK: {fetch_cik}) "
-                            f"from {latest_date}"
-                        )
-                        filings_df = sec_edgar.get_company_filings(
-                            cik=fetch_cik,
-                            form_types=_FORM_TYPES,
-                            start_date=latest_date,
-                            context=context,
-                        )
-                        incremental_count += 1
-                    else:
-                        context.log.debug(
-                            f"Full backfill for {symbol} (CIK: {fetch_cik})"
-                        )
-                        filings_df = sec_edgar.get_10k_10q_filings(
-                            fetch_cik,
-                            years_back=YEARS_BACK_FULL_BACKFILL,
-                            context=context,
-                        )
-                        backfill_count += 1
-
-                    if not filings_df.is_empty():
-                        company_filings.append(filings_df)
+                company_filings, backfills, incrementals = fetch_filings_across_ciks(
+                    sec_edgar, symbol, ciks_to_fetch, latest_by_cik, context
+                )
+                backfill_count += backfills
+                incremental_count += incrementals
 
                 if not company_filings:
                     continue
