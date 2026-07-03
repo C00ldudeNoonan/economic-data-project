@@ -11,7 +11,7 @@ import dagster as dg
 import polars as pl
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*){0,2}$")
 
@@ -24,13 +24,20 @@ def _validate_identifier(name: str, kind: str = "identifier") -> str:
 
 
 class BigQueryWarehouseResource(dg.ConfigurableResource):
-    """Dagster resource for BigQuery providing the same public API as BigQueryWarehouseResource."""
+    """Dagster resource for BigQuery.
+
+    Exposes the same public API as the retired MotherDuckResource so assets
+    written against it work unchanged (see the get_connection and
+    drop_create_duck_db_table aliases).
+    """
 
     project: str = Field(description="GCP project ID")
     dataset: str = Field(
         description="Default BigQuery dataset", default="economics_raw"
     )
     location: str = Field(description="BigQuery location", default="US")
+
+    _client: bigquery.Client | None = PrivateAttr(default=None)
 
     def _prepare_google_application_credentials(self) -> None:
         """Support either a credentials file path or inline service-account JSON."""
@@ -53,9 +60,17 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
 
     def get_client(self) -> bigquery.Client:
-        """Return a BigQuery client. On GCE the VM service account is used via ADC."""
-        self._prepare_google_application_credentials()
-        return bigquery.Client(project=self.project)
+        """Return a cached BigQuery client. On GCE the VM service account is used via ADC.
+
+        Client construction resolves ADC credentials, so the client is
+        created once per resource instance and reused across calls.
+        """
+        if self._client is None:
+            self._prepare_google_application_credentials()
+            self._client = bigquery.Client(
+                project=self.project, location=self.location
+            )
+        return self._client
 
     def get_connection(self) -> bigquery.Client:
         """Alias for get_client() — drop-in replacement for MotherDuckResource.get_connection()."""
@@ -167,6 +182,11 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
 
         Bare table names are resolved against self.dataset so callers don't
         need to fully qualify every reference.
+
+        Query failures (bad SQL, missing tables, permissions) raise so they
+        surface as asset failures instead of masquerading as empty result
+        sets. DML/DDL statements, which produce no row schema, return an
+        empty DataFrame.
         """
         from google.cloud.bigquery import DatasetReference, QueryJobConfig
 
@@ -175,10 +195,11 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
             default_dataset=DatasetReference(self.project, self.dataset)
         )
         job = client.query(query, job_config=job_config)
-        try:
-            return pl.DataFrame(job.result().to_arrow())
-        except Exception:
+        result = job.result()
+        if not result.schema:
+            # DML/DDL statements have no result rows to convert
             return pl.DataFrame()
+        return pl.DataFrame(result.to_arrow())
 
     def table_exists(self, table_name: str) -> bool:
         """Check whether a table exists in BigQuery."""
