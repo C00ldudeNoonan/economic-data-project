@@ -41,7 +41,9 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         try:
             json.loads(credentials)
         except json.JSONDecodeError as error:
-            raise ValueError("GOOGLE_APPLICATION_CREDENTIALS contains invalid JSON") from error
+            raise ValueError(
+                "GOOGLE_APPLICATION_CREDENTIALS contains invalid JSON"
+            ) from error
 
         credentials_path = os.path.join(
             tempfile.gettempdir(), "gcp_service_account_credentials.json"
