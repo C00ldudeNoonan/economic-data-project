@@ -13,29 +13,278 @@ models:
           - not_null
           - unique
 
-  - name: cross_asset_daily_volatility
+  - name: asset_daily_returns
     description: >
-      Unified daily price and 1-year price volatility surface for stocks,
-      sector ETFs, and input commodities. This model exists to expose one
-      shared Semantic Layer annualized_volatility_ratio metric across asset
-      classes without duplicating measure names across semantic models.
+      Normalized daily return fact table across stocks, sector ETFs, and input
+      commodities. Grain: one row per asset per trading day.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['asset_key', 'trade_date']
     columns:
+      - name: asset_key
+        description: Stable cross-asset identifier prefixed by asset class.
+        entity:
+          name: asset
+          type: primary
+        dimension:
+          type: categorical
+        tests:
+          - not_null
       - name: asset_class
-        description: "Asset class bucket: stock, sector_etf, or commodity."
+        description: Asset class for the normalized instrument.
+        dimension:
+          type: categorical
         tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['stock', 'sector_etf', 'commodity']
       - name: asset_id
-        description: Stable asset identifier within asset_class.
+        description: Source identifier for the asset within its asset class.
+        dimension:
+          type: categorical
         tests:
           - not_null
-      - name: date
-        description: Trading or observation date.
+      - name: asset_name
+        description: Display name for the asset.
+        dimension:
+          type: categorical
+        tests:
+          - not_null
+      - name: symbol
+        description: Ticker symbol when the asset is exchange-traded.
+        dimension:
+          type: categorical
+      - name: stock_symbol
+        description: Stock ticker symbol for equity rows.
+        dimension:
+          type: categorical
+      - name: sector_etf_symbol
+        description: Sector ETF ticker symbol for sector ETF rows.
+        dimension:
+          type: categorical
+      - name: commodity_name
+        description: Commodity name for commodity rows.
+        dimension:
+          type: categorical
+      - name: commodity_unit
+        description: Unit of measurement for commodity rows.
+        dimension:
+          type: categorical
+      - name: exchange
+        description: Exchange where the asset trades, when applicable.
+        dimension:
+          type: categorical
+      - name: trade_date
+        description: Trading date.
+        granularity: day
+        dimension:
+          type: time
         tests:
           - not_null
       - name: current_price
-        description: Close or spot price at daily grain.
+        description: Current close or spot price.
       - name: std_diff_1yr
-        description: 1-year standard deviation of daily price changes.
+        description: Standard deviation of daily price differences over the past 1 year.
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price.
+
+  - name: current_data_coverage
+    description: >
+      Current ingestion coverage by raw source. Coverage is anchored to each
+      source's latest observed date and measures how many expected entities
+      have observations in that source's recent coverage window.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['coverage_id']
+    columns:
+      - name: coverage_id
+        description: Stable identifier for a source coverage snapshot.
+        tests:
+          - not_null
+          - unique
+      - name: source_name
+        description: Raw source table being evaluated.
+        tests:
+          - not_null
+      - name: source_domain
+        description: Business domain for the source.
+        tests:
+          - not_null
+      - name: grain
+        description: Expected observation grain for source entities.
+        tests:
+          - not_null
+      - name: coverage_date
+        description: Latest observed date in the source.
+        tests:
+          - not_null
+      - name: coverage_window_start
+        description: Start date of the rolling coverage window.
+      - name: lookback_days
+        description: Number of days included in the coverage window.
+      - name: expected_entity_count
+        description: Distinct entities historically expected for the source.
+      - name: observed_entity_count
+        description: Distinct expected entities observed in the coverage window.
+      - name: missing_entity_count
+        description: Expected entities not observed in the coverage window.
+      - name: observed_row_count
+        description: Rows observed in the coverage window.
+      - name: coverage_pct
+        description: Ratio of observed entities to expected entities.
+      - name: freshness_lag_days
+        description: Days between current date and the source coverage date.
+      - name: coverage_status
+        description: >
+          Current coverage health bucket. One of healthy, partial, lagging,
+          coverage_gap, stale, or no_expected_entities.
+      - name: generated_at
+        description: Timestamp when the coverage snapshot was generated.
+
+semantic_models:
+  - name: asset_daily_returns
+    description: >
+      Normalized daily return fact table across stocks, sector ETFs, and input
+      commodities. Grain: one row per asset per trading day.
+    model: ref('asset_daily_returns')
+    defaults:
+      agg_time_dimension: trade_date
+    entities:
+      - name: asset
+        type: primary
+        expr: asset_key
+    dimensions:
+      - name: asset_class
+        type: categorical
+      - name: asset_id
+        type: categorical
+      - name: asset_name
+        type: categorical
+      - name: symbol
+        type: categorical
+      - name: stock_symbol
+        type: categorical
+      - name: sector_etf_symbol
+        type: categorical
+      - name: commodity_name
+        type: categorical
+      - name: commodity_unit
+        type: categorical
+      - name: exchange
+        type: categorical
+      - name: trade_date
+        type: time
+        type_params:
+          time_granularity: day
+    measures:
+      - name: asset_volatility_proxy
+        description: Average 1-year standard deviation of daily price changes across normalized assets.
+        agg: average
+        expr: std_diff_1yr
+      - name: annualized_volatility_ratio_measure
+        description: >
+          Average annualized ratio of daily price-difference volatility to
+          current price across normalized stocks, sector ETFs, and commodities.
+        agg: average
+        expr: std_diff_1yr * sqrt(252) / nullif(current_price, 0)
+
+  - name: current_data_coverage
+    description: Current ingestion coverage by raw source.
+    model: ref('current_data_coverage')
+    defaults:
+      agg_time_dimension: coverage_date
+    entities:
+      - name: coverage_source
+        type: primary
+        expr: source_name
+    dimensions:
+      - name: source_name
+        type: categorical
+      - name: source_domain
+        type: categorical
+      - name: grain
+        type: categorical
+      - name: coverage_status
+        type: categorical
+      - name: coverage_date
+        type: time
+        type_params:
+          time_granularity: day
+    measures:
+      - name: current_data_coverage_pct_measure
+        description: Average current entity coverage percentage across selected sources.
+        agg: average
+        expr: coverage_pct
+      - name: expected_entities_measure
+        description: Total expected entities across selected sources.
+        agg: sum
+        expr: expected_entity_count
+      - name: observed_entities_measure
+        description: Total observed entities across selected sources in their coverage windows.
+        agg: sum
+        expr: observed_entity_count
+      - name: missing_entities_measure
+        description: Total missing entities across selected sources in their coverage windows.
+        agg: sum
+        expr: missing_entity_count
+      - name: freshness_lag_days_measure
+        description: Maximum freshness lag in days across selected sources.
+        agg: max
+        expr: freshness_lag_days
+
+metrics:
+  - name: asset_volatility_proxy
+    label: Asset Price Volatility (1-Year StdDev)
+    description: Average 1-year standard deviation of daily price changes across normalized assets.
+    type: simple
+    type_params:
+      measure:
+        name: asset_volatility_proxy
+  - name: annualized_volatility_ratio
+    label: Annualized Volatility Ratio
+    description: >
+      Average annualized ratio of daily price-difference volatility to current
+      price across normalized stocks, sector ETFs, and commodities. Higher =
+      more volatile relative to price level.
+    type: simple
+    type_params:
+      measure:
+        name: annualized_volatility_ratio_measure
+  - name: current_data_coverage_pct
+    label: Current Data Coverage %
+    description: Average current entity coverage percentage across selected raw sources.
+    type: simple
+    type_params:
+      measure:
+        name: current_data_coverage_pct_measure
+  - name: expected_entities
+    label: Expected Entities
+    description: Total expected entities across selected raw sources.
+    type: simple
+    type_params:
+      measure:
+        name: expected_entities_measure
+  - name: observed_entities
+    label: Observed Entities
+    description: Total observed entities across selected raw sources in their coverage windows.
+    type: simple
+    type_params:
+      measure:
+        name: observed_entities_measure
+  - name: missing_entities
+    label: Missing Entities
+    description: Total missing entities across selected raw sources in their coverage windows.
+    type: simple
+    type_params:
+      measure:
+        name: missing_entities_measure
+  - name: max_freshness_lag_days
+    label: Max Freshness Lag Days
+    description: Maximum freshness lag in days across selected raw sources.
+    type: simple
+    type_params:
+      measure:
+        name: freshness_lag_days_measure

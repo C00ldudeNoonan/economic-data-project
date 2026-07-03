@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 import dagster as dg
@@ -13,6 +14,14 @@ from macro_agents.defs.analysis.economy_state.economy_state_analyzer import (
 )
 from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
+
+
+def _content_as_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, default=str)
 
 
 class BacktestConfig(dg.Config):
@@ -522,7 +531,7 @@ def backtest_analyze_economy_state(
     )
 
     first_result = all_results[0]
-    analysis_content = first_result.get("analysis_content") or ""
+    analysis_content = _content_as_text(first_result.get("analysis_content"))
     analysis_summary = (
         extract_economy_state_summary(analysis_content) if analysis_content else {}
     )
