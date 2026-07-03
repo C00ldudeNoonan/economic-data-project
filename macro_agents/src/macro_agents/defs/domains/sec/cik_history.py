@@ -1,11 +1,23 @@
-"""Historical CIK mapping for corporate actions (renames, rebrands).
+"""Historical CIK mapping for corporate actions (renames, rebrands, mergers).
 
-Extracts former names from SEC EDGAR submissions to track company identity
-changes. Note: SEC CIK numbers do NOT change on company renames (e.g.,
-Facebook→Meta kept CIK 1326801). This table records name history under the
-same CIK. For companies that changed CIK via acquisition (e.g., Activision
-absorbed into Microsoft), the acquired entity's CIK is a separate lookup
-that would require manual mapping or an external data source.
+Two sources feed the sec_company_cik_history table:
+
+1. EDGAR former names (automatic): SEC CIK numbers do NOT change on
+   company renames (e.g., Facebook→Meta kept CIK 1326801, Square→Block
+   kept CIK 1512673), so name history under the same CIK is extracted
+   from the submissions API's formerNames field.
+
+2. Curated cross-CIK predecessors (KNOWN_CROSS_CIK_PREDECESSORS below):
+   corporate actions that DO change the filing CIK cannot be derived
+   from former names — holding-company reorganizations (Google Inc.
+   → Alphabet), acquisitions of delisted filers (Activision Blizzard
+   → Microsoft), and reverse mergers where the acquirer adopted the
+   target's name (Avago → Broadcom). These are maintained by hand;
+   extend the list as new corporate actions occur. SPAC de-SPACs
+   usually keep the shell's CIK and are covered by former names.
+
+metadata.py reads every non-'current' row from this table and fetches
+filings for each historical CIK, linking them to the current symbol.
 """
 
 import hashlib
@@ -25,6 +37,80 @@ from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 def _generate_history_id(symbol: str, cik: str, effective_from: str) -> str:
     hash_input = f"{symbol}_{cik}_{effective_from}"
     return hashlib.sha256(hash_input.encode()).hexdigest()[:16]
+
+
+# Cross-CIK predecessor mappings that cannot be derived from EDGAR former
+# names (those only cover renames under the SAME CIK). Each entry maps a
+# current S&P 500 symbol to a predecessor entity that filed under a
+# DIFFERENT CIK. Dates are the effective date of the corporate action.
+KNOWN_CROSS_CIK_PREDECESSORS: list[dict[str, str]] = [
+    {
+        # Holding-company reorganization: Google Inc. filings pre-2015
+        # live under the old CIK; Alphabet Inc. is CIK 1652044.
+        "current_symbol": "GOOGL",
+        "predecessor_cik": "1288776",
+        "predecessor_name": "Google Inc.",
+        "relationship_type": "reorganized_from",
+        "effective_from": "2015-10-02",
+    },
+    {
+        "current_symbol": "GOOG",
+        "predecessor_cik": "1288776",
+        "predecessor_name": "Google Inc.",
+        "relationship_type": "reorganized_from",
+        "effective_from": "2015-10-02",
+    },
+    {
+        # Acquired and delisted: Activision Blizzard filings end at the
+        # 2023 acquisition; relevant history for Microsoft analysis.
+        "current_symbol": "MSFT",
+        "predecessor_cik": "718877",
+        "predecessor_name": "Activision Blizzard, Inc.",
+        "relationship_type": "acquired",
+        "effective_from": "2023-10-13",
+    },
+    {
+        # Reverse merger with rename: Avago Technologies (current CIK)
+        # acquired Broadcom Corporation and adopted its name.
+        "current_symbol": "AVGO",
+        "predecessor_cik": "1054374",
+        "predecessor_name": "Broadcom Corporation",
+        "relationship_type": "merged_from",
+        "effective_from": "2016-02-01",
+    },
+]
+
+
+def curated_predecessor_records(symbols: set[str], now: datetime) -> list[dict]:
+    """Build history records for curated cross-CIK predecessors.
+
+    Only entries whose current_symbol is in the provided universe are
+    emitted, so predecessors of companies no longer in the S&P 500 don't
+    accumulate. Records are idempotent: ids are deterministic and rows
+    are upserted by id.
+    """
+    records = []
+    for entry in KNOWN_CROSS_CIK_PREDECESSORS:
+        symbol = entry["current_symbol"]
+        if symbol not in symbols:
+            continue
+        cik = entry["predecessor_cik"]
+        records.append(
+            {
+                "id": _generate_history_id(symbol, cik, entry["effective_from"]),
+                "current_symbol": symbol,
+                "cik": cik,
+                "cik_padded": cik.zfill(10),
+                "company_name": entry["predecessor_name"],
+                "former_names": None,
+                "relationship_type": entry["relationship_type"],
+                "effective_from": entry["effective_from"],
+                "effective_to": None,
+                "source": "curated",
+                "created_at": now,
+            }
+        )
+    return records
 
 
 @dg.asset(
@@ -85,7 +171,17 @@ def sec_company_cik_history(
             ~pl.col("symbol").is_in(list(recent_symbols))
         )
 
-        if new_companies.is_empty():
+        now = datetime.now(timezone.utc)
+
+        # Curated cross-CIK predecessors are cheap (no API calls) and
+        # idempotent, so they are re-upserted every run for the full
+        # universe — new curated entries land without waiting out the
+        # 90-day recency window.
+        curated_records = curated_predecessor_records(
+            set(companies_df["symbol"].to_list()), now
+        )
+
+        if new_companies.is_empty() and not curated_records:
             context.log.debug("All companies have up-to-date CIK history records")
             return dg.MaterializeResult(
                 metadata={
@@ -97,11 +193,11 @@ def sec_company_cik_history(
 
         context.log.info(
             f"Processing CIK history for {len(new_companies)} new companies "
-            f"({len(recent_symbols)} already up-to-date)"
+            f"({len(recent_symbols)} already up-to-date, "
+            f"{len(curated_records)} curated cross-CIK records)"
         )
 
-        now = datetime.now(timezone.utc)
-        records = []
+        records = list(curated_records)
         errors = []
         companies_with_history = 0
 
