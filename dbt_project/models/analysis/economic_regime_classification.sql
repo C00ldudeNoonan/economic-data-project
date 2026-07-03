@@ -11,7 +11,7 @@
 WITH monthly_indicators AS (
     -- Pivot key indicators into columns for each month
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(CASE WHEN series_code = 'INDPRO' THEN value END) AS industrial_production,
         MAX(CASE WHEN series_code = 'UNRATE' THEN value END) AS unemployment_rate,
         MAX(CASE WHEN series_code = 'PAYEMS' THEN value END) AS nonfarm_payrolls,
@@ -31,7 +31,7 @@ WITH monthly_indicators AS (
         'T10Y2Y', 'T10Y3M', 'CFNAIMA3', 'USSLIND', 'ICSA',
         'UMCSENT', 'IPMAN', 'NFCI'
     )
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 indicator_changes AS (

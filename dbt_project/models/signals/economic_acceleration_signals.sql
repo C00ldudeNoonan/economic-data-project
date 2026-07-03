@@ -17,12 +17,12 @@
 
 WITH payems_raw AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(value) AS payems
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'PAYEMS'
       AND value IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 payems_derivatives AS (
@@ -66,12 +66,12 @@ payems_consecutive AS (
 -- CPI acceleration (monthly)
 cpi_raw AS (
     SELECT
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         MAX(value) AS cpi
     FROM {{ ref('stg_fred_series') }}
     WHERE series_code = 'CPIAUCSL'
       AND value IS NOT NULL
-    GROUP BY DATE_TRUNC('month', date)
+    GROUP BY DATE_TRUNC(date, MONTH)
 ),
 
 cpi_derivatives AS (
@@ -134,7 +134,7 @@ combined AS (
         g.gdp_acceleration
     FROM payems_consecutive p
     LEFT JOIN cpi_accel c ON p.month_date = c.month_date
-    LEFT JOIN gdp_accel g ON DATE_TRUNC('quarter', p.month_date) = g.quarter_date
+    LEFT JOIN gdp_accel g ON DATE_TRUNC(p.month_date, QUARTER) = g.quarter_date
 ),
 
 with_stats AS (
@@ -195,5 +195,5 @@ SELECT
     END AS gdp_accel_status
 
 FROM with_stats
-WHERE date >= CURRENT_DATE - INTERVAL 3 YEAR
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
 ORDER BY date DESC

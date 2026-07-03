@@ -4,21 +4,32 @@
   )
 }}
 
-WITH quarterly_data AS (
+WITH fred_monthly AS (
     SELECT
         series_code,
         series_name,
-        CONCAT(EXTRACT(YEAR FROM date), '-', EXTRACT(MONTH FROM date))
-            AS year_month,
         EXTRACT(YEAR FROM date) AS year_val,
         EXTRACT(MONTH FROM date) AS month_val,
         DATE(EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date), 1)
             AS month_date,
-        AVG(literal) AS avg_value
+        literal
     FROM {{ ref('stg_fred_series') }}
+),
+
+quarterly_data AS (
+    SELECT
+        series_code,
+        series_name,
+        CONCAT(year_val, '-', month_val) AS year_month,
+        year_val,
+        month_val,
+        month_date,
+        AVG(literal) AS avg_value
+    FROM fred_monthly
     GROUP BY
-        EXTRACT(YEAR FROM date),
-        EXTRACT(MONTH FROM date),
+        year_val,
+        month_val,
+        month_date,
         series_code,
         series_name
 ),
@@ -110,12 +121,15 @@ SELECT
     month_date,
     ROUND(avg_value, 2) AS avg_value,
     ROUND(
-        (avg_value - LAG(avg_value) OVER (
-            PARTITION BY series_code
-            ORDER BY month_date
-        )) / LAG(avg_value) OVER (
-            PARTITION BY series_code
-            ORDER BY month_date
+        SAFE_DIVIDE(
+            avg_value - LAG(avg_value) OVER (
+                PARTITION BY series_code
+                ORDER BY month_date
+            ),
+            LAG(avg_value) OVER (
+                PARTITION BY series_code
+                ORDER BY month_date
+            )
         ) * 100,
         2
     ) AS pct_change_period

@@ -3,7 +3,7 @@ With inventory As (
         data_type_code As series_code,
         seasonally_adj,
         category_code,
-        cast(cell_value As float) As clean_value,
+        cast(cell_value As float64) As clean_value,
         error_data,
         time,
         series_name,
@@ -81,7 +81,7 @@ max_date_view As (
 
     From calc_view
     Group By
-        series_code,
+        series_code
 ),
 
 final As (

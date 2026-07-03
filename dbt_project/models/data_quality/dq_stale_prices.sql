@@ -12,7 +12,7 @@
 with {{ table_name }}_consecutive as (
     select
         symbol,
-        cast(date as date) as date,
+        SAFE_CAST(SUBSTR(CAST(date AS STRING), 1, 10) AS DATE) AS date,
         close,
         open,
         high,

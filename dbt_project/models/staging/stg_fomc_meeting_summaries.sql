@@ -1,5 +1,6 @@
 {{
     config(
+        enabled=false,
         tags=['staging', 'fomc', 'summaries']
     )
 }}

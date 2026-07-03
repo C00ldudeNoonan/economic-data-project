@@ -32,11 +32,11 @@ WITH base_data AS (
 -- Define date boundaries for different periods
 date_boundaries AS (
     SELECT
-        CURRENT_DATE AS today,
-        CURRENT_DATE - INTERVAL 12 WEEK AS twelve_weeks_ago,
-        CURRENT_DATE - INTERVAL 6 MONTH AS six_months_ago,
-        CURRENT_DATE - INTERVAL 1 YEAR AS one_year_ago,
-        CURRENT_DATE - INTERVAL 5 YEAR AS five_years_ago
+        CURRENT_DATE() AS today,
+        DATE_SUB(CURRENT_DATE(), INTERVAL 12 WEEK) AS twelve_weeks_ago,
+        DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH) AS six_months_ago,
+        DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR) AS one_year_ago,
+        DATE_SUB(CURRENT_DATE(), INTERVAL 5 YEAR) AS five_years_ago
 ),
 
 -- Filter data for each time period

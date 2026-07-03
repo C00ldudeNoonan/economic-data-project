@@ -265,7 +265,9 @@ class SECTextExtractor:
         # TOC entries appear first in the document, actual section content appears later
         last_occurrence: dict[str, dict] = {}
         for pos in section_positions:
-            last_occurrence[pos["key"]] = pos
+            section_key = pos["key"]
+            if isinstance(section_key, str):
+                last_occurrence[section_key] = pos
 
         # Convert back to list and sort by position
         unique_positions = sorted(last_occurrence.values(), key=lambda x: x["start"])

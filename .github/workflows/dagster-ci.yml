@@ -4,11 +4,13 @@ on:
   push:
     branches: [main, develop]
     paths:
+      - ".github/workflows/dagster-ci.yml"
       - "macro_agents/**"
       - "dbt_project/**"
   pull_request:
     branches: [main, develop]
     paths:
+      - ".github/workflows/dagster-ci.yml"
       - "macro_agents/**"
       - "dbt_project/**"
 
@@ -16,6 +18,13 @@ jobs:
   test:
     name: Test Dagster
     runs-on: ubuntu-latest
+    env:
+      DBT_PLATFORM_ACCOUNT_ID: ${{ secrets.DBT_PLATFORM_ACCOUNT_ID }}
+      DBT_PLATFORM_PROJECT_ID: ${{ secrets.DBT_PLATFORM_PROJECT_ID }}
+      DBT_PLATFORM_ENVIRONMENT_ID: ${{ secrets.DBT_PLATFORM_ENVIRONMENT_ID }}
+      DBT_PLATFORM_TOKEN: ${{ secrets.DBT_PLATFORM_TOKEN }}
+      DBT_PLATFORM_ACCESS_URL: ${{ vars.DBT_PLATFORM_ACCESS_URL || 'https://cloud.getdbt.com' }}
+      DBT_PLATFORM_ADHOC_JOB_NAME: ${{ vars.DBT_PLATFORM_ADHOC_JOB_NAME || 'economic-data-dagster-ci' }}
 
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
@@ -54,10 +63,22 @@ jobs:
           cd macro_agents
           uv run ty check --extra-search-path src src/macro_agents
 
-      - name: Test Dagster definitions
+      - name: Test Dagster definitions with dbt Platform
+        if: ${{ env.DBT_PLATFORM_TOKEN != '' }}
         env:
           BIGQUERY_PROJECT: econ-data-project-478800
+          DBT_ORCHESTRATION_MODE: dbt_platform
         run: |
+          cd macro_agents
+          uv run dg check defs
+
+      - name: Test Dagster definitions with local dbt fallback
+        if: ${{ env.DBT_PLATFORM_TOKEN == '' }}
+        env:
+          BIGQUERY_PROJECT: econ-data-project-478800
+          DBT_ORCHESTRATION_MODE: local
+        run: |
+          echo "DBT_PLATFORM_TOKEN is not configured; using local dbt parse fallback."
           cd macro_agents
           uv run dg check defs
 

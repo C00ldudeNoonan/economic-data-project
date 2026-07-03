@@ -1,17 +1,17 @@
 With hs As (
     Select
         time_date,
-        cast(series_value As float) As number_of_households,
+        cast(series_value As float64) As number_of_households,
         extract(Year From time_date) As year
     From {{ ref('housing_inventory') }}
     Where
         category_code = 'TTLHH'
-        And series_value <> '.'
+        And series_value is not null
 )
 
 Select
     series_name,
-    cast(series_value As float) As series_value,
+    cast(series_value As float64) As series_value,
     cast((Case
         When
             right(housing_inventory.time, 2) = 'Q1'

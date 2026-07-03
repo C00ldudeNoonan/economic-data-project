@@ -1,15 +1,15 @@
 {{ config(
     unique_key=['snapshot_date', 'symbol', 'asset_type', 'time_period'],
-    incremental_strategy='delete+insert'
+    incremental_strategy='merge'
 ) }}
 
 WITH snapshot_dates AS (
     -- Generate snapshot dates (first day of each month) from available data
-    SELECT DISTINCT DATE_TRUNC('month', date) AS snapshot_date
+    SELECT DISTINCT DATE_TRUNC(date, MONTH) AS snapshot_date
     FROM {{ ref('stg_us_sectors') }}
     WHERE date >= '2020-01-01'  -- Adjust based on your data availability
     {% if is_incremental() %}
-    AND DATE_TRUNC('month', date) >= COALESCE(
+    AND DATE_TRUNC(date, MONTH) >= COALESCE(
         (SELECT MAX(snapshot_date) FROM {{ this }}),
         DATE '1900-01-01'
     ) - INTERVAL 1 MONTH
@@ -45,8 +45,8 @@ base_data AS (
         AND open IS NOT NULL
         AND close IS NOT NULL
         AND open > 0
-        AND trade_date <= sd.snapshot_date
-        AND trade_date >= sd.snapshot_date - INTERVAL 5 YEAR
+        AND CAST(date AS DATE) <= sd.snapshot_date
+        AND CAST(date AS DATE) >= sd.snapshot_date - INTERVAL 5 YEAR
 ),
 
 -- Define date boundaries for different periods relative to snapshot_date
@@ -107,6 +107,10 @@ start_prices AS (
         AND pb.asset_type = fd.asset_type
         AND pb.time_period = fd.time_period
         AND pb.period_start_date = fd.trade_date
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY pb.snapshot_date, pb.symbol, pb.asset_type, pb.time_period
+        ORDER BY fd.trade_date ASC, fd.adj_open ASC
+    ) = 1
 ),
 
 end_prices AS (
@@ -123,6 +127,10 @@ end_prices AS (
         AND pb.asset_type = fd.asset_type
         AND pb.time_period = fd.time_period
         AND pb.period_end_date = fd.trade_date
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY pb.snapshot_date, pb.symbol, pb.asset_type, pb.time_period
+        ORDER BY fd.trade_date DESC, fd.adj_close DESC
+    ) = 1
 ),
 
 -- Main aggregation
@@ -132,8 +140,8 @@ aggregated_results AS (
         symbol,
         asset_type,
         time_period,
-        exchange,
-        name,
+        ANY_VALUE(exchange) AS exchange,
+        ANY_VALUE(name) AS name,
         MIN(trade_date) AS period_start_date,
         MAX(trade_date) AS period_end_date,
         COUNT(*) AS trading_days,
@@ -160,7 +168,7 @@ aggregated_results AS (
         SUM(CASE WHEN price_change_adj = 0 THEN 1 ELSE 0 END) AS neutral_days
     FROM filtered_data
     WHERE time_period != 'older'
-    GROUP BY snapshot_date, symbol, asset_type, time_period, exchange, name
+    GROUP BY snapshot_date, symbol, asset_type, time_period
 ),
 
 -- Combine aggregated results with period boundary prices
@@ -224,4 +232,8 @@ SELECT
     ROUND(period_start_price, 2) AS period_start_price,
     ROUND(period_end_price, 2) AS period_end_price
 FROM final_metrics
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY snapshot_date, symbol, asset_type, time_period
+    ORDER BY period_end_date DESC, period_start_date DESC
+) = 1
 ORDER BY snapshot_date DESC, time_period ASC, asset_type ASC, symbol ASC

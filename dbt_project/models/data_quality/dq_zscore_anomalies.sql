@@ -10,13 +10,13 @@
 
 {% for table_name in tables %}
 (
-with {{ table_name }}_rolling as (
-    select
-        symbol,
-        cast(date as date) as date,
-        close,
-        open,
-        high,
+	with {{ table_name }}_rolling as (
+	    select
+	        symbol,
+	        safe_cast(substr(cast(date as string), 1, 10) as date) as date,
+	        close,
+	        open,
+	        high,
         low,
         avg(close) over w as rolling_avg_close,
         stddev(close) over w as rolling_std_close,
@@ -63,8 +63,8 @@ where
         where ca.source_table = '{{ table_name }}'
           and ca.symbol = {{ table_name }}_rolling.symbol
           and ca.action_type = 'split'
-          and {{ table_name }}_rolling.date between ca.date - interval '2' day and ca.date + interval '2' day
-    )
-)
+	          and {{ table_name }}_rolling.date between ca.date - interval 2 day and ca.date + interval 2 day
+	    )
+	)
 {% if not loop.last %}union all{% endif %}
 {% endfor %}

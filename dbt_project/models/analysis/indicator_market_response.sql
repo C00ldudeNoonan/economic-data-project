@@ -8,34 +8,34 @@
 -- Calculates how sectors respond to economic indicator releases and surprise moves
 
 WITH sector_names AS (
-    SELECT sector_names.*
-    FROM (VALUES
-        ('XLK', 'Technology'),
-        ('XLC', 'Communication Services'),
-        ('XLY', 'Consumer Discretionary'),
-        ('XLF', 'Financial'),
-        ('XLI', 'Industrial'),
-        ('XLU', 'Utilities'),
-        ('XLP', 'Consumer Staples'),
-        ('XLRE', 'Real Estate'),
-        ('XLB', 'Materials'),
-        ('XLE', 'Energy'),
-        ('XLV', 'Health Care')
-    ) AS sector_names (symbol, sector_name)
+    SELECT *
+    FROM UNNEST([
+        STRUCT('XLK' AS symbol, 'Technology' AS sector_name),
+        STRUCT('XLC' AS symbol, 'Communication Services' AS sector_name),
+        STRUCT('XLY' AS symbol, 'Consumer Discretionary' AS sector_name),
+        STRUCT('XLF' AS symbol, 'Financial' AS sector_name),
+        STRUCT('XLI' AS symbol, 'Industrial' AS sector_name),
+        STRUCT('XLU' AS symbol, 'Utilities' AS sector_name),
+        STRUCT('XLP' AS symbol, 'Consumer Staples' AS sector_name),
+        STRUCT('XLRE' AS symbol, 'Real Estate' AS sector_name),
+        STRUCT('XLB' AS symbol, 'Materials' AS sector_name),
+        STRUCT('XLE' AS symbol, 'Energy' AS sector_name),
+        STRUCT('XLV' AS symbol, 'Health Care' AS sector_name)
+    ])
 ),
 
 -- Get monthly sector returns
 sector_monthly AS (
     SELECT
         symbol,
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         LAST_VALUE(pct_change_1mo) OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
         ) AS monthly_return,
         ROW_NUMBER() OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date DESC
         ) AS rn
     FROM {{ ref('us_sector_analysis_return') }}
@@ -48,35 +48,47 @@ sector_returns AS (
     WHERE rn = 1
 ),
 
--- Get monthly FRED indicator values with changes and rolling stats
+-- Get monthly FRED indicator values with month-over-month changes
+indicator_values AS (
+    SELECT
+        series_code,
+        series_name,
+        DATE_TRUNC(date, MONTH) AS month_date,
+        value,
+        value - LAG(value) OVER (PARTITION BY series_code ORDER BY date) AS mom_change,
+        CASE
+            WHEN LAG(value) OVER (PARTITION BY series_code ORDER BY date) IS NOT NULL
+                AND LAG(value) OVER (PARTITION BY series_code ORDER BY date) != 0
+                THEN SAFE_DIVIDE(
+                    value - LAG(value) OVER (PARTITION BY series_code ORDER BY date),
+                    ABS(LAG(value) OVER (PARTITION BY series_code ORDER BY date))
+                ) * 100
+        END AS mom_pct_change
+    FROM {{ ref('fred_monthly_diff') }}
+),
+
+-- Add rolling stats in a second stage; BigQuery disallows nested analytic functions.
 indicator_monthly AS (
     SELECT
         series_code,
         series_name,
-        DATE_TRUNC('month', date) AS month_date,
+        month_date,
         value,
-        -- Month-over-month change
-        value - LAG(value) OVER (PARTITION BY series_code ORDER BY date) AS mom_change,
-        -- Percentage change
-        CASE
-            WHEN LAG(value) OVER (PARTITION BY series_code ORDER BY date) IS NOT NULL
-                AND LAG(value) OVER (PARTITION BY series_code ORDER BY date) != 0
-            THEN ((value - LAG(value) OVER (PARTITION BY series_code ORDER BY date))
-                  / ABS(LAG(value) OVER (PARTITION BY series_code ORDER BY date))) * 100
-        END AS mom_pct_change,
+        mom_change,
+        mom_pct_change,
         -- Rolling 12-month average change (as trend/expected)
-        AVG(value - LAG(value) OVER (PARTITION BY series_code ORDER BY date)) OVER (
+        AVG(mom_change) OVER (
             PARTITION BY series_code
-            ORDER BY date
+            ORDER BY month_date
             ROWS BETWEEN 12 PRECEDING AND 1 PRECEDING
         ) AS avg_12mo_change,
         -- Rolling standard deviation of changes
-        STDDEV(value - LAG(value) OVER (PARTITION BY series_code ORDER BY date)) OVER (
+        STDDEV(mom_change) OVER (
             PARTITION BY series_code
-            ORDER BY date
+            ORDER BY month_date
             ROWS BETWEEN 12 PRECEDING AND 1 PRECEDING
         ) AS std_12mo_change
-    FROM {{ ref('fred_monthly_diff') }}
+    FROM indicator_values
 ),
 
 -- Calculate indicator surprises (deviation from trend)

@@ -2,6 +2,12 @@
 
 The `dbt_project/` module contains SQL-based data transformations that process raw data into analytical models.
 
+## dbt Platform + Fusion
+
+The project is migrating to dbt Platform with the Fusion engine on BigQuery.
+Use the [dbt Platform + Fusion onboarding runbook](./dbt-platform-fusion-onboarding.md)
+for issue #82 setup, environment configuration, CI jobs, and Dagster cutover notes.
+
 ## Architecture
 
 ```mermaid

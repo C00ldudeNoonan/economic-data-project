@@ -10,14 +10,14 @@
 WITH sector_monthly AS (
     SELECT
         symbol,
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         LAST_VALUE(pct_change_1mo) OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
         ) AS monthly_return,
         ROW_NUMBER() OVER (
-            PARTITION BY symbol, DATE_TRUNC('month', date)
+            PARTITION BY symbol, DATE_TRUNC(date, MONTH)
             ORDER BY date DESC
         ) AS rn
     FROM {{ ref('us_sector_analysis_return') }}
@@ -34,7 +34,7 @@ indicator_monthly AS (
     SELECT
         series_code,
         series_name,
-        DATE_TRUNC('month', date) AS month_date,
+        DATE_TRUNC(date, MONTH) AS month_date,
         value,
         CASE
             WHEN LAG(value) OVER (PARTITION BY series_code ORDER BY date) IS NOT NULL
@@ -159,6 +159,19 @@ rolling_correlations AS (
 ),
 
 -- Calculate correlation stability metrics
+correlation_with_signs AS (
+    SELECT
+        *,
+        CASE
+            WHEN rolling_corr_12m * LAG(rolling_corr_12m) OVER (
+                PARTITION BY symbol, series_code ORDER BY month_date
+            ) < 0 THEN 1
+            ELSE 0
+        END AS sign_change_flag
+    FROM rolling_correlations
+    WHERE rolling_corr_12m IS NOT NULL
+),
+
 correlation_stability AS (
     SELECT
         symbol,
@@ -170,13 +183,8 @@ correlation_stability AS (
         MIN(rolling_corr_12m) AS rolling_corr_min,
         MAX(rolling_corr_12m) AS rolling_corr_max,
         -- Count sign changes (correlation instability indicator)
-        SUM(CASE
-            WHEN rolling_corr_12m * LAG(rolling_corr_12m) OVER (
-                PARTITION BY symbol, series_code ORDER BY month_date
-            ) < 0 THEN 1 ELSE 0
-        END) AS sign_changes
-    FROM rolling_correlations
-    WHERE rolling_corr_12m IS NOT NULL
+        SUM(sign_change_flag) AS sign_changes
+    FROM correlation_with_signs
     GROUP BY symbol, series_code, series_name
 ),
 

@@ -6,9 +6,9 @@ WITH all_model_results AS (
     SELECT 
         'stg_fred_series' AS model_name,
         series_code AS identifier,
-        EXTRACT(YEAR FROM date) AS year_val
+        EXTRACT(YEAR FROM SAFE_CAST(date AS DATE)) AS year_val
     FROM {{ ref('stg_fred_series') }}
-    WHERE date >= CURRENT_DATE - INTERVAL '5 years'
+    WHERE SAFE_CAST(date AS DATE) >= DATE_SUB(CURRENT_DATE(), INTERVAL 5 YEAR)
     
     UNION ALL
     
@@ -17,7 +17,7 @@ WITH all_model_results AS (
         'housing' AS identifier,
         CAST(LEFT(time, 4) AS INTEGER) AS year_val
     FROM {{ ref('stg_housing_inventory') }}
-    WHERE CAST(LEFT(time, 4) AS INTEGER) >= EXTRACT(YEAR FROM CURRENT_DATE) - 5
+    WHERE CAST(LEFT(time, 4) AS INTEGER) >= EXTRACT(YEAR FROM CURRENT_DATE()) - 5
     
     UNION ALL
     
@@ -26,16 +26,16 @@ WITH all_model_results AS (
         'housing_pulse' AS identifier,
         CAST(LEFT(TIME, 4) AS INTEGER) AS year_val
     FROM {{ ref('stg_housing_pulse') }}
-    WHERE CAST(LEFT(TIME, 4) AS INTEGER) >= EXTRACT(YEAR FROM CURRENT_DATE) - 5
+    WHERE CAST(LEFT(TIME, 4) AS INTEGER) >= EXTRACT(YEAR FROM CURRENT_DATE()) - 5
     
     UNION ALL
     
     SELECT 
         'stg_treasury_yields' AS model_name,
         'treasury' AS identifier,
-        EXTRACT(YEAR FROM date) AS year_val
+        EXTRACT(YEAR FROM SAFE_CAST(date AS DATE)) AS year_val
     FROM {{ ref('stg_treasury_yields') }}
-    WHERE date >= CURRENT_DATE - INTERVAL '5 years'
+    WHERE SAFE_CAST(date AS DATE) >= DATE_SUB(CURRENT_DATE(), INTERVAL 5 YEAR)
 ),
 expected_years AS (
     SELECT DISTINCT

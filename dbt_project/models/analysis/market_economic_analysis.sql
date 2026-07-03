@@ -15,7 +15,7 @@ WITH economic_data AS (
         data_source AS economic_data_source,
         -- Create month_date for joining
         CASE
-            WHEN year_month ~ '^\d{4}-\d{1,2}$'
+            WHEN REGEXP_CONTAINS(year_month, r'^\d{4}-\d{1,2}$')
                 THEN
                     DATE(
                         CAST(SPLIT(year_month, '-')[OFFSET(0)] AS INT64),
@@ -36,7 +36,7 @@ economic_indicators_pivoted AS (
             CASE
                 WHEN
                     series_code LIKE '%GDP%'
-                    OR series_name ILIKE '%gross domestic product%'
+                    OR LOWER(series_name) LIKE '%gross domestic product%'
                     THEN economic_value
             END
         ) AS gdp_value,
@@ -44,7 +44,7 @@ economic_indicators_pivoted AS (
             CASE
                 WHEN
                     series_code LIKE '%GDP%'
-                    OR series_name ILIKE '%gross domestic product%'
+                    OR LOWER(series_name) LIKE '%gross domestic product%'
                     THEN economic_change_pct
             END
         ) AS gdp_change_pct,
@@ -54,7 +54,7 @@ economic_indicators_pivoted AS (
             CASE
                 WHEN
                     series_code LIKE '%CPI%'
-                    OR series_name ILIKE '%consumer price%'
+                    OR LOWER(series_name) LIKE '%consumer price%'
                     THEN economic_value
             END
         ) AS cpi_value,
@@ -62,7 +62,7 @@ economic_indicators_pivoted AS (
             CASE
                 WHEN
                     series_code LIKE '%CPI%'
-                    OR series_name ILIKE '%consumer price%'
+                    OR LOWER(series_name) LIKE '%consumer price%'
                     THEN economic_change_pct
             END
         ) AS cpi_change_pct,
@@ -71,14 +71,14 @@ economic_indicators_pivoted AS (
         MAX(
             CASE
                 WHEN
-                    series_name ILIKE '%interest%' OR series_name ILIKE '%rate%'
+                    LOWER(series_name) LIKE '%interest%' OR LOWER(series_name) LIKE '%rate%'
                     THEN economic_value
             END
         ) AS interest_rate_value,
         MAX(
             CASE
                 WHEN
-                    series_name ILIKE '%interest%' OR series_name ILIKE '%rate%'
+                    LOWER(series_name) LIKE '%interest%' OR LOWER(series_name) LIKE '%rate%'
                     THEN economic_change_pct
             END
         ) AS interest_rate_change_pct

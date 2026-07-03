@@ -17,8 +17,8 @@ clean-targets:
     - "dbt_packages"
 
 # Model configurations
-# Schema values map to BigQuery datasets. generate_schema_name macro must
-# return the custom schema as-is (see macros/generate_schema_name.sql).
+# Schema values map to BigQuery datasets. generate_schema_name appends
+# environment suffixes for dev and staging targets while leaving prod canonical.
 models:
   dbt_project:
     +materialized: table
@@ -39,6 +39,9 @@ models:
       +materialized: table
     signals:
       +schema: economics_signals
+      +materialized: table
+    semantic_layer:
+      +schema: economics_marts
       +materialized: table
     agents_preprocess:
       +schema: economics_analysis
