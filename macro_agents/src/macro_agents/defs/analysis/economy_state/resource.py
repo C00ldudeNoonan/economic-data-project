@@ -1,7 +1,7 @@
 import base64
-import io
 import os
 import pickle
+import tempfile
 from typing import Any
 
 import dagster as dg
@@ -291,8 +291,10 @@ class EconomicAnalysisResource(dg.ConfigurableResource):
                         "serialization_method", "pickle"
                     )
                     if serialization_method == "dspy.save" and hasattr(dspy, "load"):
-                        buffer = io.BytesIO(module_bytes)
-                        module = dspy.load(buffer)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        with tempfile.NamedTemporaryFile() as model_file:
+                            model_file.write(module_bytes)
+                            model_file.flush()
+                            module = dspy.load(model_file.name)
                     else:
                         module = pickle.loads(module_bytes)
 

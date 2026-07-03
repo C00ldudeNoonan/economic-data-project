@@ -1,7 +1,10 @@
 import io
+import json
 import logging
 import os
 import re
+import tempfile
+import uuid
 from typing import Any
 
 import dagster as dg
@@ -29,8 +32,29 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
     )
     location: str = Field(description="BigQuery location", default="US")
 
+    def _prepare_google_application_credentials(self) -> None:
+        """Support either a credentials file path or inline service-account JSON."""
+        credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        if not credentials.startswith("{"):
+            return
+
+        try:
+            json.loads(credentials)
+        except json.JSONDecodeError as error:
+            raise ValueError(
+                "GOOGLE_APPLICATION_CREDENTIALS contains invalid JSON"
+            ) from error
+
+        credentials_path = os.path.join(
+            tempfile.gettempdir(), "gcp_service_account_credentials.json"
+        )
+        with open(credentials_path, "w", encoding="utf-8") as credentials_file:
+            credentials_file.write(credentials)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+
     def get_client(self) -> bigquery.Client:
         """Return a BigQuery client. On GCE the VM service account is used via ADC."""
+        self._prepare_google_application_credentials()
         return bigquery.Client(project=self.project)
 
     def get_connection(self) -> bigquery.Client:
@@ -81,7 +105,7 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
 
         client = self.get_client()
         table_ref = self._table_ref(table_name)
-        staging_ref = f"{table_ref}_staging"
+        staging_ref = f"{table_ref}_staging_{uuid.uuid4().hex[:12]}"
 
         client.load_table_from_dataframe(
             data.to_pandas(),

@@ -40,7 +40,7 @@ class MarketStackResource(dg.ConfigurableResource):
 
         while attempt < max_attempts:
             try:
-                response = requests.get(url)
+                response = requests.get(url, timeout=30)
 
                 # Handle 404 (not found) and 406 (not acceptable) gracefully
                 # These indicate missing data rather than errors worth retrying
@@ -87,8 +87,10 @@ class MarketStackResource(dg.ConfigurableResource):
                 return response.json()
 
             except requests.exceptions.HTTPError as e:
-                if e.response and e.response.status_code == 429:
-                    retry_after = e.response.headers.get("Retry-After")
+                error_response = e.response
+                status_code = error_response.status_code if error_response else None
+                if error_response is not None and status_code == 429:
+                    retry_after = error_response.headers.get("Retry-After")
                     if retry_after:
                         try:
                             wait_seconds = int(retry_after)
@@ -120,8 +122,18 @@ class MarketStackResource(dg.ConfigurableResource):
                         )
                         raise
                     continue
-                else:
-                    raise
+                if status_code in {500, 502, 503, 504} and attempt < max_attempts - 1:
+                    wait_seconds = min(5 * (2**attempt), 30)
+                    self.logger.warning(
+                        f"MarketStack server error ({status_code}). "
+                        f"Retrying in {wait_seconds}s "
+                        f"(attempt {attempt + 1}/{max_attempts})"
+                    )
+                    time.sleep(wait_seconds)
+                    attempt += 1
+                    continue
+
+                raise
             except requests.exceptions.RequestException:
                 if attempt < max_attempts - 1:
                     wait_seconds = min(5 * (2**attempt), 30)

@@ -24,6 +24,13 @@ from dagster_dbt import (
 logging.getLogger("dagster_dbt").setLevel(logging.DEBUG)
 logger = logging.getLogger("dagster_dbt")
 
+DBT_NASDAQ_EXCLUDE = (
+    "stg_nasdaq_companies_prices "
+    "nasdaq_companies_analysis_return "
+    "nasdaq_companies_summary "
+    "source:staging.nasdaq_companies_prices_raw"
+)
+
 
 class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
     def get_group_name(self, dbt_resource_props: Mapping[str, Any]) -> str | None:
@@ -100,6 +107,7 @@ if orchestration_mode in {"dbt_platform", "dbt_cloud", "platform", "cloud"}:
 
     @dbt_cloud_assets(
         workspace=dbt_resource,
+        exclude=DBT_NASDAQ_EXCLUDE,
         dagster_dbt_translator=CustomizedDagsterDbtTranslator(),
     )
     def full_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCloudWorkspace):
@@ -216,6 +224,7 @@ else:
 
     @dbt_assets(
         manifest=dbt_project.manifest_path,
+        exclude=DBT_NASDAQ_EXCLUDE,
         dagster_dbt_translator=CustomizedDagsterDbtTranslator(),
     )
     def full_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCliResource):

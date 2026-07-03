@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 import dagster as dg
 import polars as pl
@@ -353,4 +353,4 @@ def fetch_available_ai_models(
         f"Anthropic={len(results['anthropic'])}, Gemini={len(results['gemini'])}"
     )
 
-    return dg.MaterializeResult(metadata=metadata)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    return dg.MaterializeResult(metadata=cast(Any, metadata))

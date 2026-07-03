@@ -27,7 +27,6 @@ from macro_agents.defs.domains.macro import (
 )
 from macro_agents.defs.domains.markets import (
     market_stack_ingestion_schedules,
-    monthly_nasdaq_companies_list_schedule,
     monthly_sp500_companies_list_schedule,
 )
 from macro_agents.defs.domains.social import daily_reddit_posts_schedule
@@ -130,7 +129,6 @@ class TestScheduledJobs:
         assert "fixed_income_etfs_ingestion_job" in job_names
         assert "global_markets_ingestion_job" in job_names
         assert "sp500_companies_prices_ingestion_job" in job_names
-        assert "nasdaq_companies_prices_ingestion_job" in job_names
         assert "energy_commodities_ingestion_job" in job_names
         assert "input_commodities_ingestion_job" in job_names
         assert "agriculture_commodities_ingestion_job" in job_names
@@ -150,7 +148,6 @@ class TestScheduledJobs:
         assert "reddit_posts_ingestion_job" in job_names
         # Company list jobs
         assert "sp500_companies_list_job" in job_names
-        assert "nasdaq_companies_list_job" in job_names
         # Signal jobs
         assert "absorption_ratio_job" in job_names
         assert "turbulence_index_job" in job_names
@@ -176,7 +173,6 @@ class TestScheduledJobs:
         assert "fixed_income_etfs_ingestion_job" in job_names
         assert "global_markets_ingestion_job" in job_names
         assert "sp500_companies_prices_ingestion_job" in job_names
-        assert "nasdaq_companies_prices_ingestion_job" in job_names
         assert "energy_commodities_ingestion_job" in job_names
         assert "input_commodities_ingestion_job" in job_names
         assert "agriculture_commodities_ingestion_job" in job_names
@@ -191,7 +187,6 @@ class TestScheduledJobs:
         assert "housing_pulse_job" in job_names
         assert "reddit_posts_ingestion_job" in job_names
         assert "sp500_companies_list_job" in job_names
-        assert "nasdaq_companies_list_job" in job_names
         assert "absorption_ratio_job" in job_names
         assert "turbulence_index_job" in job_names
         assert "fear_greed_job" in job_names
@@ -215,16 +210,6 @@ class TestIngestionSchedules:
         assert monthly_sp500_companies_list_schedule.cron_schedule == "0 2 1 * *"
         assert (
             monthly_sp500_companies_list_schedule.execution_timezone
-            == "America/New_York"
-        )
-
-        assert (
-            monthly_nasdaq_companies_list_schedule.name
-            == "monthly_nasdaq_companies_list_schedule"
-        )
-        assert monthly_nasdaq_companies_list_schedule.cron_schedule == "0 3 1 * *"
-        assert (
-            monthly_nasdaq_companies_list_schedule.execution_timezone
             == "America/New_York"
         )
 
@@ -261,7 +246,6 @@ class TestDefinitionsIntegration:
             "daily_reddit_posts_schedule",
             # Company list schedules
             "monthly_sp500_companies_list_schedule",
-            "monthly_nasdaq_companies_list_schedule",
             # Signal schedules
             "weekly_absorption_ratio_schedule",
             "weekday_turbulence_index_schedule",
@@ -308,7 +292,6 @@ class TestDefinitionsIntegration:
             "fixed_income_etfs_ingestion_job",
             "global_markets_ingestion_job",
             "sp500_companies_prices_ingestion_job",
-            "nasdaq_companies_prices_ingestion_job",
             "energy_commodities_ingestion_job",
             "input_commodities_ingestion_job",
             "agriculture_commodities_ingestion_job",
@@ -323,7 +306,6 @@ class TestDefinitionsIntegration:
             "housing_pulse_job",
             "reddit_posts_ingestion_job",
             "sp500_companies_list_job",
-            "nasdaq_companies_list_job",
             "absorption_ratio_job",
             "turbulence_index_job",
             "fear_greed_job",
@@ -423,7 +405,6 @@ class TestCronScheduleValidation:
             weekly_housing_pulse_schedule,
             daily_reddit_posts_schedule,
             monthly_sp500_companies_list_schedule,
-            monthly_nasdaq_companies_list_schedule,
             *signal_schedules,
         ]
 
@@ -466,7 +447,6 @@ class TestCronScheduleValidation:
             weekly_housing_pulse_schedule,
             daily_reddit_posts_schedule,
             monthly_sp500_companies_list_schedule,
-            monthly_nasdaq_companies_list_schedule,
             *signal_schedules,
         ]
 
