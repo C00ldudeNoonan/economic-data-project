@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: agent_technical_signal_setups
+    description: >
+      Agent-friendly view of symbols currently in a technical setup,
+      freshly triggered, or inside an active signal window (issue #109
+      phase 1). One row per symbol × signal at the symbol's latest bar,
+      with descriptive state text for LLM consumption.
+    columns:
+      - name: signal_state
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['setup', 'triggered', 'active']
+      - name: as_of_date
+        tests:
+          - not_null
+
+  - name: agent_technical_signal_history
+    description: >
+      Agent-friendly reliability summary of historical technical signals
+      (issue #109 phase 1): trigger counts, benchmark-relative hit rates
+      at 5/21/63 trading days, average relative returns, and excursion
+      stats, at universe×signal and universe×symbol×signal grains.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns:
+              ['aggregation_grain', 'source_universe', 'symbol', 'exchange', 'signal_name']
+    columns:
+      - name: aggregation_grain
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['universe_signal', 'universe_symbol_signal']
+      - name: total_triggers
+        tests:
+          - not_null
+          - value_in_range:
+              arguments:
+                min_value: 1
+      - name: hit_rate_21d
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 1

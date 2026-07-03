@@ -1,0 +1,145 @@
+version: 2
+
+models:
+  - name: technical_price_universe
+    description: >
+      Unified daily OHLCV universe for the technical-analysis framework
+      (issue #109). One row per source_universe, symbol, exchange, date.
+      S&P 500 stocks use split-adjusted prices; ETF/index sources prefer
+      MarketStack-adjusted fields with raw fallback. bars_available counts
+      trading bars per instrument for downstream warmup gating.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['source_universe', 'symbol', 'exchange', 'date']
+    columns:
+      - name: source_universe
+        description: Which ingested universe the row came from
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - sp500_stock
+                  - us_sector_etf
+                  - major_index
+                  - fixed_income_etf
+                  - currency_etf
+                  - global_market
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: close
+        description: Adjusted close (split-adjusted for sp500_stock)
+        tests:
+          - not_null
+          - value_in_range:
+              arguments:
+                min_value: 0
+      - name: bars_available
+        description: 1-based trading-bar counter per instrument, ordered by date
+        tests:
+          - not_null
+          - value_in_range:
+              arguments:
+                min_value: 1
+
+  - name: technical_indicator_daily
+    description: >
+      Wide daily technical-indicator feature table (issue #109 phase 1).
+      One row per source_universe, symbol, exchange, date. Indicators are
+      NULL until enough lookback bars exist (warmup gating). EMA-family
+      indicators use the finite-window exponentially weighted mean
+      documented in macros/technical_analysis/ta_primitives.sql. Donchian
+      levels exclude the current bar. bb_percent_b can exceed the 0-1
+      range by design when price closes outside the bands.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['source_universe', 'symbol', 'exchange', 'date']
+    columns:
+      - name: source_universe
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: rsi_14
+        description: Wilder RSI(14); NULL during warmup
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: stoch_k_14
+        description: Stochastic %K(14)
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: stoch_d_3
+        description: Stochastic %D — 3-bar SMA of %K
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: williams_r_14
+        description: Williams %R(14), bounded -100 to 0
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: -100
+                max_value: 0
+      - name: mfi_14
+        description: Money Flow Index(14)
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: adx_14
+        description: Average Directional Index(14), Wilder smoothing
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: atr_14
+        description: Average True Range(14), Wilder smoothing
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+      - name: natr_14
+        description: ATR normalized by close, percent
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+      - name: bb_bandwidth
+        description: Bollinger bandwidth, percent of middle band
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+      - name: bb_bandwidth_pctile_126
+        description: Position of bandwidth within its trailing 126-bar range
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: relative_volume
+        description: Volume vs its 20-bar average
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0

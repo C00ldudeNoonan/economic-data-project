@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: technical_signal_events
+    description: >
+      Long-format technical signal event log (issue #109 phase 1). One row
+      per source_universe, symbol, exchange, date, signal_name while the
+      signal is in a non-null state. Signal definitions live in the jinja
+      registry inside the model. States follow the setup → triggered →
+      active → completed lifecycle, with expired marking setups that ended
+      without triggering. No forward-looking fields.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns:
+              ['source_universe', 'symbol', 'exchange', 'date', 'signal_name']
+    columns:
+      - name: source_universe
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: indicator_name
+        description: Indicator family the signal is derived from
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['sma', 'rsi', 'macd', 'stochastic', 'bollinger', 'donchian']
+      - name: signal_name
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - golden_cross
+                  - death_cross
+                  - price_cross_sma200_up
+                  - price_cross_sma200_down
+                  - rsi_oversold_recovery
+                  - rsi_overbought_reversal
+                  - macd_bullish_cross
+                  - macd_bearish_cross
+                  - stoch_oversold_cross
+                  - stoch_overbought_cross
+                  - bollinger_squeeze_breakout_up
+                  - bollinger_squeeze_breakout_down
+                  - donchian_breakout_up
+                  - donchian_breakout_down
+      - name: signal_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['bullish', 'bearish']
+      - name: signal_state
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['setup', 'triggered', 'active', 'completed', 'expired']
+      - name: bars_since_trigger
+        description: Trading bars since the most recent trigger (0 on the trigger bar)
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+
+  - name: technical_current_setups
+    description: >
+      Latest-bar snapshot of technical signals in setup/triggered/active
+      states (issue #109 phase 1). One row per symbol × signal at each
+      symbol's most recent trading bar; symbols staler than 14 days are
+      excluded. This is the operational "what is happening now?" surface.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns:
+              ['source_universe', 'symbol', 'exchange', 'signal_name']
+    columns:
+      - name: signal_state
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['setup', 'triggered', 'active']
+      - name: date
+        description: The symbol's most recent trading bar
+        tests:
+          - not_null
