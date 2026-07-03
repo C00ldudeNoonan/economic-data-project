@@ -77,7 +77,7 @@ splits_api_adjusted AS (
             FROM {{ ref('stg_sp500_companies_prices') }}
         ) AS p
             ON sa.symbol = p.symbol
-            AND p.date < sa.date
+            AND sa.date > p.date
     )
     WHERE prior_price_rank = 1
 ),
