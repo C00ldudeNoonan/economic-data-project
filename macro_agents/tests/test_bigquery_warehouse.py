@@ -35,14 +35,28 @@ class TestGetClientCaching:
         mock_client_cls.assert_called_once_with(project="test-project", location="EU")
 
     @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
-    def test_get_connection_reuses_cached_client(self, mock_client_cls):
+    def test_get_connection_returns_caller_owned_client(self, mock_client_cls):
+        """get_connection() callers close() the result like a DuckDB
+        connection, so it must never hand out the shared cached client."""
+        mock_client_cls.side_effect = lambda **kwargs: Mock(name="client")
         resource = _make_resource()
 
         client = resource.get_client()
         connection = resource.get_connection()
 
-        assert connection is client
-        mock_client_cls.assert_called_once()
+        assert connection is not client
+
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_closing_connection_does_not_break_cached_client(self, mock_client_cls):
+        mock_client_cls.side_effect = lambda **kwargs: Mock(name="client")
+        resource = _make_resource()
+
+        cached = resource.get_client()
+        connection = resource.get_connection()
+        connection.close()
+
+        assert resource.get_client() is cached
+        cached.close.assert_not_called()
 
 
 class TestExecuteQueryErrorSurfacing:

@@ -71,8 +71,15 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         return self._client
 
     def get_connection(self) -> bigquery.Client:
-        """Alias for get_client() — drop-in replacement for MotherDuckResource.get_connection()."""
-        return self.get_client()
+        """Return a NEW client owned by the caller — drop-in replacement for MotherDuckResource.get_connection().
+
+        Many callers close() the returned object like a DuckDB connection,
+        so this must NOT hand out the shared cached client from
+        get_client(): closing that would break every subsequent query on
+        this resource within the same process.
+        """
+        self._prepare_google_application_credentials()
+        return bigquery.Client(project=self.project, location=self.location)
 
     def _table_ref(self, table_name: str) -> str:
         parts = table_name.split(".")
