@@ -536,7 +536,7 @@ def optimize_dspy_modules(
                         )
                     except AttributeError:
                         context.log.warning("MIPROv2 not available, using MIPRO")
-                        optimizer = dspy.MIPRO(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        optimizer = dspy.MIPRO(  # type: ignore[attr-defined]
                             metric=recommendation_accuracy_metric,
                             num_candidates=config.max_trials,
                         )

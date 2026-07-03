@@ -87,9 +87,10 @@ class MarketStackResource(dg.ConfigurableResource):
                 return response.json()
 
             except requests.exceptions.HTTPError as e:
-                status_code = e.response.status_code if e.response else None
-                if status_code == 429:
-                    retry_after = e.response.headers.get("Retry-After")
+                error_response = e.response
+                status_code = error_response.status_code if error_response else None
+                if error_response is not None and status_code == 429:
+                    retry_after = error_response.headers.get("Retry-After")
                     if retry_after:
                         try:
                             wait_seconds = int(retry_after)

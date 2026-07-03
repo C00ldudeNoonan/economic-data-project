@@ -353,4 +353,4 @@ def fetch_available_ai_models(
         f"Anthropic={len(results['anthropic'])}, Gemini={len(results['gemini'])}"
     )
 
-    return dg.MaterializeResult(metadata=metadata)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    return dg.MaterializeResult(metadata=metadata)  # type: ignore[arg-type]

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from typing import cast
 
 import dagster as dg
 import dspy
@@ -103,11 +104,12 @@ def recommendation_accuracy_metric(example, prediction, trace=None):
 
 
 def _period_result(evaluation_result: dict[str, object], period: str) -> dict | None:
-    period_results = evaluation_result.get("period_results", {})
+    period_results = evaluation_result.get("period_results")
     if not isinstance(period_results, dict):
         return None
 
-    period_result = period_results.get(period)
+    period_results_by_name = cast(dict[str, object], period_results)
+    period_result = period_results_by_name.get(period)
     if not isinstance(period_result, dict):
         return None
 
