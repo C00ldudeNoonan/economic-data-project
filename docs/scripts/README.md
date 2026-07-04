@@ -1,8 +1,45 @@
 # Utility Scripts
 
-The `scripts/` directory contains shell scripts for deployment and infrastructure management.
+This project keeps utility scripts in domain-specific script directories, including
+`macro_agents/scripts/` for Python helpers and deployment script locations noted
+below.
 
 ## Available Scripts
+
+### `bigquery_access_audit.py`
+
+Audits BigQuery query job history so we can see which tables were accessed,
+who accessed them, and how much data each access pattern processed or billed.
+This is useful for tuning agent/dbt semantic-layer models and spotting tables
+that are expensive, unused, or missing from expected analytical workflows.
+
+**Usage:**
+```bash
+uv run --project macro_agents python macro_agents/scripts/bigquery_access_audit.py --days 14
+```
+
+Filter to the dbt Platform service account:
+```bash
+uv run --project macro_agents python macro_agents/scripts/bigquery_access_audit.py \
+  --days 30 \
+  --user-email dbt-service-account@example.iam.gserviceaccount.com
+```
+
+Export recent query-level access to CSV:
+```bash
+uv run --project macro_agents python macro_agents/scripts/bigquery_access_audit.py \
+  --mode jobs \
+  --format csv \
+  --output bigquery_access_jobs.csv
+```
+
+**Prerequisites:**
+- `BIGQUERY_PROJECT` or `BIGQUERY_PROJECT_ID` set, unless using the repo default.
+- `BIGQUERY_LOCATION` set when the job history is outside the `US` multi-region.
+- Google Application Default Credentials, or `GOOGLE_APPLICATION_CREDENTIALS`
+  set to either a credentials file path or inline service-account JSON.
+- IAM permissions that allow reading project job history, including
+  `bigquery.jobs.listAll`.
 
 ### `setup-gcp-vm.sh`
 
