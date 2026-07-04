@@ -235,6 +235,375 @@ semantic_models:
         agg: max
         expr: freshness_lag_days
 
+  - name: treasury_yield_curve
+    description: >
+      Treasury yield curve levels, spreads, and inversion classifications for
+      agent and semantic-layer analysis.
+    model: ref('agent_treasury_yield_curve_spreads')
+    defaults:
+      agg_time_dimension: date
+    entities:
+      - name: yield_curve_observation
+        type: primary
+        expr: date
+    dimensions:
+      - name: date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: curve_shape
+        type: categorical
+      - name: inversion_status
+        type: categorical
+    measures:
+      - name: treasury_3m_yield_measure
+        description: Average three-month Treasury yield.
+        agg: average
+        expr: yield_3m
+      - name: treasury_2y_yield_measure
+        description: Average two-year Treasury yield.
+        agg: average
+        expr: yield_2y
+      - name: treasury_10y_yield_measure
+        description: Average ten-year Treasury yield.
+        agg: average
+        expr: yield_10y
+      - name: spread_10y_2y_measure
+        description: Average ten-year minus two-year Treasury yield spread.
+        agg: average
+        expr: spread_10y_2y
+      - name: spread_10y_3m_measure
+        description: Average ten-year minus three-month Treasury yield spread.
+        agg: average
+        expr: spread_10y_3m
+
+  - name: financial_conditions
+    description: >
+      Financial stress, lending standards, and credit delinquency signals built
+      from existing FRED financial-condition series.
+    model: ref('financial_conditions_signals')
+    defaults:
+      agg_time_dimension: date
+    entities:
+      - name: financial_conditions_observation
+        type: primary
+        expr: date
+    dimensions:
+      - name: date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: nfci_status
+        type: categorical
+      - name: nfci_trend_status
+        type: categorical
+      - name: lending_status
+        type: categorical
+    measures:
+      - name: nfci_value_measure
+        description: Average Chicago Fed National Financial Conditions Index value.
+        agg: average
+        expr: nfci_value
+      - name: anfci_value_measure
+        description: Average adjusted National Financial Conditions Index value.
+        agg: average
+        expr: anfci_value
+      - name: stl_fsi_value_measure
+        description: Average St. Louis Fed Financial Stress Index value.
+        agg: average
+        expr: stl_fsi_value
+      - name: nfci_13w_change_measure
+        description: Average 13-week change in NFCI.
+        agg: average
+        expr: nfci_13w_change
+      - name: lending_standards_avg_measure
+        description: Average bank lending standards net tightening.
+        agg: average
+        expr: lending_standards_avg
+      - name: credit_card_delinquency_rate_measure
+        description: Average credit card delinquency rate.
+        agg: average
+        expr: cc_delinquency_rate
+
+  - name: fomc_sentiment
+    description: >
+      FOMC hawkish/dovish sentiment scores at meeting and section/speaker grain.
+    model: ref('stg_fomc_sentiment_scores')
+    defaults:
+      agg_time_dimension: meeting_date
+    entities:
+      - name: fomc_sentiment_score
+        type: primary
+        expr: score_id
+      - name: fomc_transcript
+        type: foreign
+        expr: transcript_id
+      - name: fomc_section
+        type: foreign
+        expr: section_id
+    dimensions:
+      - name: meeting_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: speaker
+        type: categorical
+      - name: scoring_method
+        type: categorical
+      - name: model_name
+        type: categorical
+      - name: sentiment_label
+        type: categorical
+      - name: is_meeting_aggregate
+        type: categorical
+    measures:
+      - name: fomc_hawkish_score_measure
+        description: Average FOMC hawkish sentiment score.
+        agg: average
+        expr: hawkish_score
+      - name: fomc_dovish_score_measure
+        description: Average FOMC dovish sentiment score.
+        agg: average
+        expr: dovish_score
+      - name: fomc_net_sentiment_score_measure
+        description: Average net hawkish-minus-dovish FOMC sentiment score.
+        agg: average
+        expr: net_sentiment_score
+      - name: fomc_sentiment_delta_measure
+        description: Average meeting-to-meeting sentiment score delta.
+        agg: average
+        expr: score_delta
+      - name: fomc_sentiment_confidence_measure
+        description: Average confidence score for FOMC sentiment extraction.
+        agg: average
+        expr: confidence
+
+  - name: macro_sentiment_signals
+    description: >
+      Consumer sentiment, confidence divergence, and manufacturing sentiment
+      proxy signals built from existing FRED series.
+    model: ref('sentiment_signals')
+    defaults:
+      agg_time_dimension: date
+    entities:
+      - name: macro_sentiment_observation
+        type: primary
+        expr: date
+    dimensions:
+      - name: date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: divergence_status
+        type: categorical
+      - name: mfg_production_status
+        type: categorical
+      - name: stagflation_status
+        type: categorical
+      - name: new_orders_status
+        type: categorical
+      - name: orders_inventories_status
+        type: categorical
+    measures:
+      - name: consumer_sentiment_measure
+        description: Average University of Michigan Consumer Sentiment Index.
+        agg: average
+        expr: umcsent
+      - name: consumer_confidence_measure
+        description: Average OECD consumer confidence indicator.
+        agg: average
+        expr: confidence
+      - name: confidence_sentiment_divergence_measure
+        description: Average confidence-versus-sentiment z-score divergence.
+        agg: average
+        expr: confidence_sentiment_divergence
+      - name: manufacturing_production_yoy_measure
+        description: Average manufacturing production year-over-year change.
+        agg: average
+        expr: ipman_yoy_pct
+      - name: new_orders_yoy_measure
+        description: Average manufacturing new orders year-over-year change.
+        agg: average
+        expr: new_orders_yoy_pct
+
+  - name: net_liquidity_signals
+    description: >
+      Net liquidity proxy combining Fed balance sheet assets, Treasury General
+      Account balances, and reverse repo usage.
+    model: ref('net_liquidity_signals')
+    defaults:
+      agg_time_dimension: date
+    entities:
+      - name: net_liquidity_observation
+        type: primary
+        expr: date
+    dimensions:
+      - name: date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: net_liquidity_trend
+        type: categorical
+      - name: net_liquidity_status
+        type: categorical
+      - name: rrp_depletion_status
+        type: categorical
+    measures:
+      - name: net_liquidity_measure
+        description: Average net liquidity level.
+        agg: average
+        expr: net_liquidity
+      - name: net_liquidity_4w_change_measure
+        description: Average four-week net liquidity percent change.
+        agg: average
+        expr: net_liquidity_4w_pct_change
+      - name: net_liquidity_13w_change_measure
+        description: Average thirteen-week net liquidity percent change.
+        agg: average
+        expr: net_liquidity_13w_pct_change
+      - name: net_liquidity_zscore_measure
+        description: Average net liquidity z-score.
+        agg: average
+        expr: net_liquidity_zscore
+      - name: reverse_repo_usage_measure
+        description: Average reverse repo facility usage.
+        agg: average
+        expr: rrpontsyd
+
+  - name: diffusion_index_signals
+    description: >
+      Economic breadth diffusion index showing the share of tracked FRED
+      indicators that are improving.
+    model: ref('diffusion_index_signals')
+    defaults:
+      agg_time_dimension: date
+    entities:
+      - name: diffusion_observation
+        type: primary
+        expr: date
+    dimensions:
+      - name: date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: breadth_trend
+        type: categorical
+      - name: diffusion_status
+        type: categorical
+    measures:
+      - name: diffusion_pct_measure
+        description: Average percentage of tracked indicators improving.
+        agg: average
+        expr: diffusion_pct
+      - name: improving_indicator_count_measure
+        description: Average count of improving indicators.
+        agg: average
+        expr: improving_count
+      - name: tracked_indicator_count_measure
+        description: Average count of indicators with valid observations.
+        agg: average
+        expr: total_count
+      - name: diffusion_zscore_measure
+        description: Average diffusion index z-score.
+        agg: average
+        expr: diffusion_zscore
+      - name: diffusion_3m_change_measure
+        description: Average three-month change in diffusion percentage.
+        agg: average
+        expr: diffusion_3m_change
+
+  - name: fiscal_signals
+    description: >
+      Fiscal sustainability indicators covering federal debt-to-GDP, interest
+      payment growth, and deficit-to-GDP.
+    model: ref('fiscal_signals')
+    defaults:
+      agg_time_dimension: date
+    entities:
+      - name: fiscal_observation
+        type: primary
+        expr: date
+    dimensions:
+      - name: date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: debt_level_status
+        type: categorical
+      - name: debt_trajectory_status
+        type: categorical
+      - name: interest_burden_status
+        type: categorical
+      - name: deficit_status
+        type: categorical
+    measures:
+      - name: debt_gdp_pct_measure
+        description: Average federal debt as a percentage of GDP.
+        agg: average
+        expr: debt_gdp_pct
+      - name: debt_gdp_1y_change_measure
+        description: Average one-year change in debt-to-GDP.
+        agg: average
+        expr: debt_gdp_1y_change
+      - name: interest_payment_measure
+        description: Average federal government interest payments.
+        agg: average
+        expr: interest_payment
+      - name: interest_yoy_growth_measure
+        description: Average year-over-year growth in federal interest payments.
+        agg: average
+        expr: interest_yoy_growth
+      - name: deficit_gdp_pct_measure
+        description: Average federal surplus or deficit as a percentage of GDP.
+        agg: average
+        expr: deficit_gdp_pct
+
+  - name: housing_signal_indicators
+    description: >
+      Housing market signals covering starts momentum, permits pipeline,
+      mortgage-rate stress, and months of supply.
+    model: ref('housing_signals')
+    defaults:
+      agg_time_dimension: date
+    entities:
+      - name: housing_signal_observation
+        type: primary
+        expr: date
+    dimensions:
+      - name: date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: starts_momentum_status
+        type: categorical
+      - name: permits_pipeline_status
+        type: categorical
+      - name: mortgage_stress_status
+        type: categorical
+      - name: supply_status
+        type: categorical
+    measures:
+      - name: housing_starts_yoy_measure
+        description: Average housing starts year-over-year percentage change.
+        agg: average
+        expr: starts_yoy_pct
+      - name: permits_starts_ratio_measure
+        description: Average building permits to housing starts ratio.
+        agg: average
+        expr: permits_starts_ratio
+      - name: mortgage_rate_measure
+        description: Average 30-year fixed mortgage rate.
+        agg: average
+        expr: avg_mortgage_rate
+      - name: housing_months_supply_measure
+        description: Average months of new housing supply.
+        agg: average
+        expr: months_of_supply
+      - name: mortgage_3m_change_measure
+        description: Average three-month change in mortgage rates.
+        agg: average
+        expr: mortgage_3m_change
+
 metrics:
   - name: asset_volatility_proxy
     label: Asset Price Volatility (1-Year StdDev)
@@ -288,3 +657,290 @@ metrics:
     type_params:
       measure:
         name: freshness_lag_days_measure
+  - name: treasury_3m_yield
+    label: Treasury 3M Yield
+    description: Average three-month Treasury yield.
+    type: simple
+    type_params:
+      measure:
+        name: treasury_3m_yield_measure
+  - name: treasury_2y_yield
+    label: Treasury 2Y Yield
+    description: Average two-year Treasury yield.
+    type: simple
+    type_params:
+      measure:
+        name: treasury_2y_yield_measure
+  - name: treasury_10y_yield
+    label: Treasury 10Y Yield
+    description: Average ten-year Treasury yield.
+    type: simple
+    type_params:
+      measure:
+        name: treasury_10y_yield_measure
+  - name: treasury_10y_2y_spread
+    label: Treasury 10Y-2Y Spread
+    description: Average ten-year minus two-year Treasury yield spread.
+    type: simple
+    type_params:
+      measure:
+        name: spread_10y_2y_measure
+  - name: treasury_10y_3m_spread
+    label: Treasury 10Y-3M Spread
+    description: Average ten-year minus three-month Treasury yield spread.
+    type: simple
+    type_params:
+      measure:
+        name: spread_10y_3m_measure
+  - name: nfci_value
+    label: NFCI Value
+    description: Average Chicago Fed National Financial Conditions Index value.
+    type: simple
+    type_params:
+      measure:
+        name: nfci_value_measure
+  - name: anfci_value
+    label: ANFCI Value
+    description: Average adjusted National Financial Conditions Index value.
+    type: simple
+    type_params:
+      measure:
+        name: anfci_value_measure
+  - name: stl_financial_stress_index
+    label: St. Louis Financial Stress Index
+    description: Average St. Louis Fed Financial Stress Index value.
+    type: simple
+    type_params:
+      measure:
+        name: stl_fsi_value_measure
+  - name: nfci_13w_change
+    label: NFCI 13W Change
+    description: Average 13-week change in NFCI.
+    type: simple
+    type_params:
+      measure:
+        name: nfci_13w_change_measure
+  - name: lending_standards_avg
+    label: Lending Standards Average
+    description: Average large and small firm bank lending standards net tightening.
+    type: simple
+    type_params:
+      measure:
+        name: lending_standards_avg_measure
+  - name: credit_card_delinquency_rate
+    label: Credit Card Delinquency Rate
+    description: Average delinquency rate on credit card loans.
+    type: simple
+    type_params:
+      measure:
+        name: credit_card_delinquency_rate_measure
+  - name: fomc_hawkish_score
+    label: FOMC Hawkish Score
+    description: Average FOMC hawkish sentiment score.
+    type: simple
+    type_params:
+      measure:
+        name: fomc_hawkish_score_measure
+  - name: fomc_dovish_score
+    label: FOMC Dovish Score
+    description: Average FOMC dovish sentiment score.
+    type: simple
+    type_params:
+      measure:
+        name: fomc_dovish_score_measure
+  - name: fomc_net_sentiment_score
+    label: FOMC Net Sentiment Score
+    description: Average net hawkish-minus-dovish FOMC sentiment score.
+    type: simple
+    type_params:
+      measure:
+        name: fomc_net_sentiment_score_measure
+  - name: fomc_sentiment_delta
+    label: FOMC Sentiment Delta
+    description: Average meeting-to-meeting FOMC sentiment delta.
+    type: simple
+    type_params:
+      measure:
+        name: fomc_sentiment_delta_measure
+  - name: fomc_sentiment_confidence
+    label: FOMC Sentiment Confidence
+    description: Average confidence score for FOMC sentiment extraction.
+    type: simple
+    type_params:
+      measure:
+        name: fomc_sentiment_confidence_measure
+  - name: consumer_sentiment
+    label: Consumer Sentiment
+    description: Average University of Michigan Consumer Sentiment Index.
+    type: simple
+    type_params:
+      measure:
+        name: consumer_sentiment_measure
+  - name: consumer_confidence
+    label: Consumer Confidence
+    description: Average OECD consumer confidence indicator.
+    type: simple
+    type_params:
+      measure:
+        name: consumer_confidence_measure
+  - name: confidence_sentiment_divergence
+    label: Confidence-Sentiment Divergence
+    description: Average confidence-versus-sentiment z-score divergence.
+    type: simple
+    type_params:
+      measure:
+        name: confidence_sentiment_divergence_measure
+  - name: manufacturing_production_yoy
+    label: Manufacturing Production YoY
+    description: Average manufacturing production year-over-year percentage change.
+    type: simple
+    type_params:
+      measure:
+        name: manufacturing_production_yoy_measure
+  - name: manufacturing_new_orders_yoy
+    label: Manufacturing New Orders YoY
+    description: Average manufacturing new orders year-over-year percentage change.
+    type: simple
+    type_params:
+      measure:
+        name: new_orders_yoy_measure
+  - name: net_liquidity
+    label: Net Liquidity
+    description: Average Fed balance sheet minus Treasury General Account minus reverse repo usage.
+    type: simple
+    type_params:
+      measure:
+        name: net_liquidity_measure
+  - name: net_liquidity_4w_change
+    label: Net Liquidity 4W Change
+    description: Average four-week net liquidity percentage change.
+    type: simple
+    type_params:
+      measure:
+        name: net_liquidity_4w_change_measure
+  - name: net_liquidity_13w_change
+    label: Net Liquidity 13W Change
+    description: Average thirteen-week net liquidity percentage change.
+    type: simple
+    type_params:
+      measure:
+        name: net_liquidity_13w_change_measure
+  - name: net_liquidity_zscore
+    label: Net Liquidity Z-Score
+    description: Average 52-week z-score of net liquidity.
+    type: simple
+    type_params:
+      measure:
+        name: net_liquidity_zscore_measure
+  - name: reverse_repo_usage
+    label: Reverse Repo Usage
+    description: Average reverse repo facility usage.
+    type: simple
+    type_params:
+      measure:
+        name: reverse_repo_usage_measure
+  - name: economic_diffusion_pct
+    label: Economic Diffusion %
+    description: Average percentage of tracked economic indicators improving.
+    type: simple
+    type_params:
+      measure:
+        name: diffusion_pct_measure
+  - name: improving_indicator_count
+    label: Improving Indicator Count
+    description: Average count of tracked indicators showing improvement.
+    type: simple
+    type_params:
+      measure:
+        name: improving_indicator_count_measure
+  - name: tracked_indicator_count
+    label: Tracked Indicator Count
+    description: Average count of indicators with valid observations.
+    type: simple
+    type_params:
+      measure:
+        name: tracked_indicator_count_measure
+  - name: diffusion_zscore
+    label: Diffusion Z-Score
+    description: Average z-score of the economic diffusion index.
+    type: simple
+    type_params:
+      measure:
+        name: diffusion_zscore_measure
+  - name: diffusion_3m_change
+    label: Diffusion 3M Change
+    description: Average three-month change in economic diffusion percentage.
+    type: simple
+    type_params:
+      measure:
+        name: diffusion_3m_change_measure
+  - name: debt_gdp_pct
+    label: Debt-to-GDP %
+    description: Average federal debt as a percentage of GDP.
+    type: simple
+    type_params:
+      measure:
+        name: debt_gdp_pct_measure
+  - name: debt_gdp_1y_change
+    label: Debt-to-GDP 1Y Change
+    description: Average one-year change in debt-to-GDP.
+    type: simple
+    type_params:
+      measure:
+        name: debt_gdp_1y_change_measure
+  - name: federal_interest_payments
+    label: Federal Interest Payments
+    description: Average federal government interest payments.
+    type: simple
+    type_params:
+      measure:
+        name: interest_payment_measure
+  - name: federal_interest_yoy_growth
+    label: Federal Interest YoY Growth
+    description: Average year-over-year growth in federal interest payments.
+    type: simple
+    type_params:
+      measure:
+        name: interest_yoy_growth_measure
+  - name: deficit_gdp_pct
+    label: Deficit-to-GDP %
+    description: Average federal surplus or deficit as a percentage of GDP.
+    type: simple
+    type_params:
+      measure:
+        name: deficit_gdp_pct_measure
+  - name: housing_starts_yoy
+    label: Housing Starts YoY
+    description: Average housing starts year-over-year percentage change.
+    type: simple
+    type_params:
+      measure:
+        name: housing_starts_yoy_measure
+  - name: permits_starts_ratio
+    label: Permits-to-Starts Ratio
+    description: Average building permits to housing starts ratio.
+    type: simple
+    type_params:
+      measure:
+        name: permits_starts_ratio_measure
+  - name: mortgage_rate
+    label: Mortgage Rate
+    description: Average 30-year fixed mortgage rate.
+    type: simple
+    type_params:
+      measure:
+        name: mortgage_rate_measure
+  - name: housing_months_supply
+    label: Housing Months of Supply
+    description: Average months of new housing supply.
+    type: simple
+    type_params:
+      measure:
+        name: housing_months_supply_measure
+  - name: mortgage_3m_change
+    label: Mortgage 3M Change
+    description: Average three-month change in mortgage rates.
+    type: simple
+    type_params:
+      measure:
+        name: mortgage_3m_change_measure

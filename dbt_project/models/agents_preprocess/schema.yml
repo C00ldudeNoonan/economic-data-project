@@ -89,3 +89,34 @@ models:
 
   - name: agent_treasury_yield_curve_spreads
     description: "Incremental treasury yield curve spreads for agent consumption"
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['date']
+    columns:
+      - name: date
+        description: Treasury yield observation date.
+        tests:
+          - not_null
+      - name: yield_3m
+        description: Three-month Treasury yield.
+      - name: yield_2y
+        description: Two-year Treasury yield.
+      - name: yield_10y
+        description: Ten-year Treasury yield.
+      - name: spread_10y_2y
+        description: Ten-year minus two-year Treasury yield spread.
+      - name: spread_10y_3m
+        description: Ten-year minus three-month Treasury yield spread.
+      - name: curve_shape
+        description: Yield curve shape classification.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Steep', 'Normal', 'Flat', 'Inverted']
+      - name: inversion_status
+        description: Yield curve inversion status.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Normal', 'Inverted', 'Inverted (10Y-3M)']
