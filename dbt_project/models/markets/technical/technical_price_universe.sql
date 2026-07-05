@@ -23,6 +23,7 @@
     {'model': 'stg_major_indices', 'universe': 'major_index'},
     {'model': 'stg_fixed_income', 'universe': 'fixed_income_etf'},
     {'model': 'stg_currency', 'universe': 'currency_etf'},
+    {'model': 'stg_commodity_etfs', 'universe': 'commodity_etf'},
     {'model': 'stg_global_markets', 'universe': 'global_market'},
 ] %}
 

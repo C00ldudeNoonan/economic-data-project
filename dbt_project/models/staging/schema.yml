@@ -78,6 +78,25 @@ models:
         tests:
           - not_null
 
+  - name: stg_commodity_etfs
+    description: >
+      raw data from MarketStack API for Commodity ETFs
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
   - name: stg_major_indices
     description: >
       raw data from MarketStack API for Major Indices

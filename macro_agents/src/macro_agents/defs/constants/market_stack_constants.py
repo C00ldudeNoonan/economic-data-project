@@ -54,6 +54,22 @@ CURRENCY_ETFS = [
     # IBIT.INDX removed - MarketStack returns 422 (ticker dot notation unsupported)
 ]
 
+# Commodity ETFs spanning precious metals, energy, agriculture, and broad baskets.
+COMMODITY_ETFS = [
+    "GLD",  # SPDR Gold Shares
+    "SLV",  # iShares Silver Trust
+    "USO",  # United States Oil Fund
+    "UNG",  # United States Natural Gas Fund
+    "DBA",  # Invesco DB Agriculture Fund
+    "DBC",  # Invesco DB Commodity Index Tracking Fund
+    "CORN",  # Teucrium Corn Fund
+    "WEAT",  # Teucrium Wheat Fund
+    "SOYB",  # Teucrium Soybean Fund
+    "CPER",  # United States Copper Index Fund
+    "PPLT",  # abrdn Physical Platinum Shares ETF
+    "PALL",  # abrdn Physical Palladium Shares ETF
+]
+
 # Energy commodities (requires premium plan)
 ENERGY_COMMODITIES = [
     "brent",
@@ -123,6 +139,7 @@ ALL_TICKER_GROUPS = [
     MAJOR_INDICES_TICKERS,
     US_SECTOR_ETFS,
     FIXED_INCOME_ETFS,
+    COMMODITY_ETFS,
 ]
 
 ALL_COMMODITIES = ENERGY_COMMODITIES + INPUT_COMMODITIES + AGRICULTURE_COMMODITIES

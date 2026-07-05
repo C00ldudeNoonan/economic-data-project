@@ -6,6 +6,7 @@ WITH source_specs AS (
         STRUCT('sp500_companies_prices_raw' AS source_name, 'markets' AS source_domain, 'daily_market_prices' AS grain, 31 AS lookback_days, 5 AS freshness_warn_days, 10 AS freshness_error_days),
         STRUCT('us_sector_etfs_raw' AS source_name, 'markets' AS source_domain, 'daily_market_prices' AS grain, 31 AS lookback_days, 5 AS freshness_warn_days, 10 AS freshness_error_days),
         STRUCT('currency_etfs_raw' AS source_name, 'markets' AS source_domain, 'daily_market_prices' AS grain, 31 AS lookback_days, 5 AS freshness_warn_days, 10 AS freshness_error_days),
+        STRUCT('commodity_etfs_raw' AS source_name, 'markets' AS source_domain, 'daily_market_prices' AS grain, 31 AS lookback_days, 5 AS freshness_warn_days, 10 AS freshness_error_days),
         STRUCT('major_indices_raw' AS source_name, 'markets' AS source_domain, 'daily_market_prices' AS grain, 31 AS lookback_days, 5 AS freshness_warn_days, 10 AS freshness_error_days),
         STRUCT('fixed_income_etfs_raw' AS source_name, 'markets' AS source_domain, 'daily_market_prices' AS grain, 31 AS lookback_days, 5 AS freshness_warn_days, 10 AS freshness_error_days),
         STRUCT('global_markets_raw' AS source_name, 'markets' AS source_domain, 'daily_market_prices' AS grain, 31 AS lookback_days, 5 AS freshness_warn_days, 10 AS freshness_error_days),
@@ -40,6 +41,15 @@ raw_source_observations AS (
         symbol AS entity_id,
         date AS observation_date
     FROM {{ ref('stg_currency') }}
+    WHERE symbol IS NOT NULL AND date IS NOT NULL
+
+    UNION ALL
+
+    SELECT
+        'commodity_etfs_raw' AS source_name,
+        symbol AS entity_id,
+        date AS observation_date
+    FROM {{ ref('stg_commodity_etfs') }}
     WHERE symbol IS NOT NULL AND date IS NOT NULL
 
     UNION ALL

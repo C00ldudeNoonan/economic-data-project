@@ -4,6 +4,7 @@ import dagster as dg
 
 from macro_agents.defs.constants.market_stack_constants import (
     AGRICULTURE_COMMODITIES,
+    COMMODITY_ETFS,
     CURRENCY_ETFS,
     ENERGY_COMMODITIES,
     FIXED_INCOME_ETFS,
@@ -25,6 +26,7 @@ monthly_partitions = dg.MonthlyPartitionsDefinition(
 
 us_sector_etfs_static = dg.StaticPartitionsDefinition(US_SECTOR_ETFS)
 currency_etfs_static = dg.StaticPartitionsDefinition(CURRENCY_ETFS)
+commodity_etfs_static = dg.StaticPartitionsDefinition(COMMODITY_ETFS)
 major_indices_tickers_static = dg.StaticPartitionsDefinition(MAJOR_INDICES_TICKERS)
 fixed_income_etfs_static = dg.StaticPartitionsDefinition(FIXED_INCOME_ETFS)
 global_markets_static = dg.StaticPartitionsDefinition(GLOBAL_MARKETS)
@@ -35,6 +37,10 @@ us_sector_etfs_partitions = dg.MultiPartitionsDefinition(
 
 currency_etfs_partitions = dg.MultiPartitionsDefinition(
     {"ticker": currency_etfs_static, "date": monthly_partitions}
+)
+
+commodity_etfs_partitions = dg.MultiPartitionsDefinition(
+    {"ticker": commodity_etfs_static, "date": monthly_partitions}
 )
 
 major_indices_tickers_partitions = dg.MultiPartitionsDefinition(

@@ -4,6 +4,7 @@ import dagster as dg
 
 from macro_agents.defs.domains.markets.assets import (
     agriculture_commodities_raw,
+    commodity_etfs_raw,
     currency_etfs_raw,
     energy_commodities_raw,
     fixed_income_etfs_raw,
@@ -44,19 +45,16 @@ def check_weekly_data_coverage(
     query = f"""
     WITH date_range AS (
         SELECT DISTINCT
-            DATE_TRUNC('week', date_col) as week_start
-        FROM (
-            SELECT CAST('{one_year_ago}' AS DATE) + (INTERVAL '1 day' * days) as date_col
-            FROM (SELECT * FROM generate_series(0, 365)) AS t(days)
-        )
+            DATE_TRUNC(date_col, WEEK(MONDAY)) AS week_start
+        FROM UNNEST(GENERATE_DATE_ARRAY(DATE('{one_year_ago}'), DATE('{today}'))) AS date_col
     ),
     data_weeks AS (
         SELECT DISTINCT
             {partition_column},
-            DATE_TRUNC('week', CAST({date_column} AS DATE)) as week_start
+            DATE_TRUNC(SAFE_CAST({date_column} AS DATE), WEEK(MONDAY)) AS week_start
         FROM {table_name}
-        WHERE CAST({date_column} AS DATE) >= '{one_year_ago}'
-            AND CAST({date_column} AS DATE) <= '{today}'
+        WHERE SAFE_CAST({date_column} AS DATE) >= DATE('{one_year_ago}')
+            AND SAFE_CAST({date_column} AS DATE) <= DATE('{today}')
     ),
     expected_weeks AS (
         SELECT DISTINCT
@@ -69,7 +67,7 @@ def check_weekly_data_coverage(
         SELECT 
             ew.{partition_column},
             ew.week_start,
-            CAST(ew.week_start AS VARCHAR) || ' to ' || CAST(ew.week_start + INTERVAL '6 days' AS VARCHAR) as week_range
+            CAST(ew.week_start AS STRING) || ' to ' || CAST(DATE_ADD(ew.week_start, INTERVAL 6 DAY) AS STRING) AS week_range
         FROM expected_weeks ew
         LEFT JOIN data_weeks dw 
             ON ew.{partition_column} = dw.{partition_column} 
@@ -162,6 +160,19 @@ def currency_etfs_weekly_coverage_check(
     """Check if every ticker has at least one value per week in the last year."""
     return check_weekly_data_coverage(
         "currency_etfs_raw",
+        "symbol",
+        "date",
+        bq,
+    )
+
+
+@dg.asset_check(asset=commodity_etfs_raw)
+def commodity_etfs_weekly_coverage_check(
+    bq: BigQueryWarehouseResource,
+) -> dg.AssetCheckResult:
+    """Check if every ticker has at least one value per week in the last year."""
+    return check_weekly_data_coverage(
+        "commodity_etfs_raw",
         "symbol",
         "date",
         bq,

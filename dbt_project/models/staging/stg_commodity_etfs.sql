@@ -1,0 +1,21 @@
+SELECT
+    open,
+    high,
+    low,
+    close,
+    volume,
+    adj_high,
+    adj_low,
+    adj_close,
+    adj_open,
+    adj_volume,
+    split_factor,
+    dividend,
+    name,
+    exchange_code,
+    asset_type,
+    price_currency,
+    symbol,
+    exchange,
+    SAFE_CAST(SUBSTR(CAST(date AS STRING), 1, 10) AS DATE) AS date
+FROM {{ source('staging', 'commodity_etfs_raw') }}

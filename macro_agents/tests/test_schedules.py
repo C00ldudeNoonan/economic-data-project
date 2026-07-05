@@ -125,6 +125,7 @@ class TestScheduledJobs:
         assert "interesting_data_points_job" in job_names
         assert "us_sector_etfs_ingestion_job" in job_names
         assert "currency_etfs_ingestion_job" in job_names
+        assert "commodity_etfs_ingestion_job" in job_names
         assert "major_indices_ingestion_job" in job_names
         assert "fixed_income_etfs_ingestion_job" in job_names
         assert "global_markets_ingestion_job" in job_names
@@ -169,6 +170,7 @@ class TestScheduledJobs:
         assert "interesting_data_points_job" in job_names
         assert "us_sector_etfs_ingestion_job" in job_names
         assert "currency_etfs_ingestion_job" in job_names
+        assert "commodity_etfs_ingestion_job" in job_names
         assert "major_indices_ingestion_job" in job_names
         assert "fixed_income_etfs_ingestion_job" in job_names
         assert "global_markets_ingestion_job" in job_names
@@ -288,6 +290,7 @@ class TestDefinitionsIntegration:
             "interesting_data_points_job",
             "us_sector_etfs_ingestion_job",
             "currency_etfs_ingestion_job",
+            "commodity_etfs_ingestion_job",
             "major_indices_ingestion_job",
             "fixed_income_etfs_ingestion_job",
             "global_markets_ingestion_job",
