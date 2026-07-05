@@ -66,6 +66,8 @@ money_credit_series = [
     ("MORTGAGE15US", "15-Year Fixed Rate Mortgage Average in the United States"),
     ("BAMLH0A0HYM2", "ICE BofA US High Yield Index Option-Adjusted Spread"),
     ("BAMLC0A0CM", "ICE BofA US Corporate Index Option-Adjusted Spread"),
+    ("BAMLC0A4CBBB", "ICE BofA BBB US Corporate Index Option-Adjusted Spread"),
+    ("BAMLC0A1CAAA", "ICE BofA AAA US Corporate Index Option-Adjusted Spread"),
     (
         "AAA10Y",
         "Moody's Seasoned Aaa Corporate Bond Yield Relative to Yield on 10-Year Treasury Constant Maturity",
@@ -170,6 +172,8 @@ financial_conditions_series = [
         "Chicago Fed National Financial Conditions Non-Financial Leverage Subindex",
     ),
     ("NFCICREDIT", "Chicago Fed National Financial Conditions Credit Subindex"),
+    ("NFCIRISK", "Chicago Fed National Financial Conditions Risk Subindex"),
+    ("NFCILEVERAGE", "Chicago Fed National Financial Conditions Leverage Subindex"),
     ("TEDRATE", "TED Spread"),
     ("BAMLH0A0HYM2", "ICE BofA US High Yield Index Option-Adjusted Spread"),
     ("BAMLC0A0CM", "ICE BofA US Corporate Index Option-Adjusted Spread"),
@@ -185,6 +189,7 @@ financial_conditions_series = [
     ("DJIA", "Dow Jones Industrial Average"),  # ADDED: Dow Jones Industrial Average
     ("ANFCI", "Chicago Fed Adjusted National Financial Conditions Index"),
     ("STLFSI4", "St. Louis Fed Financial Stress Index"),
+    ("KCFSI", "Kansas City Financial Stress Index"),
     ("DRCCLACBS", "Delinquency Rate on Credit Card Loans, All Commercial Banks"),
 ]
 

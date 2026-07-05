@@ -135,12 +135,21 @@ models:
         description: Rows observed in the coverage window.
       - name: coverage_pct
         description: Ratio of observed entities to expected entities.
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 1
       - name: freshness_lag_days
         description: Days between current date and the source coverage date.
       - name: coverage_status
         description: >
           Current coverage health bucket. One of healthy, partial, lagging,
           coverage_gap, stale, or no_expected_entities.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['healthy', 'partial', 'lagging', 'coverage_gap', 'stale', 'no_expected_entities']
       - name: generated_at
         description: Timestamp when the coverage snapshot was generated.
 
@@ -295,15 +304,37 @@ semantic_models:
           time_granularity: day
       - name: nfci_status
         type: categorical
+      - name: stl_fsi_status
+        type: categorical
+      - name: kc_fsi_status
+        type: categorical
+      - name: nfci_subindex_status
+        type: categorical
       - name: nfci_trend_status
         type: categorical
       - name: lending_status
+        type: categorical
+      - name: lending_size_divergence_status
+        type: categorical
+      - name: stress_confirmation_status
         type: categorical
     measures:
       - name: nfci_value_measure
         description: Average Chicago Fed National Financial Conditions Index value.
         agg: average
         expr: nfci_value
+      - name: nfci_risk_measure
+        description: Average NFCI risk sub-index value.
+        agg: average
+        expr: nfci_risk
+      - name: nfci_credit_measure
+        description: Average NFCI credit sub-index value.
+        agg: average
+        expr: nfci_credit
+      - name: nfci_leverage_measure
+        description: Average NFCI leverage sub-index value.
+        agg: average
+        expr: nfci_leverage
       - name: anfci_value_measure
         description: Average adjusted National Financial Conditions Index value.
         agg: average
@@ -312,6 +343,10 @@ semantic_models:
         description: Average St. Louis Fed Financial Stress Index value.
         agg: average
         expr: stl_fsi_value
+      - name: kc_fsi_value_measure
+        description: Average Kansas City Financial Stress Index value.
+        agg: average
+        expr: kc_fsi_value
       - name: nfci_13w_change_measure
         description: Average 13-week change in NFCI.
         agg: average
@@ -324,6 +359,60 @@ semantic_models:
         description: Average credit card delinquency rate.
         agg: average
         expr: cc_delinquency_rate
+
+  - name: credit_market_signals
+    description: >
+      Daily credit spread signal model covering HY OAS momentum, trailing
+      percentiles, moving-average crossover, and BBB-AAA fallen-angel risk.
+    model: ref('credit_market_signals')
+    defaults:
+      agg_time_dimension: date
+    entities:
+      - name: credit_market_observation
+        type: primary
+        expr: date
+    dimensions:
+      - name: date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: hy_oas_regime
+        type: categorical
+      - name: hy_momentum_status
+        type: categorical
+      - name: bbb_aaa_spread_status
+        type: categorical
+      - name: hy_percentile_status
+        type: categorical
+    measures:
+      - name: hy_oas_measure
+        description: Average ICE BofA US High Yield OAS.
+        agg: average
+        expr: hy_oas
+      - name: bbb_aaa_spread_measure
+        description: Average BBB minus AAA corporate OAS spread.
+        agg: average
+        expr: bbb_aaa_spread
+      - name: hy_oas_20d_change_measure
+        description: Average 20-trading-day change in HY OAS.
+        agg: average
+        expr: hy_oas_20d_change
+      - name: hy_oas_20d_change_zscore_measure
+        description: Average z-score of 20-day HY OAS change versus trailing one year.
+        agg: average
+        expr: hy_oas_20d_change_zscore
+      - name: hy_oas_percentile_5y_measure
+        description: Average HY OAS percentile versus trailing five-year distribution.
+        agg: average
+        expr: hy_oas_percentile_5y
+      - name: hy_oas_percentile_10y_measure
+        description: Average HY OAS percentile versus trailing ten-year distribution.
+        agg: average
+        expr: hy_oas_percentile_10y
+      - name: hy_oas_bearish_ma_cross_count
+        description: Count of bearish HY OAS moving-average crossover observations.
+        agg: sum
+        expr: hy_oas_bearish_ma_cross_flag
 
   - name: fomc_sentiment
     description: >
@@ -713,6 +802,34 @@ metrics:
     type_params:
       measure:
         name: stl_fsi_value_measure
+  - name: kc_financial_stress_index
+    label: Kansas City Financial Stress Index
+    description: Average Kansas City Financial Stress Index value.
+    type: simple
+    type_params:
+      measure:
+        name: kc_fsi_value_measure
+  - name: nfci_risk_subindex
+    label: NFCI Risk Subindex
+    description: Average NFCI risk sub-index value.
+    type: simple
+    type_params:
+      measure:
+        name: nfci_risk_measure
+  - name: nfci_credit_subindex
+    label: NFCI Credit Subindex
+    description: Average NFCI credit sub-index value.
+    type: simple
+    type_params:
+      measure:
+        name: nfci_credit_measure
+  - name: nfci_leverage_subindex
+    label: NFCI Leverage Subindex
+    description: Average NFCI leverage sub-index value.
+    type: simple
+    type_params:
+      measure:
+        name: nfci_leverage_measure
   - name: nfci_13w_change
     label: NFCI 13W Change
     description: Average 13-week change in NFCI.
@@ -734,6 +851,55 @@ metrics:
     type_params:
       measure:
         name: credit_card_delinquency_rate_measure
+  - name: high_yield_oas
+    label: High Yield OAS
+    description: Average ICE BofA US High Yield OAS.
+    type: simple
+    type_params:
+      measure:
+        name: hy_oas_measure
+  - name: high_yield_oas_20d_change
+    label: High Yield OAS 20D Change
+    description: Average 20-trading-day change in high yield OAS.
+    type: simple
+    type_params:
+      measure:
+        name: hy_oas_20d_change_measure
+  - name: high_yield_oas_momentum_zscore
+    label: High Yield OAS Momentum Z-Score
+    description: Average z-score of 20-day HY OAS change versus trailing one year.
+    type: simple
+    type_params:
+      measure:
+        name: hy_oas_20d_change_zscore_measure
+  - name: high_yield_oas_percentile_5y
+    label: High Yield OAS Percentile 5Y
+    description: Average HY OAS percentile versus trailing five-year distribution.
+    type: simple
+    type_params:
+      measure:
+        name: hy_oas_percentile_5y_measure
+  - name: high_yield_oas_percentile_10y
+    label: High Yield OAS Percentile 10Y
+    description: Average HY OAS percentile versus trailing ten-year distribution.
+    type: simple
+    type_params:
+      measure:
+        name: hy_oas_percentile_10y_measure
+  - name: bbb_aaa_oas_spread
+    label: BBB-AAA OAS Spread
+    description: Average BBB minus AAA corporate OAS spread.
+    type: simple
+    type_params:
+      measure:
+        name: bbb_aaa_spread_measure
+  - name: high_yield_bearish_ma_crosses
+    label: High Yield Bearish MA Crosses
+    description: Count of HY OAS 20-day average crossing above its 60-day average.
+    type: simple
+    type_params:
+      measure:
+        name: hy_oas_bearish_ma_cross_count
   - name: fomc_hawkish_score
     label: FOMC Hawkish Score
     description: Average FOMC hawkish sentiment score.
