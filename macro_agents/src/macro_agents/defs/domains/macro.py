@@ -32,6 +32,22 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 from macro_agents.defs.domains.macro_checks import macro_checks
 
 MACRO_GROUP = "macro_ingestion"
+TREASURY_YIELD_COLUMNS = [
+    "bc_1month",
+    "bc_2month",
+    "bc_3month",
+    "bc_4month",
+    "bc_6month",
+    "bc_1year",
+    "bc_2year",
+    "bc_3year",
+    "bc_5year",
+    "bc_7year",
+    "bc_10year",
+    "bc_20year",
+    "bc_30year",
+]
+TREASURY_YIELD_COLUMN_TYPES = {column: "FLOAT64" for column in TREASURY_YIELD_COLUMNS}
 
 _all_series_lists = [
     labor_market_series,
@@ -152,32 +168,17 @@ def _fetch_treasury_yields_for_year(
             date_str = date_elem.get_text().strip()
             date_only = date_str.split("T")[0]
 
-            yield_elements = [
-                "BC_1MONTH",
-                "BC_2MONTH",
-                "BC_3MONTH",
-                "BC_4MONTH",
-                "BC_6MONTH",
-                "BC_1YEAR",
-                "BC_2YEAR",
-                "BC_3YEAR",
-                "BC_5YEAR",
-                "BC_7YEAR",
-                "BC_10YEAR",
-                "BC_20YEAR",
-                "BC_30YEAR",
-            ]
-
             yields: dict[str, str | float | None] = {"date": date_only}
-            for yield_elem in yield_elements:
-                elem = properties_tag.find(f"d:{yield_elem}")
+            for yield_elem in TREASURY_YIELD_COLUMNS:
+                xml_field = yield_elem.upper()
+                elem = properties_tag.find(f"d:{xml_field}")
                 if elem and elem.get_text().strip():
                     try:
-                        yields[yield_elem.lower()] = float(elem.get_text().strip())
+                        yields[xml_field.lower()] = float(elem.get_text().strip())
                     except ValueError:
-                        yields[yield_elem.lower()] = None
+                        yields[xml_field.lower()] = None
                 else:
-                    yields[yield_elem.lower()] = None
+                    yields[xml_field.lower()] = None
 
             records.append(yields)
 
@@ -189,6 +190,11 @@ def _fetch_treasury_yields_for_year(
         context.log.info(f"Successfully parsed {len(df)} records for year {year}")
 
         if len(df) > 0:
+            bq.normalize_column_types(
+                "treasury_yields_raw",
+                TREASURY_YIELD_COLUMN_TYPES,
+                context=context,
+            )
             bq.upsert_data("treasury_yields_raw", df, ["date"], context=context)
 
         return len(df)

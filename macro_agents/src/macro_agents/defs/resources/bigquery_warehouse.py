@@ -14,6 +14,15 @@ from google.cloud.exceptions import NotFound
 from pydantic import Field, PrivateAttr
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*){0,2}$")
+_BIGQUERY_TYPE_ALIASES = {
+    "BOOL": "BOOL",
+    "BOOLEAN": "BOOL",
+    "DOUBLE": "FLOAT64",
+    "FLOAT": "FLOAT64",
+    "FLOAT64": "FLOAT64",
+    "INT64": "INT64",
+    "INTEGER": "INT64",
+}
 
 
 def _validate_identifier(name: str, kind: str = "identifier") -> str:
@@ -21,6 +30,11 @@ def _validate_identifier(name: str, kind: str = "identifier") -> str:
     if not isinstance(name, str) or not _IDENTIFIER_RE.match(name):
         raise ValueError(f"Invalid {kind}: {name!r}")
     return name
+
+
+def _canonical_bigquery_type(type_name: str) -> str:
+    normalized = type_name.upper()
+    return _BIGQUERY_TYPE_ALIASES.get(normalized, normalized)
 
 
 class BigQueryWarehouseResource(dg.ConfigurableResource):
@@ -158,6 +172,70 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
 
         client.delete_table(staging_ref, not_found_ok=True)
         log.info(f"Upsert complete for '{table_name}'")
+
+    def normalize_column_types(
+        self,
+        table_name: str,
+        column_types: dict[str, str],
+        context: dg.AssetExecutionContext | None = None,
+    ) -> list[str]:
+        """Rewrite an existing table when selected columns have drifted types.
+
+        BigQuery MERGE requires matching assignment types. Older raw tables can
+        retain schemas inferred from sparse early loads, so this method repairs
+        only explicitly requested columns and leaves all other columns unchanged.
+        """
+        log = context.log if context else logging.getLogger(__name__)
+        client = self.get_client()
+        table_ref = self._table_ref(table_name)
+
+        try:
+            table = client.get_table(table_ref)
+        except NotFound:
+            return []
+
+        desired_types = {
+            column: _canonical_bigquery_type(column_type)
+            for column, column_type in column_types.items()
+        }
+        mismatched_columns = [
+            field.name
+            for field in table.schema
+            if field.name in desired_types
+            and _canonical_bigquery_type(field.field_type) != desired_types[field.name]
+        ]
+        if not mismatched_columns:
+            return []
+
+        select_exprs = []
+        for field in table.schema:
+            if field.name in desired_types:
+                select_exprs.append(
+                    f"SAFE_CAST(`{field.name}` AS {desired_types[field.name]}) "
+                    f"AS `{field.name}`"
+                )
+            else:
+                select_exprs.append(f"`{field.name}`")
+
+        staging_ref = f"{table_ref}_schema_fix_{uuid.uuid4().hex[:12]}"
+        create_sql = f"""
+            CREATE OR REPLACE TABLE `{staging_ref}` AS
+            SELECT {", ".join(select_exprs)}
+            FROM `{table_ref}`
+        """
+        client.query(create_sql).result()
+        client.copy_table(
+            staging_ref,
+            table_ref,
+            job_config=bigquery.CopyJobConfig(write_disposition="WRITE_TRUNCATE"),
+        ).result()
+        client.delete_table(staging_ref, not_found_ok=True)
+        log.info(
+            "Normalized column types for '%s': %s",
+            table_name,
+            ", ".join(mismatched_columns),
+        )
+        return mismatched_columns
 
     def fetchone(self, sql: str) -> tuple | None:
         """Run a SELECT and return the first row as a tuple (None if empty).
