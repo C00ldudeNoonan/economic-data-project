@@ -65,6 +65,11 @@ def _first_env(*names: str) -> str | None:
     return None
 
 
+def _truthy_env(*names: str) -> bool:
+    value = _first_env(*names)
+    return value is not None and value.lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
 def _required_int_env(*names: str) -> int:
     value = _first_env(*names)
     if value is None:
@@ -86,7 +91,18 @@ def _required_env_var(*names: str) -> dg.EnvVar:
         raise RuntimeError(f"Set {joined_names} to enable dbt Platform orchestration.")
 
 
-if orchestration_mode in {"dbt_platform", "dbt_cloud", "platform", "cloud"}:
+dbt_platform_mode = orchestration_mode in {
+    "dbt_platform",
+    "dbt_cloud",
+    "platform",
+    "cloud",
+}
+dbt_platform_observe_only = dbt_platform_mode and _truthy_env(
+    "DBT_PLATFORM_OBSERVE_ONLY", "DBT_CLOUD_OBSERVE_ONLY"
+)
+
+
+if dbt_platform_mode:
     dbt_cloud_credentials = DbtCloudCredentials(
         account_id=_required_int_env("DBT_PLATFORM_ACCOUNT_ID", "DBT_CLOUD_ACCOUNT_ID"),
         token=_required_env_var("DBT_PLATFORM_TOKEN", "DBT_CLOUD_API_TOKEN"),
@@ -105,21 +121,34 @@ if orchestration_mode in {"dbt_platform", "dbt_cloud", "platform", "cloud"}:
         ),
     )
 
-    @dbt_cloud_assets(
-        workspace=dbt_resource,
-        exclude=DBT_NASDAQ_EXCLUDE,
-        dagster_dbt_translator=CustomizedDagsterDbtTranslator(),
-    )
-    def full_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCloudWorkspace):
-        yield from dbt.cli(
-            ["build"],
-            dagster_dbt_translator=CustomizedDagsterDbtTranslator(),
-            context=context,
-        ).wait()
+    dbt_platform_translator = CustomizedDagsterDbtTranslator()
+
+    if dbt_platform_observe_only:
+        full_dbt_assets = list(
+            dbt_resource.load_asset_specs(
+                select="fqn:*",
+                exclude=DBT_NASDAQ_EXCLUDE,
+                selector="",
+                dagster_dbt_translator=dbt_platform_translator,
+            )
+        )
+    else:
+
+        @dbt_cloud_assets(
+            workspace=dbt_resource,
+            exclude=DBT_NASDAQ_EXCLUDE,
+            dagster_dbt_translator=dbt_platform_translator,
+        )
+        def full_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCloudWorkspace):
+            yield from dbt.cli(
+                ["build"],
+                dagster_dbt_translator=dbt_platform_translator,
+                context=context,
+            ).wait()
 
     dbt_cloud_polling_sensor = build_dbt_cloud_polling_sensor(
         workspace=dbt_resource,
-        dagster_dbt_translator=CustomizedDagsterDbtTranslator(),
+        dagster_dbt_translator=dbt_platform_translator,
         minimum_interval_seconds=int(
             os.getenv("DBT_PLATFORM_POLL_INTERVAL_SECONDS", "60")
         ),

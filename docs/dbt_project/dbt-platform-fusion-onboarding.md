@@ -150,6 +150,7 @@ execution modes:
 | --- | --- | --- |
 | Local CLI | `local` | Uses `DbtCliResource` and the bundled `dbt_project/`. |
 | dbt Platform | `dbt_platform` | Uses `DbtCloudWorkspace` to load dbt Platform artifacts and launch ad hoc dbt Platform runs. |
+| dbt Platform observe-only | `dbt_platform` + `DBT_PLATFORM_OBSERVE_ONLY=true` | Loads dbt Platform asset specs and polls completed dbt Platform jobs, but does not register Dagster dbt jobs or launch ad hoc dbt Platform runs. |
 
 Configure these Dagster environment variables after the dbt Platform project and
 environment exist:
@@ -159,11 +160,34 @@ environment exist:
 | `DBT_ORCHESTRATION_MODE` | Set to `dbt_platform` to switch Dagster from local dbt CLI execution to dbt Platform. |
 | `DBT_PLATFORM_ACCOUNT_ID` | dbt Platform account id. |
 | `DBT_PLATFORM_PROJECT_ID` | dbt Platform project id. |
-| `DBT_PLATFORM_ENVIRONMENT_ID` | dbt Platform environment id Dagster should use for ad hoc runs. |
+| `DBT_PLATFORM_ENVIRONMENT_ID` | dbt Platform environment id Dagster should load and observe. Use the production environment when dbt Platform owns scheduled production builds and freshness jobs. |
 | `DBT_PLATFORM_TOKEN` | dbt Platform service token. |
 | `DBT_PLATFORM_ACCESS_URL` | dbt Platform URL, default `https://cloud.getdbt.com`. |
 | `DBT_PLATFORM_ADHOC_JOB_NAME` | Optional ad hoc job name Dagster creates/uses in dbt Platform. |
 | `DBT_PLATFORM_POLL_INTERVAL_SECONDS` | Optional polling interval for external dbt Platform run observations. |
+| `DBT_PLATFORM_OBSERVE_ONLY` | Optional strict production mode. Set to `true` when Dagster should observe dbt Platform jobs without exposing Dagster dbt asset jobs. |
+
+## Dagster Observe-Only Mode
+
+Use observe-only mode for production once dbt Platform owns the scheduled dbt
+jobs:
+
+```bash
+DBT_ORCHESTRATION_MODE=dbt_platform
+DBT_PLATFORM_ENVIRONMENT_ID=<production-environment-id>
+DBT_PLATFORM_OBSERVE_ONLY=true
+```
+
+In this mode Dagster loads dbt model asset specs from the configured dbt
+Platform environment and registers the dbt Cloud polling sensor. The sensor
+polls completed dbt Platform runs for that project and environment, skips
+Dagster-created ad hoc jobs, reads each run's `run_results.json`, and records
+model-level Dagster asset materializations. Dagster does not register the
+`dbt_*_models_job` jobs in this mode, so scheduled `dbt build` and
+`dbt source freshness` runs remain owned by dbt Platform.
+
+Keep observe-only disabled in local development or in a dedicated CI/ad hoc
+environment if you still want Dagster to trigger dbt Platform runs.
 
 Cutover path:
 
@@ -172,7 +196,9 @@ Cutover path:
 3. Set `DBT_ORCHESTRATION_MODE=dbt_platform` and configure the `DBT_PLATFORM_*` variables in Dagster.
 4. Validate Dagster code location load; Dagster should fetch the manifest from dbt Platform.
 5. Materialize a small dbt asset selection from Dagster to confirm ad hoc dbt Platform runs work.
-6. Remove local dbt project bundling and `dbt deps` fallback after the API path is stable.
+6. For production, set `DBT_PLATFORM_ENVIRONMENT_ID` to the production environment and `DBT_PLATFORM_OBSERVE_ONLY=true`.
+7. Confirm the `dbt_cloud_<account>_<project>_<environment>__run_status_sensor` sensor records asset materializations from the dbt Platform production build job.
+8. Remove local dbt project bundling and `dbt deps` fallback after the API path is stable.
 
 ## Remaining Manual Checklist
 
@@ -186,5 +212,7 @@ Cutover path:
 - [ ] Configure PR, production build, and source freshness jobs.
 - [ ] Add dbt Platform PR check and `Dagster CI / Test Dagster` to GitHub branch protection.
 - [ ] Add dbt Platform GitHub repository secrets/variables for Dagster CI.
-- [ ] Decide final Dagster orchestration cutover date.
+- [ ] Set `DBT_PLATFORM_OBSERVE_ONLY=true` in production Dagster after dbt Platform schedules are live.
+- [ ] Record the production dbt Platform environment id, production build job id, and source freshness job id in deployment notes.
 - [ ] Validate Dagster can load dbt Platform asset specs and trigger an ad hoc run.
+- [ ] Validate Dagster observes a completed dbt Platform production build and records model-level asset materializations.
