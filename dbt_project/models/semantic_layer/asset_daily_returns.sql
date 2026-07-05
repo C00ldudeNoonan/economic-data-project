@@ -53,6 +53,63 @@ commodities AS (
         std_diff_1yr,
         pct_change_1yr
     FROM {{ ref('input_commodities_analysis_return') }}
+),
+
+unioned_assets AS (
+    SELECT
+        asset_key,
+        asset_class,
+        asset_id,
+        asset_name,
+        symbol,
+        stock_symbol,
+        sector_etf_symbol,
+        commodity_name,
+        commodity_unit,
+        exchange,
+        trade_date,
+        current_price,
+        std_diff_1yr,
+        pct_change_1yr
+    FROM stocks
+
+    UNION ALL
+
+    SELECT
+        asset_key,
+        asset_class,
+        asset_id,
+        asset_name,
+        symbol,
+        stock_symbol,
+        sector_etf_symbol,
+        commodity_name,
+        commodity_unit,
+        exchange,
+        trade_date,
+        current_price,
+        std_diff_1yr,
+        pct_change_1yr
+    FROM sector_etfs
+
+    UNION ALL
+
+    SELECT
+        asset_key,
+        asset_class,
+        asset_id,
+        asset_name,
+        symbol,
+        stock_symbol,
+        sector_etf_symbol,
+        commodity_name,
+        commodity_unit,
+        exchange,
+        trade_date,
+        current_price,
+        std_diff_1yr,
+        pct_change_1yr
+    FROM commodities
 )
 
 SELECT
@@ -70,38 +127,8 @@ SELECT
     current_price,
     std_diff_1yr,
     pct_change_1yr
-FROM stocks
-UNION ALL
-SELECT
-    asset_key,
-    asset_class,
-    asset_id,
-    asset_name,
-    symbol,
-    stock_symbol,
-    sector_etf_symbol,
-    commodity_name,
-    commodity_unit,
-    exchange,
-    trade_date,
-    current_price,
-    std_diff_1yr,
-    pct_change_1yr
-FROM sector_etfs
-UNION ALL
-SELECT
-    asset_key,
-    asset_class,
-    asset_id,
-    asset_name,
-    symbol,
-    stock_symbol,
-    sector_etf_symbol,
-    commodity_name,
-    commodity_unit,
-    exchange,
-    trade_date,
-    current_price,
-    std_diff_1yr,
-    pct_change_1yr
-FROM commodities
+FROM unioned_assets
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY asset_key, trade_date
+    ORDER BY current_price DESC
+) = 1

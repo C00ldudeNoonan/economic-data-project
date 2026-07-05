@@ -268,8 +268,12 @@ models:
   - name: financial_conditions_signals
     description: >
       Financial conditions signals: NFCI level and trend, bank lending standards from
-      Senior Loan Officer Survey, NFCI sub-indices (credit, leverage), and
-      ANFCI/STLFSI4/credit card delinquency.
+      Senior Loan Officer Survey, NFCI sub-indices (risk, credit, leverage), and
+      ANFCI/STLFSI4/KCFSI/credit card delinquency.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['date']
     columns:
       - name: date
         description: Observation date (weekly for stress indices, monthly for lending/delinquency)
@@ -277,24 +281,158 @@ models:
           - not_null
       - name: nfci_value
         description: Chicago Fed National Financial Conditions Index (0 = average, positive = tighter)
+      - name: nfci_risk
+        description: NFCI risk sub-index
       - name: nfci_credit
         description: NFCI credit sub-index
       - name: nfci_leverage
+        description: NFCI leverage sub-index
+      - name: nfci_nonfinancial_leverage
         description: NFCI nonfinancial leverage sub-index
       - name: anfci_value
         description: Chicago Fed Adjusted National Financial Conditions Index (ANFCI)
       - name: stl_fsi_value
         description: St. Louis Fed Financial Stress Index (STLFSI4)
+      - name: kc_fsi_value
+        description: Kansas City Financial Stress Index (KCFSI)
       - name: lending_standards_avg
         description: Average of large and small firm lending standards (net % tightening)
       - name: cc_delinquency_rate
         description: Delinquency rate on credit card loans (DRCCLACBS)
       - name: nfci_status
         description: "Signal severity based on NFCI level"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['low', 'normal', 'medium', 'high']
+      - name: stl_fsi_status
+        description: "Signal severity based on St. Louis Fed Financial Stress Index level"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['low', 'normal', 'medium', 'high']
+      - name: kc_fsi_status
+        description: "Signal severity based on Kansas City Financial Stress Index level"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['low', 'normal', 'medium', 'high']
+      - name: nfci_subindex_status
+        description: "Signal severity based on NFCI risk, credit, and leverage sub-index levels"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['low', 'normal', 'medium', 'high']
       - name: nfci_trend_status
         description: "Signal severity based on 13-week NFCI change"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['normal', 'medium', 'high']
       - name: lending_status
         description: "Signal severity based on bank lending standards"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['normal', 'low', 'medium', 'high']
+      - name: lending_size_divergence_status
+        description: "Signal severity based on small-firm vs large-firm lending standards divergence"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['normal', 'medium', 'high']
+      - name: stress_confirmation_status
+        description: "Composite confirmation across NFCI, STLFSI4, KCFSI, and NFCI sub-indices"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['normal', 'medium', 'high']
+
+  - name: credit_market_signals
+    description: >
+      Credit market stress signals from FRED OAS series, including HY spread
+      momentum, trailing historical percentiles, moving-average crossover, and
+      BBB-AAA fallen-angel risk spread.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['date']
+    columns:
+      - name: date
+        description: Daily observation date
+        tests:
+          - not_null
+      - name: hy_oas
+        description: ICE BofA US High Yield OAS, percent
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+      - name: bbb_oas
+        description: ICE BofA BBB US Corporate OAS, percent
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+      - name: aaa_oas
+        description: ICE BofA AAA US Corporate OAS, percent
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+      - name: bbb_aaa_spread
+        description: BBB OAS minus AAA OAS, percentage points
+      - name: hy_oas_20d_change
+        description: 20-trading-day change in HY OAS, percentage points
+      - name: hy_oas_60d_change
+        description: 60-trading-day change in HY OAS, percentage points
+      - name: hy_oas_20d_change_zscore
+        description: Z-score of the 20-day HY OAS change versus trailing one-year distribution
+      - name: hy_oas_percentile_5y
+        description: HY OAS percentile rank versus trailing five-year distribution
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: hy_oas_percentile_10y
+        description: HY OAS percentile rank versus trailing ten-year distribution
+        tests:
+          - value_in_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: hy_oas_bearish_ma_cross_flag
+        description: Flag for 20-day HY OAS average crossing above the 60-day average
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: hy_oas_regime
+        description: "HY OAS regime: complacent, normal, caution, stress, crisis"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['complacent', 'normal', 'caution', 'stress', 'crisis']
+      - name: hy_momentum_status
+        description: "Signal severity based on HY OAS widening momentum"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['low', 'normal', 'medium', 'high']
+      - name: bbb_aaa_spread_status
+        description: "Signal severity based on BBB-AAA fallen-angel risk spread"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['compressed', 'normal', 'elevated', 'crisis']
+      - name: hy_percentile_status
+        description: "Signal severity based on HY OAS trailing 10-year percentile"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['low', 'normal', 'medium', 'high']
 
   - name: liquidity_signals
     description: >

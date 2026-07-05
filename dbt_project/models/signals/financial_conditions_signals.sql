@@ -8,9 +8,9 @@
     Calculates financial conditions signals from FRED data:
     - NFCI Level: Chicago Fed National Financial Conditions Index
     - Bank Lending Standards: Senior Loan Officer Survey (large + small firms)
-    - NFCI Sub-indices: Credit, Leverage, Nonfinancial leverage
+    - NFCI Sub-indices: Risk, Credit, Leverage, Nonfinancial leverage
 
-    Includes ANFCI, STLFSI4, and DRCCLACBS now that series are ingested.
+    Includes ANFCI, STLFSI4, KCFSI, and DRCCLACBS now that series are ingested.
 */
 
 WITH nfci AS (
@@ -43,6 +43,26 @@ stl_fsi AS (
         AND literal IS NOT NULL
 ),
 
+kansas_city_fsi AS (
+    SELECT
+        date,
+        literal AS kc_fsi_value
+    FROM {{ ref('stg_fred_series') }}
+    WHERE
+        series_code = 'KCFSI'
+        AND literal IS NOT NULL
+),
+
+nfci_risk AS (
+    SELECT
+        date,
+        literal AS nfci_risk
+    FROM {{ ref('stg_fred_series') }}
+    WHERE
+        series_code = 'NFCIRISK'
+        AND literal IS NOT NULL
+),
+
 nfci_credit AS (
     SELECT
         date,
@@ -57,6 +77,16 @@ nfci_leverage AS (
     SELECT
         date,
         literal AS nfci_leverage
+    FROM {{ ref('stg_fred_series') }}
+    WHERE
+        series_code = 'NFCILEVERAGE'
+        AND literal IS NOT NULL
+),
+
+nfci_nonfinancial_leverage AS (
+    SELECT
+        date,
+        literal AS nfci_nonfinancial_leverage
     FROM {{ ref('stg_fred_series') }}
     WHERE
         series_code = 'NFCINONFINLEVERAGE'
@@ -102,18 +132,25 @@ nfci_combined AS (
     SELECT
         n.date,
         n.nfci_value,
+        nr.nfci_risk,
         nc.nfci_credit,
         nl.nfci_leverage,
+        nnl.nfci_nonfinancial_leverage,
         an.anfci_value,
         sf.stl_fsi_value,
+        kf.kc_fsi_value,
         LAG(n.nfci_value, 4) OVER (ORDER BY n.date) AS nfci_4w_ago,
         LAG(n.nfci_value, 13) OVER (ORDER BY n.date) AS nfci_13w_ago,
         AVG(n.nfci_value) OVER (ORDER BY n.date ROWS BETWEEN 12 PRECEDING AND CURRENT ROW) AS nfci_13w_avg
     FROM nfci AS n
+    LEFT JOIN nfci_risk AS nr ON n.date = nr.date
     LEFT JOIN nfci_credit AS nc ON n.date = nc.date
     LEFT JOIN nfci_leverage AS nl ON n.date = nl.date
+    LEFT JOIN nfci_nonfinancial_leverage AS nnl ON n.date = nnl.date
     LEFT JOIN anfci AS an ON n.date = an.date
     LEFT JOIN stl_fsi AS sf ON n.date = sf.date
+    LEFT JOIN kansas_city_fsi AS kf
+        ON DATE_TRUNC(n.date, MONTH) = DATE_TRUNC(kf.date, MONTH)
 ),
 
 -- Combine lending standards (quarterly survey data)
@@ -134,10 +171,13 @@ final AS (
     SELECT
         COALESCE(nc.date, lc.date, cd.month_date) AS date,
         nc.nfci_value,
+        nc.nfci_risk,
         nc.nfci_credit,
         nc.nfci_leverage,
+        nc.nfci_nonfinancial_leverage,
         nc.anfci_value,
         nc.stl_fsi_value,
+        nc.kc_fsi_value,
         nc.nfci_4w_ago,
         nc.nfci_13w_ago,
         nc.nfci_13w_avg,
@@ -165,10 +205,13 @@ final AS (
 SELECT
     date,
     nfci_value,
+    nfci_risk,
     nfci_credit,
     nfci_leverage,
+    nfci_nonfinancial_leverage,
     anfci_value,
     stl_fsi_value,
+    kc_fsi_value,
     nfci_4w_change,
     nfci_13w_change,
     nfci_13w_avg,
@@ -188,6 +231,27 @@ SELECT
         ELSE 'normal'
     END AS nfci_status,
 
+    CASE
+        WHEN stl_fsi_value > 2.0 THEN 'high'
+        WHEN stl_fsi_value > 1.0 THEN 'medium'
+        WHEN stl_fsi_value < -1.0 THEN 'low'
+        ELSE 'normal'
+    END AS stl_fsi_status,
+
+    CASE
+        WHEN kc_fsi_value > 2.0 THEN 'high'
+        WHEN kc_fsi_value > 1.0 THEN 'medium'
+        WHEN kc_fsi_value < -1.0 THEN 'low'
+        ELSE 'normal'
+    END AS kc_fsi_status,
+
+    CASE
+        WHEN nfci_risk > 1.0 OR nfci_credit > 1.0 OR nfci_leverage > 1.0 THEN 'high'
+        WHEN nfci_risk > 0.5 OR nfci_credit > 0.5 OR nfci_leverage > 0.5 THEN 'medium'
+        WHEN nfci_risk < -0.5 AND nfci_credit < -0.5 THEN 'low'
+        ELSE 'normal'
+    END AS nfci_subindex_status,
+
     -- Signal: NFCI trend (tightening or loosening)
     CASE
         WHEN nfci_13w_change > 0.3 THEN 'high'
@@ -197,11 +261,36 @@ SELECT
 
     -- Signal: Bank lending standards
     CASE
-        WHEN lending_standards_avg > 30 THEN 'high'
-        WHEN lending_standards_avg > 0 AND lending_large_change > 0 THEN 'medium'
+        WHEN lending_standards_avg > 60 THEN 'high'
+        WHEN lending_standards_avg > 40 THEN 'high'
+        WHEN lending_standards_avg > 20 THEN 'medium'
+        WHEN lending_standards_avg > 0 AND lending_large_change > 0 THEN 'low'
         WHEN lending_standards_avg > 0 THEN 'low'
         ELSE 'normal'
-    END AS lending_status
+    END AS lending_status,
+
+    CASE
+        WHEN ABS(lending_standards_small - lending_standards_large) > 20 THEN 'high'
+        WHEN ABS(lending_standards_small - lending_standards_large) > 10 THEN 'medium'
+        WHEN lending_standards_small IS NULL OR lending_standards_large IS NULL THEN NULL
+        ELSE 'normal'
+    END AS lending_size_divergence_status,
+
+    CASE
+        WHEN (
+            IF(nfci_value > 1.0, 1, 0)
+            + IF(stl_fsi_value > 1.0, 1, 0)
+            + IF(kc_fsi_value > 1.0, 1, 0)
+            + IF(nfci_risk > 0.5 OR nfci_credit > 0.5 OR nfci_leverage > 0.5, 1, 0)
+        ) >= 3 THEN 'high'
+        WHEN (
+            IF(nfci_value > 0.5, 1, 0)
+            + IF(stl_fsi_value > 0.5, 1, 0)
+            + IF(kc_fsi_value > 0.5, 1, 0)
+            + IF(nfci_risk > 0.5 OR nfci_credit > 0.5 OR nfci_leverage > 0.5, 1, 0)
+        ) >= 2 THEN 'medium'
+        ELSE 'normal'
+    END AS stress_confirmation_status
 
 FROM final
 WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)

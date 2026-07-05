@@ -1,6 +1,14 @@
+import os
+
 import dagster as dg
 
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
+
+
+def _dbt_dataset(base_name: str) -> str:
+    environment = os.getenv("ENVIRONMENT", "dev")
+    suffix = {"prod": "", "staging": "_staging"}.get(environment, "_dev")
+    return f"{base_name}{suffix}"
 
 
 @dg.asset_check(asset="financial_conditions_index")
@@ -71,7 +79,69 @@ def fci_weights_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckResult
     )
 
 
+@dg.asset_check(asset="current_data_coverage")
+def current_data_coverage_health_check(
+    bq: BigQueryWarehouseResource,
+) -> dg.AssetCheckResult:
+    """Validate semantic-layer source coverage has no stale or missing sources."""
+    table_ref = f"{bq.project}.{_dbt_dataset('economics_marts')}.current_data_coverage"
+    if not bq.table_exists(table_ref):
+        return dg.AssetCheckResult(
+            passed=False,
+            severity=dg.AssetCheckSeverity.ERROR,
+            metadata={"error": f"{table_ref} table does not exist"},
+        )
+
+    df = bq.execute_query(
+        f"""
+        SELECT
+            source_name,
+            source_domain,
+            coverage_date,
+            coverage_pct,
+            freshness_lag_days,
+            coverage_status
+        FROM `{table_ref}`
+        WHERE coverage_status != 'healthy'
+        ORDER BY
+            CASE coverage_status
+                WHEN 'stale' THEN 1
+                WHEN 'coverage_gap' THEN 2
+                WHEN 'partial' THEN 3
+                WHEN 'lagging' THEN 4
+                ELSE 5
+            END,
+            source_name
+        """,
+        read_only=True,
+    )
+
+    if df.is_empty():
+        return dg.AssetCheckResult(
+            passed=True,
+            metadata={"table": table_ref, "unhealthy_sources": 0},
+        )
+
+    unhealthy_sources = df.to_dicts()
+    statuses = {row["coverage_status"] for row in unhealthy_sources}
+    has_error = "stale" in statuses
+    has_warning = bool(statuses & {"coverage_gap", "partial", "lagging"})
+
+    return dg.AssetCheckResult(
+        passed=not (has_error or has_warning),
+        severity=(
+            dg.AssetCheckSeverity.ERROR if has_error else dg.AssetCheckSeverity.WARN
+        ),
+        metadata={
+            "table": table_ref,
+            "unhealthy_sources": unhealthy_sources,
+            "unhealthy_source_count": len(unhealthy_sources),
+        },
+    )
+
+
 transformation_checks = [
     fci_data_check,
     fci_weights_data_check,
+    current_data_coverage_health_check,
 ]
