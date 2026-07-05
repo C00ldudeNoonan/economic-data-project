@@ -70,13 +70,12 @@ def treasury_yields_data_check(bq: BigQueryWarehouseResource) -> dg.AssetCheckRe
         SELECT
             COUNT(*) AS row_count,
             MAX(date) AS max_date,
-            (CASE WHEN bc_10year IS NOT NULL THEN 1 ELSE 0 END
+            SUM(CASE WHEN bc_10year IS NOT NULL THEN 1 ELSE 0 END
              + CASE WHEN bc_2year IS NOT NULL THEN 1 ELSE 0 END
              + CASE WHEN bc_5year IS NOT NULL THEN 1 ELSE 0 END
              + CASE WHEN bc_30year IS NOT NULL THEN 1 ELSE 0 END) AS key_series_populated
         FROM treasury_yields_raw
-        WHERE CAST(date AS DATE) >= '{cutoff}'
-        LIMIT 1
+        WHERE SAFE_CAST(date AS DATE) >= '{cutoff}'
         """,
         read_only=True,
     )

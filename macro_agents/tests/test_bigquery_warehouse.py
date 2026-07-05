@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import polars as pl
 import pyarrow as pa
 import pytest
+from google.cloud import bigquery
 
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
@@ -100,3 +101,54 @@ class TestExecuteQueryErrorSurfacing:
         assert isinstance(df, pl.DataFrame)
         assert df.is_empty()
         mock_result.to_arrow.assert_not_called()
+
+
+class TestNormalizeColumnTypes:
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_skips_table_when_schema_already_matches(self, mock_client_cls):
+        mock_client = mock_client_cls.return_value
+        mock_client.get_table.return_value = Mock(
+            schema=[
+                bigquery.SchemaField("date", "STRING"),
+                bigquery.SchemaField("bc_1month", "FLOAT"),
+            ]
+        )
+        resource = _make_resource()
+
+        normalized = resource.normalize_column_types(
+            "treasury_yields_raw", {"bc_1month": "FLOAT64"}
+        )
+
+        assert normalized == []
+        mock_client.query.assert_not_called()
+        mock_client.copy_table.assert_not_called()
+        mock_client.delete_table.assert_not_called()
+
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_rewrites_table_when_schema_has_drifted_types(self, mock_client_cls):
+        mock_client = mock_client_cls.return_value
+        mock_client.get_table.return_value = Mock(
+            schema=[
+                bigquery.SchemaField("date", "STRING"),
+                bigquery.SchemaField("bc_1month", "STRING"),
+                bigquery.SchemaField("bc_2year", "FLOAT64"),
+            ]
+        )
+        mock_client.query.return_value = Mock()
+        resource = _make_resource()
+
+        normalized = resource.normalize_column_types(
+            "treasury_yields_raw",
+            {"bc_1month": "FLOAT64", "bc_2year": "FLOAT64"},
+        )
+
+        assert normalized == ["bc_1month"]
+        create_sql = mock_client.query.call_args.args[0]
+        assert "CREATE OR REPLACE TABLE" in create_sql
+        assert "SAFE_CAST(`bc_1month` AS FLOAT64) AS `bc_1month`" in create_sql
+        assert "SAFE_CAST(`bc_2year` AS FLOAT64) AS `bc_2year`" in create_sql
+        assert "FROM `test-project.test_dataset.treasury_yields_raw`" in create_sql
+        mock_client.query.return_value.result.assert_called_once()
+        mock_client.copy_table.assert_called_once()
+        mock_client.copy_table.return_value.result.assert_called_once()
+        mock_client.delete_table.assert_called_once()
