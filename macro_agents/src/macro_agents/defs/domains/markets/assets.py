@@ -11,6 +11,7 @@ from macro_agents.defs.domains.markets.partitions import (
     COMMODITIES_GROUP,
     MARKETS_GROUP,
     agriculture_commodities_partitions,
+    commodity_etfs_partitions,
     currency_etfs_partitions,
     energy_commodities_partitions,
     fixed_income_etfs_partitions,
@@ -493,6 +494,24 @@ def currency_etfs_raw(
     marketstack: MarketStackResource,
 ) -> dg.MaterializeResult:
     return _fetch_ticker_partitions(context, bq, marketstack, "currency_etfs_raw")
+
+
+@dg.asset(
+    group_name=MARKETS_GROUP,
+    kinds={"polars", "duckdb"},
+    partitions_def=commodity_etfs_partitions,
+    backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
+    automation_condition=dg.AutomationCondition.on_cron(
+        "45 18 * * 5", "America/New_York"
+    ),
+    description="Raw data from MarketStack API for Commodity ETFs",
+)
+def commodity_etfs_raw(
+    context: dg.AssetExecutionContext,
+    bq: BigQueryWarehouseResource,
+    marketstack: MarketStackResource,
+) -> dg.MaterializeResult:
+    return _fetch_ticker_partitions(context, bq, marketstack, "commodity_etfs_raw")
 
 
 @dg.asset(

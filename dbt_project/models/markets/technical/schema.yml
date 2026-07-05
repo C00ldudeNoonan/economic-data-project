@@ -25,6 +25,7 @@ models:
                   - major_index
                   - fixed_income_etf
                   - currency_etf
+                  - commodity_etf
                   - global_market
       - name: symbol
         tests:

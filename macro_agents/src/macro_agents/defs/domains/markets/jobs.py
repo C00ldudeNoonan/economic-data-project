@@ -28,6 +28,13 @@ currency_etfs_ingestion_job = dg.define_asset_job(
     description="Currency ETFs ingestion job - runs current month partition weekly on Fridays",
 )
 
+commodity_etfs_ingestion_job = dg.define_asset_job(
+    name="commodity_etfs_ingestion_job",
+    tags={"dagster/priority": "10", "dagster/max_runtime": 1800},
+    selection=dg.AssetSelection.assets("commodity_etfs_raw"),
+    description="Commodity ETFs ingestion job - runs current month partition weekly on Fridays",
+)
+
 major_indices_ingestion_job = dg.define_asset_job(
     name="major_indices_ingestion_job",
     tags={"dagster/priority": "10", "dagster/max_runtime": 1800},

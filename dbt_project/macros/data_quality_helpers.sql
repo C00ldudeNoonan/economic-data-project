@@ -2,6 +2,7 @@
     {% set tables = [
         'us_sector_etfs_raw',
         'currency_etfs_raw',
+        'commodity_etfs_raw',
         'major_indices_raw',
         'fixed_income_etfs_raw',
         'global_markets_raw',

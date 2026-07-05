@@ -6,6 +6,7 @@ from macro_agents.defs.domains.markets.data_quality_assets import (
 )
 from macro_agents.defs.domains.markets.assets import (
     agriculture_commodities_raw,
+    commodity_etfs_raw,
     currency_etfs_raw,
     energy_commodities_raw,
     fixed_income_etfs_raw,
@@ -19,6 +20,7 @@ from macro_agents.defs.domains.markets.assets import (
 )
 from macro_agents.defs.domains.markets.checks import (
     agriculture_commodities_weekly_coverage_check,
+    commodity_etfs_weekly_coverage_check,
     currency_etfs_weekly_coverage_check,
     energy_commodities_weekly_coverage_check,
     fixed_income_etfs_weekly_coverage_check,
@@ -30,6 +32,7 @@ from macro_agents.defs.domains.markets.checks import (
 )
 from macro_agents.defs.domains.markets.jobs import (
     agriculture_commodities_ingestion_job,
+    commodity_etfs_ingestion_job,
     currency_etfs_ingestion_job,
     energy_commodities_ingestion_job,
     fixed_income_etfs_ingestion_job,
@@ -68,6 +71,7 @@ market_stack_jobs = [
     sp500_companies_list_job,
     us_sector_etfs_ingestion_job,
     currency_etfs_ingestion_job,
+    commodity_etfs_ingestion_job,
     major_indices_ingestion_job,
     fixed_income_etfs_ingestion_job,
     global_markets_ingestion_job,
@@ -83,6 +87,7 @@ defs = dg.Definitions(
     assets=[
         us_sector_etfs_raw,
         currency_etfs_raw,
+        commodity_etfs_raw,
         major_indices_raw,
         fixed_income_etfs_raw,
         global_markets_raw,
@@ -98,6 +103,7 @@ defs = dg.Definitions(
     asset_checks=[
         us_sector_etfs_weekly_coverage_check,
         currency_etfs_weekly_coverage_check,
+        commodity_etfs_weekly_coverage_check,
         major_indices_weekly_coverage_check,
         fixed_income_etfs_weekly_coverage_check,
         global_markets_weekly_coverage_check,
