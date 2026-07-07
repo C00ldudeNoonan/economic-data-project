@@ -203,7 +203,7 @@ major_index_performance AS (
         major_indices.pct_change_3mo,
         major_indices.pct_change_1yr,
         major_indices.std_diff_1yr
-    FROM {{ ref('major_indicies_analysis_return') }} AS major_indices
+    FROM {{ ref('major_indices_analysis_return') }} AS major_indices
     INNER JOIN comparison_metadata
         ON major_indices.symbol = comparison_metadata.comparison_symbol
     WHERE comparison_metadata.comparison_universe != 'sector_etf'
