@@ -67,7 +67,7 @@ models:
                 min_value: 0
                 max_value: 100
 
-  - name: major_indicies_summary
+  - name: major_indices_summary
     description: >
       Performance analysis of major stock market indices across multiple time periods.
       This model calculates key performance indicators including total returns, daily
@@ -199,63 +199,69 @@ models:
 
   - name: currency_analysis_return
     description: >
-      Daily forex exchange rates and rolling returns.
-      Grain: one row per currency pair per trading day.
-    semantic_model:
-      enabled: true
-      name: currency_daily_rates
-    agg_time_dimension: trade_date
+      Daily rolling analysis of currency pairs with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
     columns:
       - name: symbol
         description: Currency pair symbol
-        entity:
-          name: currency_pair
-          type: primary
-        dimension:
-          type: categorical
         tests:
           - not_null
       - name: exchange
         description: Exchange where the currency pair is traded
-        dimension:
-          type: categorical
         tests:
           - not_null
       - name: date
         description: Trading date
-        granularity: day
-        dimension:
-          name: trade_date
-          type: time
         tests:
           - not_null
       - name: current_price
         description: Current adjusted close price
-      - name: pct_change_1mo
-        description: Percentage change from 1 month ago to current price
+      - name: current_high
+        description: Current day's high price
+      - name: current_low
+        description: Current day's low price
+      - name: current_volume
+        description: Current day's trading volume
+      - name: high_1yr
+        description: Maximum price over the past 1 year
+      - name: low_1yr
+        description: Minimum price over the past 1 year
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year
       - name: pct_change_1yr
         description: Percentage change from 1 year ago to current price
-    metrics:
-      - name: fx_spot_rate
-        label: FX Spot Rate
-        description: >
-          Maximum daily FX rate across the selected currency pairs and time range.
-          Group by currency pair and trade_date for point-in-time rates.
-        type: simple
-        agg: max
-        expr: current_price
-      - name: fx_return_1mo
-        label: FX 1-Month Return (%)
-        description: Average 1-month trailing return across selected currency pairs.
-        type: simple
-        agg: average
-        expr: pct_change_1mo
-      - name: fx_return_1yr
-        label: FX 1-Year Return (%)
-        description: Average 1-year trailing return across selected currency pairs.
-        type: simple
-        agg: average
-        expr: pct_change_1yr
+      - name: high_9mo
+        description: Maximum price over the past 9 months
+      - name: low_9mo
+        description: Minimum price over the past 9 months
+      - name: std_diff_9mo
+        description: Standard deviation of daily price differences over the past 9 months
+      - name: pct_change_9mo
+        description: Percentage change from 9 months ago to current price
+      - name: high_6mo
+        description: Maximum price over the past 6 months
+      - name: low_6mo
+        description: Minimum price over the past 6 months
+      - name: std_diff_6mo
+        description: Standard deviation of daily price differences over the past 6 months
+      - name: pct_change_6mo
+        description: Percentage change from 6 months ago to current price
+      - name: high_3mo
+        description: Maximum price over the past 3 months
+      - name: low_3mo
+        description: Minimum price over the past 3 months
+      - name: std_diff_3mo
+        description: Standard deviation of daily price differences over the past 3 months
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price
+      - name: high_1mo
+        description: Maximum price over the past 1 month
+      - name: low_1mo
+        description: Minimum price over the past 1 month
+      - name: std_diff_1mo
+        description: Standard deviation of daily price differences over the past 1 month
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price
 
   - name: global_markets_analysis_return    
     description: >
@@ -323,7 +329,7 @@ models:
       - name: pct_change_1mo
         description: Percentage change from 1 month ago to current price
 
-  - name: major_indicies_analysis_return
+  - name: major_indices_analysis_return
     description: >
       Daily rolling analysis of major indices with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
       For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
@@ -341,204 +347,23 @@ models:
         tests:
           - not_null
 
-  - name: factor_analysis_return
-    description: >
-      Daily OHLCV price data and rolling returns for US equity factor ETFs
-      covering value, quality, momentum, size, and minimum volatility.
-      Grain: one row per factor ETF symbol per exchange per trading day.
-    tests:
-      - unique_combination:
-          arguments:
-            combination_of_columns: ['symbol', 'exchange', 'date']
-    columns:
-      - name: symbol
-        description: Factor ETF symbol.
-        tests:
-          - not_null
-      - name: exchange
-        description: Exchange where the ETF is traded.
-        tests:
-          - not_null
-      - name: date
-        description: Trading date.
-        tests:
-          - not_null
-      - name: current_price
-        description: Current adjusted close price.
-      - name: current_volume
-        description: Current day's trading volume.
-      - name: pct_change_1mo
-        description: Percentage change from 1 month ago to current price.
-      - name: pct_change_3mo
-        description: Percentage change from 3 months ago to current price.
-      - name: pct_change_1yr
-        description: Percentage change from 1 year ago to current price.
-      - name: std_diff_1yr
-        description: Standard deviation of daily price differences over the past 1 year.
-
-  - name: factor_sector_correlation
-    description: >
-      Latest rolling correlations and relative performance spreads between
-      US equity factor ETFs and sector, broad market, style, and thematic ETFs.
-      Supports factor rotation, sector exposure, and thematic relationship analysis.
-    tests:
-      - unique_combination:
-          arguments:
-            combination_of_columns: ['factor_sector_key']
-    columns:
-      - name: factor_sector_key
-        description: Stable key for factor, sector, and as-of date.
-        tests:
-          - not_null
-          - unique
-      - name: as_of_date
-        description: Latest common trading date used for the correlation window.
-        tests:
-          - not_null
-      - name: factor_symbol
-        description: Factor ETF ticker symbol.
-        tests:
-          - not_null
-      - name: factor_name
-        description: Factor exposure represented by the ETF.
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['value', 'quality', 'momentum', 'size', 'minimum_volatility']
-      - name: comparison_symbol
-        description: Compared ETF ticker symbol.
-        tests:
-          - not_null
-      - name: comparison_name
-        description: Human-readable compared ETF name.
-      - name: comparison_universe
-        description: Compared ETF universe.
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['sector_etf', 'broad_market_etf', 'style_etf', 'thematic_etf']
-      - name: sector_symbol
-        description: Backward-compatible compared ETF ticker symbol.
-        tests:
-          - not_null
-      - name: sector_name
-        description: Backward-compatible compared ETF name.
-      - name: corr_3mo
-        description: Rolling 3-month daily-return correlation between the factor ETF and compared ETF.
-      - name: corr_1yr
-        description: Rolling 1-year daily-return correlation between the factor ETF and compared ETF.
-      - name: factor_sector_return_spread_3mo
-        description: Factor ETF 3-month return minus compared ETF 3-month return.
-      - name: factor_sector_return_spread_1yr
-        description: Factor ETF 1-year return minus compared ETF 1-year return.
-
   - name: sp500_companies_analysis_return
     description: >
-      Daily OHLCV price data and rolling returns for S&P 500 companies.
-      Grain: one row per symbol per exchange per trading day.
-    semantic_model:
-      enabled: true
-      name: market_daily_prices
-    agg_time_dimension: trade_date
+      Daily rolling analysis of S&P 500 companies with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
     columns:
       - name: symbol
         description: Company symbol
-        entity:
-          name: stock
-          type: primary
-        dimension:
-          type: categorical
         tests:
           - not_null
       - name: exchange
         description: Exchange where the security is traded
-        dimension:
-          type: categorical
         tests:
           - not_null
       - name: date
         description: Trading date
-        granularity: day
-        dimension:
-          name: trade_date
-          type: time
         tests:
           - not_null
-      - name: current_price
-        description: Current adjusted close price
-      - name: current_volume
-        description: Current day's trading volume
-      - name: pct_change_1mo
-        description: Percentage change from 1 month ago to current price
-      - name: pct_change_3mo
-        description: Percentage change from 3 months ago to current price
-      - name: pct_change_6mo
-        description: Percentage change from 6 months ago to current price
-      - name: pct_change_1yr
-        description: Percentage change from 1 year ago to current price
-      - name: std_diff_1yr
-        description: Standard deviation of daily price differences over the past 1 year
-    metrics:
-      - name: max_close_price
-        label: Max Close Price
-        description: >
-          Maximum daily closing price across the selected symbols and time range.
-          Group by stock and trade_date for point-in-time close price analysis.
-        type: simple
-        agg: max
-        expr: current_price
-        fill_nulls_with: 0
-      - name: total_volume
-        label: Total Trading Volume
-        description: Total share volume traded across selected symbols and time range.
-        type: simple
-        agg: sum
-        expr: current_volume
-      - name: avg_return_1mo
-        label: Avg 1-Month Return (%)
-        description: >
-          Average 1-month trailing price return (%). Reflects the mean of each
-          symbol's 1-month lookback return across selected dates.
-        type: simple
-        agg: average
-        expr: pct_change_1mo
-      - name: avg_return_3mo
-        label: Avg 3-Month Return (%)
-        description: Average 3-month trailing price return (%).
-        type: simple
-        agg: average
-        expr: pct_change_3mo
-      - name: avg_return_6mo
-        label: Avg 6-Month Return (%)
-        description: Average 6-month trailing price return (%).
-        type: simple
-        agg: average
-        expr: pct_change_6mo
-      - name: avg_return_1yr
-        label: Avg 1-Year Return (%)
-        description: >
-          Average 1-year trailing price return (%). Common baseline for annual
-          performance comparisons (not annualized — reflects actual 12m return).
-        type: simple
-        agg: average
-        expr: pct_change_1yr
-      - name: price_volatility_proxy
-        label: Price Volatility (1-Year StdDev)
-        description: >
-          Average 1-year standard deviation of daily dollar price changes.
-          Higher = more price dispersion. For a normalized volatility ratio,
-          see the cross-asset annualized_volatility_ratio metric on asset_daily_returns.
-        type: simple
-        agg: average
-        expr: std_diff_1yr
-      - name: unique_symbols
-        label: Distinct Symbols
-        description: Count of distinct ticker symbols in the selection.
-        type: simple
-        agg: count_distinct
-        expr: symbol
 
   - name: nasdaq_companies_analysis_return
     description: >
@@ -608,34 +433,19 @@ models:
 
   - name: us_sector_analysis_return
     description: >
-      Daily OHLCV price data and rolling returns for US sector ETFs.
-      Grain: one row per sector symbol per exchange per trading day.
-    semantic_model:
-      enabled: true
-      name: sector_daily_performance
-    agg_time_dimension: trade_date
+      Daily rolling analysis of US sector ETFs with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
     columns:
       - name: symbol
         description: US sector ETF symbol
-        entity:
-          name: sector_etf
-          type: primary
-        dimension:
-          type: categorical
         tests:
           - not_null
       - name: exchange
         description: Exchange where the ETF is traded
-        dimension:
-          type: categorical
         tests:
           - not_null
       - name: date
         description: Trading date
-        granularity: day
-        dimension:
-          name: trade_date
-          type: time
         tests:
           - not_null
       - name: current_price
@@ -686,64 +496,22 @@ models:
         description: Standard deviation of daily price differences over the past 1 month
       - name: pct_change_1mo
         description: Percentage change from 1 month ago to current price
-    metrics:
-      - name: sector_avg_return_1yr
-        label: Sector Avg 1-Year Return (%)
-        description: Average 1-year trailing return across sector ETFs.
-        type: simple
-        agg: average
-        expr: pct_change_1yr
-      - name: sector_avg_return_1mo
-        label: Sector Avg 1-Month Return (%)
-        description: Average 1-month trailing return across sector ETFs.
-        type: simple
-        agg: average
-        expr: pct_change_1mo
-      - name: sector_volatility_proxy
-        label: Sector Price Volatility (1-Year StdDev)
-        description: Average 1-year standard deviation of daily price changes for sector ETFs.
-        type: simple
-        agg: average
-        expr: std_diff_1yr
-      - name: sector_max_close_price
-        label: Sector Max Close Price
-        description: >
-          Maximum daily closing price for sector ETFs across the selected time range.
-          Group by sector ETF and trade_date for point-in-time price analysis.
-        type: simple
-        agg: max
-        expr: current_price
 
   - name: fixed_income_analysis_return
     description: >
-      Daily price data and rolling returns for fixed income instruments (bonds, Treasuries).
-      Grain: one row per symbol per exchange per trading day.
-    semantic_model:
-      enabled: true
-      name: fixed_income_daily_prices
-    agg_time_dimension: trade_date
+      Daily rolling analysis of fixed income ETFs with rolling windows (1 year, 9 months, 6 months, 3 months, 1 month).
+      For each window, calculates highs, lows, standard deviation of daily price differences, and percentage changes.
     columns:
       - name: symbol
         description: Fixed income ETF symbol
-        entity:
-          name: bond_instrument
-          type: primary
-        dimension:
-          type: categorical
         tests:
           - not_null
       - name: exchange
         description: Exchange where the ETF is traded
-        dimension:
-          type: categorical
         tests:
           - not_null
       - name: date
         description: Trading date
-        granularity: day
-        dimension:
-          name: trade_date
-          type: time
         tests:
           - not_null
       - name: current_price
@@ -794,30 +562,3 @@ models:
         description: Standard deviation of daily price differences over the past 1 month
       - name: pct_change_1mo
         description: Percentage change from 1 month ago to current price
-    metrics:
-      - name: bond_max_price
-        label: Fixed Income Max Price
-        description: >
-          Maximum daily price for fixed income instruments across the selected time range.
-          Group by bond instrument and trade_date for point-in-time price analysis.
-        type: simple
-        agg: max
-        expr: current_price
-      - name: bond_return_1mo
-        label: Fixed Income 1-Month Return (%)
-        description: Average 1-month trailing return across selected fixed income instruments.
-        type: simple
-        agg: average
-        expr: pct_change_1mo
-      - name: bond_return_1yr
-        label: Fixed Income 1-Year Return (%)
-        description: Average 1-year trailing return across selected fixed income instruments.
-        type: simple
-        agg: average
-        expr: pct_change_1yr
-      - name: bond_volatility_proxy
-        label: Fixed Income Price Volatility (1-Year StdDev)
-        description: Average 1-year standard deviation of daily price changes for fixed income instruments.
-        type: simple
-        agg: average
-        expr: std_diff_1yr

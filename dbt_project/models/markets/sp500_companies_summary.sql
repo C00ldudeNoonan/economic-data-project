@@ -19,7 +19,7 @@ WITH base_data AS (
         CASE
             WHEN split_adj_open > 0 THEN ((split_adj_close - split_adj_open) / split_adj_open) * 100
         END AS pct_change_adj
-    FROM {{ ref('split_adjusted_prices') }}
+    FROM {{ ref('stg_split_adjusted_prices') }}
     WHERE
         source_table = 'sp500_companies_prices_raw'
         AND date IS NOT NULL

@@ -736,6 +736,46 @@ models:
       - name: vix_mean_reversion_status
         description: "Signal severity: high (>90th pctile extreme fear), medium (>80th), low (<10th complacency)"
 
+  - name: int_cross_asset_credit_signals
+    description: >
+      Intermediate cross-asset credit and stock-bond signals used by cross_asset_divergences.
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: int_cross_asset_breadth_signals
+    description: >
+      Intermediate small-cap and equal-weight breadth ratios used by cross_asset_divergences.
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: int_cross_asset_commodity_signals
+    description: >
+      Intermediate commodity, real-yield, and copper/gold correlation signals used by cross_asset_divergences.
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: int_cross_asset_risk_confirmation_signals
+    description: >
+      Intermediate defensive ratio and AUD risk proxy signals.
+    columns:
+      - name: date
+        tests:
+          - not_null
+
+  - name: int_cross_asset_confirmation_signals
+    description: >
+      Intermediate Dow Theory and semis leadership confirmation signals used by cross_asset_divergences.
+    columns:
+      - name: date
+        tests:
+          - not_null
+
   - name: cross_asset_divergences
     description: >
       Cross-asset divergence signals comparing equities, credit, FX, commodities, and rates.

@@ -64,4 +64,4 @@ select
     period_end_price,
     'major_index' as market_category,
     cast(null as date) as snapshot_date
-from {{ ref('major_indicies_summary') }}
+from {{ ref('major_indices_summary') }}

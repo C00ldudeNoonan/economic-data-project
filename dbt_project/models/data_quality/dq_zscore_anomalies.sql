@@ -59,7 +59,7 @@ where
     -- Exclude dates within 2 days of a known stock split
     and not exists (
         select 1
-        from {{ ref('corporate_actions') }} ca
+        from {{ ref('stg_corporate_actions') }} ca
         where ca.source_table = '{{ table_name }}'
           and ca.symbol = {{ table_name }}_rolling.symbol
           and ca.action_type = 'split'

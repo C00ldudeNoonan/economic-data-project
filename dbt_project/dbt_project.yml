@@ -20,14 +20,24 @@ clean-targets:
 # Schema values map to BigQuery datasets. generate_schema_name appends
 # environment suffixes for dev and staging targets while leaving prod canonical.
 models:
+  dbt_project_evaluator:
+    +enabled: "{{ var('enable_dbt_project_evaluator', false) }}"
   dbt_project:
     +materialized: table
     staging:
       +schema: economics_staging
       +materialized: view
+      corporate_actions:
+        +enabled: "{{ var('enable_legacy_staging_alias_models', false) }}"
+      split_adjusted_prices:
+        +enabled: "{{ var('enable_legacy_staging_alias_models', false) }}"
     markets:
       +schema: economics_marts
       +materialized: table
+      major_indicies_summary:
+        +enabled: "{{ var('enable_legacy_misspelled_market_models', false) }}"
+      major_indicies_analysis_return:
+        +enabled: "{{ var('enable_legacy_misspelled_market_models', false) }}"
     commodities:
       +schema: economics_marts
       +materialized: table
