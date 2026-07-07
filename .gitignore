@@ -57,6 +57,7 @@ postgres_data/
 /dagster_home_local/
 /dagster_home_local_telemetry/
 /.dagster/
+macro_agents/*dagster_home_local/
 macro_agents/storage/*
 dagster_localscripts/analysis_report.md
 /visualization reports/
