@@ -15,7 +15,7 @@ models:
 
   - name: asset_daily_returns
     description: >
-      Normalized daily return fact table across stocks, sector ETFs, and input
+      Normalized daily return fact table across stocks, sector ETFs, factor ETFs, and input
       commodities. Grain: one row per asset per trading day.
     tests:
       - unique_combination:
@@ -39,7 +39,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['stock', 'sector_etf', 'commodity']
+                values: ['stock', 'sector_etf', 'factor_etf', 'commodity']
       - name: asset_id
         description: Source identifier for the asset within its asset class.
         dimension:
@@ -62,6 +62,10 @@ models:
           type: categorical
       - name: sector_etf_symbol
         description: Sector ETF ticker symbol for sector ETF rows.
+        dimension:
+          type: categorical
+      - name: factor_etf_symbol
+        description: Factor ETF ticker symbol for factor ETF rows.
         dimension:
           type: categorical
       - name: commodity_name
@@ -156,7 +160,7 @@ models:
 semantic_models:
   - name: asset_daily_returns
     description: >
-      Normalized daily return fact table across stocks, sector ETFs, and input
+      Normalized daily return fact table across stocks, sector ETFs, factor ETFs, and input
       commodities. Grain: one row per asset per trading day.
     model: ref('asset_daily_returns')
     defaults:
@@ -177,6 +181,8 @@ semantic_models:
       - name: stock_symbol
         type: categorical
       - name: sector_etf_symbol
+        type: categorical
+      - name: factor_etf_symbol
         type: categorical
       - name: commodity_name
         type: categorical
@@ -693,6 +699,62 @@ semantic_models:
         agg: average
         expr: mortgage_3m_change
 
+  - name: factor_sector_relationships
+    description: >
+      Latest rolling correlation and relative performance between US equity
+      factor ETFs and sector, broad market, style, and thematic ETFs.
+    model: ref('factor_sector_correlation')
+    defaults:
+      agg_time_dimension: as_of_date
+    entities:
+      - name: factor_sector_pair
+        type: primary
+        expr: factor_sector_key
+    dimensions:
+      - name: as_of_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: factor_symbol
+        type: categorical
+      - name: factor_name
+        type: categorical
+      - name: comparison_symbol
+        type: categorical
+      - name: comparison_name
+        type: categorical
+      - name: comparison_universe
+        type: categorical
+      - name: sector_symbol
+        type: categorical
+      - name: sector_name
+        type: categorical
+    measures:
+      - name: factor_sector_corr_3mo_measure
+        description: Average rolling 3-month daily-return correlation between selected factors and comparison ETFs.
+        agg: average
+        expr: corr_3mo
+      - name: factor_sector_corr_1yr_measure
+        description: Average rolling 1-year daily-return correlation between selected factors and comparison ETFs.
+        agg: average
+        expr: corr_1yr
+      - name: factor_return_3mo_measure
+        description: Average selected factor ETF 3-month return.
+        agg: average
+        expr: factor_return_3mo
+      - name: factor_return_1yr_measure
+        description: Average selected factor ETF 1-year return.
+        agg: average
+        expr: factor_return_1yr
+      - name: factor_sector_return_spread_3mo_measure
+        description: Average factor-minus-comparison 3-month return spread.
+        agg: average
+        expr: factor_sector_return_spread_3mo
+      - name: factor_sector_return_spread_1yr_measure
+        description: Average factor-minus-comparison 1-year return spread.
+        agg: average
+        expr: factor_sector_return_spread_1yr
+
 metrics:
   - name: asset_volatility_proxy
     label: Asset Price Volatility (1-Year StdDev)
@@ -1110,3 +1172,45 @@ metrics:
     type_params:
       measure:
         name: mortgage_3m_change_measure
+  - name: factor_sector_corr_3mo
+    label: Factor-Sector Correlation 3M
+    description: Average rolling 3-month daily-return correlation between selected factors and comparison ETFs.
+    type: simple
+    type_params:
+      measure:
+        name: factor_sector_corr_3mo_measure
+  - name: factor_sector_corr_1yr
+    label: Factor-Sector Correlation 1Y
+    description: Average rolling 1-year daily-return correlation between selected factors and comparison ETFs.
+    type: simple
+    type_params:
+      measure:
+        name: factor_sector_corr_1yr_measure
+  - name: factor_return_3mo
+    label: Factor Return 3M
+    description: Average selected factor ETF 3-month trailing return.
+    type: simple
+    type_params:
+      measure:
+        name: factor_return_3mo_measure
+  - name: factor_return_1yr
+    label: Factor Return 1Y
+    description: Average selected factor ETF 1-year trailing return.
+    type: simple
+    type_params:
+      measure:
+        name: factor_return_1yr_measure
+  - name: factor_sector_return_spread_3mo
+    label: Factor-Sector Return Spread 3M
+    description: Average factor-minus-comparison 3-month return spread.
+    type: simple
+    type_params:
+      measure:
+        name: factor_sector_return_spread_3mo_measure
+  - name: factor_sector_return_spread_1yr
+    label: Factor-Sector Return Spread 1Y
+    description: Average factor-minus-comparison 1-year return spread.
+    type: simple
+    type_params:
+      measure:
+        name: factor_sector_return_spread_1yr_measure

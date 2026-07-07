@@ -1,3 +1,13 @@
+# US equity factor ETFs. iShares frames factor investing around value,
+# quality, momentum, size, and minimum volatility.
+FACTOR_ETFS = [
+    "VLUE",  # iShares Edge MSCI USA Value Factor
+    "MTUM",  # iShares Edge MSCI USA Momentum Factor
+    "QUAL",  # iShares Edge MSCI USA Quality Factor
+    "USMV",  # iShares Edge MSCI USA Min Vol Factor
+    "SIZE",  # iShares Edge MSCI USA Size Factor
+]
+
 # Major US market indices and broad market ETFs
 # Note: VIX removed - MarketStack returns 406 for VIX.INDX; use FRED VIXCLS instead
 MAJOR_INDICES_TICKERS = [
@@ -10,11 +20,7 @@ MAJOR_INDICES_TICKERS = [
     "SOXX",
     "IWD",  # iShares Russell 1000 Value
     "IWF",  # iShares Russell 1000 Growth
-    "VLUE",  # iShares Edge MSCI USA Value Factor
-    "MTUM",  # iShares Edge MSCI USA Momentum Factor
-    "QUAL",  # iShares Edge MSCI USA Quality Factor
-    "USMV",  # iShares Edge MSCI USA Min Vol Factor
-    "SIZE",  # iShares Edge MSCI USA Min Vol Factor
+    *FACTOR_ETFS,
 ]
 
 # US sector ETFs
