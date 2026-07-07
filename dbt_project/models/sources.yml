@@ -3,7 +3,14 @@ version: 2
 sources:
   - name: staging
     database: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
-    schema: economics_raw
+    schema: >-
+      {%- if target.name == 'dev' -%}
+        economics_raw_dev
+      {%- elif target.name == 'staging' -%}
+        economics_raw_staging
+      {%- else -%}
+        economics_raw
+      {%- endif -%}
     tables:
       # FRED Data
       - name: fred_raw
