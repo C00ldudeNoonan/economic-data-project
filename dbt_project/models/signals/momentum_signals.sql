@@ -24,7 +24,7 @@ WITH spy_returns AS (
         pct_change_3mo,
         pct_change_6mo,
         pct_change_1yr
-    FROM {{ ref('major_indicies_analysis_return') }}
+    FROM {{ ref('major_indices_analysis_return') }}
     WHERE symbol = 'SPY'
 ),
 

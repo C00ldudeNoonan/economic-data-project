@@ -3,7 +3,14 @@ version: 2
 sources:
   - name: staging
     database: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
-    schema: economics_raw
+    schema: >-
+      {%- if target.name == 'dev' -%}
+        economics_raw_dev
+      {%- elif target.name == 'staging' -%}
+        economics_raw_staging
+      {%- else -%}
+        economics_raw
+      {%- endif -%}
     tables:
       # FRED Data
       - name: fred_raw
@@ -15,11 +22,24 @@ sources:
 
       # Financial Conditions Index
       - name: financial_conditions_index
+        description: Financial conditions index values produced by the Dagster transformation asset.
+        config:
+          loaded_at_field: created_at
+          freshness:
+            warn_after: {count: 14, period: day}
+            error_after: {count: 21, period: day}
 
       # Housing Data
       - name: housing_inventory_raw
+        description: Raw Census housing inventory data loaded weekly by Dagster.
 
       - name: housing_pulse_raw
+        description: Raw Census Household Pulse survey data loaded weekly by Dagster.
+        config:
+          loaded_at_field: "parse_timestamp('%B %e, %Y', COL_START_DATE)"
+          freshness:
+            warn_after: {count: 21, period: day}
+            error_after: {count: 35, period: day}
 
       # Realtor.com Housing Data
       - name: realtor_country_raw
@@ -39,6 +59,12 @@ sources:
       
       # Treasury Yields Data
       - name: treasury_yields_raw
+        description: Raw Treasury yield curve data scraped from Treasury.gov XML feeds.
+        config:
+          loaded_at_field: "cast(date as timestamp)"
+          freshness:
+            warn_after: {count: 7, period: day}
+            error_after: {count: 14, period: day}
       
       # MarketStack Data
       - name: us_sector_etfs_raw
@@ -111,10 +137,25 @@ sources:
       # News Feed Data
       - name: reddit_posts_raw
         description: Raw Reddit posts from financial/economic subreddits scraped from old.reddit.com
+        config:
+          loaded_at_field: fetched_at
+          freshness:
+            warn_after: {count: 3, period: day}
+            error_after: {count: 7, period: day}
       - name: reddit_post_content_raw
         description: Full post content (selftext, links) fetched per Reddit post
+        config:
+          loaded_at_field: fetched_at
+          freshness:
+            warn_after: {count: 3, period: day}
+            error_after: {count: 7, period: day}
       - name: reddit_comments_raw
         description: Comments scraped per Reddit post from old.reddit.com
+        config:
+          loaded_at_field: fetched_at
+          freshness:
+            warn_after: {count: 3, period: day}
+            error_after: {count: 7, period: day}
       - name: reddit_content_embeddings
         description: nomic-embed-text embeddings for Reddit post text and comment text
       - name: reddit_sentiment_scored
@@ -124,13 +165,28 @@ sources:
 
       - name: fomc_minutes_metadata
         description: Metadata for FOMC meeting minutes stored in GCS (full documents in gs://bucket/fomc/)
+        config:
+          loaded_at_field: fetched_at
+          freshness:
+            warn_after: {count: 14, period: day}
+            error_after: {count: 30, period: day}
 
       # FOMC Transcript Data
       - name: fomc_transcripts
         description: Raw FOMC meeting transcripts with full text
+        config:
+          loaded_at_field: processed_date
+          freshness:
+            warn_after: {count: 120, period: day}
+            error_after: {count: 210, period: day}
 
       - name: transcript_sections
         description: Parsed transcript sections with speaker attribution
+        config:
+          loaded_at_field: created_at
+          freshness:
+            warn_after: {count: 120, period: day}
+            error_after: {count: 210, period: day}
 
       - name: fomc_meeting_summaries
         description: AI-generated summaries of FOMC meetings
@@ -149,17 +205,37 @@ sources:
 
       - name: fomc_sentiment_scores
         description: Hawkish/dovish sentiment scores for FOMC transcript sections
+        config:
+          loaded_at_field: created_at
+          freshness:
+            warn_after: {count: 120, period: day}
+            error_after: {count: 210, period: day}
 
       # Events Calendar Data
       - name: economic_calendar
         description: Economic calendar events from Fair Economy CDN
+        config:
+          loaded_at_field: fetched_at
+          freshness:
+            warn_after: {count: 3, period: day}
+            error_after: {count: 7, period: day}
 
       - name: earnings_calendar
         description: Earnings announcements from Financial Modeling Prep API
+        config:
+          loaded_at_field: "cast(fetched_at as timestamp)"
+          freshness:
+            warn_after: {count: 3, period: day}
+            error_after: {count: 7, period: day}
 
       # Stock Splits
       - name: sp500_splits_raw
         description: Stock split history from MarketStack /splits API for S&P 500 companies
+        config:
+          loaded_at_field: "cast(date as timestamp)"
+          freshness:
+            warn_after: {count: 45, period: day}
+            error_after: {count: 75, period: day}
 
       # Company Metadata
       - name: sp500_companies_raw
@@ -167,3 +243,8 @@ sources:
           S&P 500 company metadata from Wikipedia with SCD Type 2 history.
           Active constituents have date_ended IS NULL. Use stg_sp500_companies_active
           for current members only.
+        config:
+          loaded_at_field: fetched_at
+          freshness:
+            warn_after: {count: 45, period: day}
+            error_after: {count: 75, period: day}

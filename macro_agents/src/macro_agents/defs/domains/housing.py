@@ -85,7 +85,10 @@ def housing_inventory_raw(
     rows = data[1:]
 
     df = pl.DataFrame(rows, schema=columns, orient="row")
-    df = df.with_columns(pl.lit(year).alias("year"))
+    df = df.with_columns(
+        pl.lit(year).alias("year"),
+        pl.lit(datetime.now()).alias("fetched_at"),
+    )
     context.log.info(f"Columns: {df.columns}")
 
     bq.upsert_data("housing_inventory_raw", df, ["year"])

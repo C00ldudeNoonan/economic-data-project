@@ -63,6 +63,7 @@ resource "google_secret_manager_secret_version" "dagster_env" {
     DAGSTER_PG_PASSWORD=${var.dagster_pg_password}
     BIGQUERY_PROJECT=${var.bigquery_project}
     BIGQUERY_LOCATION=${var.bigquery_location}
+    ENVIRONMENT=prod
     DBT_TARGET=prod
     FRED_API_KEY=${var.fred_api_key}
     OPENAI_API_KEY=${var.openai_api_key}

@@ -3,7 +3,7 @@ version: 2
 models:
   - name: agent_market_performance
     description: >
-      Union of market summary models (us_sector, major_indicies, sp500, nasdaq)
+      Union of market summary models (us_sector, major_indices, sp500, nasdaq)
       with standardized column names for agent consumption.
     columns:
       - name: symbol
@@ -58,65 +58,155 @@ models:
           - not_null
 
   - name: agent_financial_conditions_index
-    description: "Financial conditions index data for agent consumption"
+    description: >
+      Financial conditions index and component scores from the raw transformation output,
+      filtered to populated FCI observations for agent consumption.
+    columns:
+      - name: date
+        tests:
+          - not_null
+          - unique
+      - name: fci
+        tests:
+          - not_null
 
   - name: agent_fred_monthly_diff
-    description: "FRED monthly differences for agent consumption"
-
-  - name: agent_housing_inventory_latest_aggregates
-    description: "Housing inventory aggregates for agent consumption"
-
-  - name: agent_housing_mortgage_rates
-    description: "Housing mortgage rates for agent consumption"
-
-  - name: agent_reddit_posts_daily
-    description: "Daily Reddit post aggregates for agent consumption"
-
-  - name: agent_reddit_sentiment_trends
-    description: "Reddit sentiment trends for agent consumption"
-
-  - name: agent_fred_series_latest_aggregates_snapshot
-    description: "Snapshot view of FRED aggregates for agent consumption"
-
-  - name: agent_leading_econ_return_indicator_snapshot
-    description: "Snapshot view of leading economic return indicator for agent consumption"
-
-  - name: agent_market_performance_snapshot
-    description: "Incremental snapshot of market performance for agent consumption"
-
-  - name: agent_commodity_performance_snapshot
-    description: "Incremental snapshot of commodity performance for agent consumption"
-
-  - name: agent_treasury_yield_curve_spreads
-    description: "Incremental treasury yield curve spreads for agent consumption"
+    description: >
+      Monthly FRED series observations and period-over-period differences for agent consumption.
     tests:
       - unique_combination:
           arguments:
-            combination_of_columns: ['date']
+            combination_of_columns: [series_code, date]
     columns:
-      - name: date
-        description: Treasury yield observation date.
+      - name: series_code
         tests:
           - not_null
-      - name: yield_3m
-        description: Three-month Treasury yield.
-      - name: yield_2y
-        description: Two-year Treasury yield.
-      - name: yield_10y
-        description: Ten-year Treasury yield.
-      - name: spread_10y_2y
-        description: Ten-year minus two-year Treasury yield spread.
-      - name: spread_10y_3m
-        description: Ten-year minus three-month Treasury yield spread.
-      - name: curve_shape
-        description: Yield curve shape classification.
+      - name: date
         tests:
-          - accepted_values:
-              arguments:
-                values: ['Steep', 'Normal', 'Flat', 'Inverted']
-      - name: inversion_status
-        description: Yield curve inversion status.
+          - not_null
+
+  - name: agent_housing_inventory_latest_aggregates
+    description: >
+      Latest housing inventory aggregate values and change metrics for agent consumption.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: [series_code, month, date_grain]
+          config:
+            severity: warn
+    columns:
+      - name: series_code
         tests:
-          - accepted_values:
-              arguments:
-                values: ['Normal', 'Inverted', 'Inverted (10Y-3M)']
+          - not_null
+      - name: month
+        tests:
+          - not_null
+      - name: current_value
+        tests:
+          - not_null
+
+  - name: agent_housing_mortgage_rates
+    description: >
+      Mortgage rate and estimated monthly payment series for agent consumption.
+    columns:
+      - name: date
+        tests:
+          - not_null
+          - unique
+
+  - name: agent_reddit_posts_daily
+    description: >
+      Raw daily Reddit post records exposed for agent consumption.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: [title, subreddit, partition_date]
+          config:
+            severity: warn
+    columns:
+      - name: title
+        tests:
+          - not_null
+      - name: subreddit
+        tests:
+          - not_null
+      - name: partition_date
+        tests:
+          - not_null
+
+  - name: agent_reddit_sentiment_trends
+    description: >
+      Daily Reddit sentiment trend metrics by subreddit for agent consumption.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: [date, subreddit]
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: subreddit
+        tests:
+          - not_null
+
+  - name: agent_fred_series_latest_aggregates_snapshot
+    description: "Snapshot view of FRED aggregates for agent consumption"
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: [snapshot_date, series_code, month, date_grain]
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: series_code
+        tests:
+          - not_null
+
+  - name: agent_leading_econ_return_indicator_snapshot
+    description: "Snapshot view of leading economic return indicator for agent consumption"
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: agent_market_performance_snapshot
+    description: "Incremental snapshot of market performance for agent consumption"
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: [snapshot_date, market_category, symbol, asset_type, time_period]
+          config:
+            severity: warn
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: agent_commodity_performance_snapshot
+    description: "Incremental snapshot of commodity performance for agent consumption"
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: [snapshot_date, commodity_category, commodity_name, commodity_unit, time_period]
+    columns:
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: commodity_name
+        tests:
+          - not_null
+
+  - name: agent_treasury_yield_curve_spreads
+    description: "Incremental treasury yield curve spreads for agent consumption"
+    columns:
+      - name: date
+        tests:
+          - not_null
+          - unique

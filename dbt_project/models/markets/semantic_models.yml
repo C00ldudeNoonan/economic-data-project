@@ -1,0 +1,176 @@
+version: 2
+
+semantic_models:
+  - name: market_daily_prices
+    description: >
+      Daily OHLCV price data and rolling returns for S&P 500 companies.
+      Grain: one row per symbol per exchange per trading day.
+    model: ref('sp500_companies_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
+    entities:
+      - name: stock
+        type: primary
+        expr: "symbol || '|' || exchange"
+    dimensions:
+      - name: trade_date
+        type: time
+        type_params:
+          time_granularity: day
+        expr: date
+      - name: symbol
+        type: categorical
+      - name: exchange
+        type: categorical
+    measures:
+      - name: close_price
+        agg: max
+        expr: current_price
+        description: Daily closing price
+      - name: high_price
+        agg: max
+        expr: current_high
+      - name: low_price
+        agg: min
+        expr: current_low
+      - name: share_volume
+        agg: sum
+        expr: current_volume
+      - name: daily_price_change
+        agg: average
+        expr: daily_diff
+        description: Dollar change from prior close
+      - name: return_1mo
+        agg: average
+        expr: pct_change_1mo
+        description: 1-month percent price return
+      - name: return_3mo
+        agg: average
+        expr: pct_change_3mo
+      - name: return_6mo
+        agg: average
+        expr: pct_change_6mo
+      - name: return_9mo
+        agg: average
+        expr: pct_change_9mo
+      - name: return_1yr
+        agg: average
+        expr: pct_change_1yr
+        description: 1-year percent price return
+      - name: price_std_1yr
+        agg: average
+        expr: std_diff_1yr
+        description: >
+          1-year standard deviation of daily dollar price changes.
+          Divide by close_price to get a dimensionless volatility estimate.
+      - name: symbol_count
+        agg: count_distinct
+        expr: symbol
+
+  - name: sector_daily_performance
+    description: >
+      Daily OHLCV price data and rolling returns for US sector ETFs.
+      Grain: one row per sector symbol per exchange per trading day.
+    model: ref('us_sector_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
+    entities:
+      - name: sector_etf
+        type: primary
+        expr: "symbol || '|' || exchange"
+    dimensions:
+      - name: trade_date
+        type: time
+        type_params:
+          time_granularity: day
+        expr: date
+      - name: symbol
+        type: categorical
+      - name: exchange
+        type: categorical
+    measures:
+      - name: sector_close_price
+        agg: max
+        expr: current_price
+      - name: sector_volume
+        agg: sum
+        expr: current_volume
+      - name: sector_return_1mo
+        agg: average
+        expr: pct_change_1mo
+      - name: sector_return_3mo
+        agg: average
+        expr: pct_change_3mo
+      - name: sector_return_1yr
+        agg: average
+        expr: pct_change_1yr
+      - name: sector_price_std_1yr
+        agg: average
+        expr: std_diff_1yr
+
+  - name: currency_daily_rates
+    description: >
+      Daily forex exchange rates and rolling returns.
+      Grain: one row per currency pair per trading day.
+    model: ref('currency_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
+    entities:
+      - name: currency_pair
+        type: primary
+        expr: "symbol || '|' || exchange"
+    dimensions:
+      - name: trade_date
+        type: time
+        type_params:
+          time_granularity: day
+        expr: date
+      - name: symbol
+        type: categorical
+      - name: exchange
+        type: categorical
+    measures:
+      - name: fx_rate
+        agg: max
+        expr: current_price
+      - name: fx_return_1mo
+        agg: average
+        expr: pct_change_1mo
+      - name: fx_return_1yr
+        agg: average
+        expr: pct_change_1yr
+
+  - name: fixed_income_daily_prices
+    description: >
+      Daily price data and rolling returns for fixed income instruments (bonds, Treasuries).
+      Grain: one row per symbol per exchange per trading day.
+    model: ref('fixed_income_analysis_return')
+    defaults:
+      agg_time_dimension: trade_date
+    entities:
+      - name: bond_instrument
+        type: primary
+        expr: "symbol || '|' || exchange"
+    dimensions:
+      - name: trade_date
+        type: time
+        type_params:
+          time_granularity: day
+        expr: date
+      - name: symbol
+        type: categorical
+      - name: exchange
+        type: categorical
+    measures:
+      - name: bond_price
+        agg: max
+        expr: current_price
+      - name: bond_return_1mo
+        agg: average
+        expr: pct_change_1mo
+      - name: bond_return_1yr
+        agg: average
+        expr: pct_change_1yr
+      - name: bond_price_std_1yr
+        agg: average
+        expr: std_diff_1yr

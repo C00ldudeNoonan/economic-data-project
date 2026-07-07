@@ -461,6 +461,56 @@ models:
       - name: content_length
         description: Total character length of the meeting minutes content
 
+  - name: stg_fomc_transcripts
+    description: >
+      Cleaned FOMC transcript metadata and full text with typed meeting dates
+      and derived calendar fields.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+      - name: meeting_date
+        tests:
+          - not_null
+      - name: full_text
+        tests:
+          - not_null
+
+  - name: stg_transcript_sections
+    description: >
+      Parsed FOMC transcript sections with speaker attribution, page ranges,
+      content length, and approximate word counts.
+    columns:
+      - name: section_id
+        tests:
+          - not_null
+          - unique
+      - name: transcript_id
+        tests:
+          - not_null
+      - name: section_order
+        tests:
+          - not_null
+
+  - name: stg_fomc_sentiment_scores
+    description: >
+      Hawkish/dovish sentiment scores for FOMC transcript sections and meeting-level
+      aggregates with derived sentiment labels.
+    columns:
+      - name: score_id
+        tests:
+          - not_null
+          - unique
+      - name: transcript_id
+        tests:
+          - not_null
+      - name: sentiment_label
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['hawkish', 'dovish', 'neutral']
+
   - name: stg_economic_calendar
     description: >
       Economic calendar events from Fair Economy CDN.
@@ -548,7 +598,7 @@ models:
       - name: has_reported
         description: Boolean flag indicating if company has reported
 
-  - name: corporate_actions
+  - name: stg_corporate_actions
     description: >
       Detects stock splits and dividends from raw OHLC data using two methods:
       API-reported splits (where split_factor != 1), heuristic detection via overnight
@@ -589,13 +639,13 @@ models:
               arguments:
                 values: ['splits_api', 'api_reported', 'heuristic']
 
-  - name: split_adjusted_prices
+  - name: stg_split_adjusted_prices
     description: >
       Split-adjusted OHLCV prices for individual stocks (S&P 500 and NASDAQ).
       Computes a cumulative split adjustment factor for each symbol as the product
       of all split factors occurring after each date. Historical prices are divided
       by this factor so they are comparable to post-split prices. Volume is multiplied
-      by the factor. Uses corporate_actions as the source of split events.
+      by the factor. Uses stg_corporate_actions as the source of split events.
     columns:
       - name: source_table
         description: Raw source table name

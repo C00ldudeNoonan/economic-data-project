@@ -76,8 +76,8 @@ WITH return_data AS (
         high_1yr,
         low_1yr,
         std_diff_1yr,
-        'major_indicies' AS category
-    FROM {{ ref('major_indicies_analysis_return') }}
+        'major_indices' AS category
+    FROM {{ ref('major_indices_analysis_return') }}
 
     UNION ALL
 

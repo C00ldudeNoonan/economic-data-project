@@ -15,7 +15,7 @@ WITH daily_data AS (
             PARTITION BY symbol, exchange
             ORDER BY date
         ) AS prev_adj_close
-    FROM {{ ref('split_adjusted_prices') }}
+    FROM {{ ref('stg_split_adjusted_prices') }}
     WHERE source_table = 'nasdaq_companies_prices_raw'
       AND split_adj_close IS NOT NULL
 ),

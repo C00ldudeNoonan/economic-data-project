@@ -50,7 +50,7 @@ where
     -- Exclude known stock splits (these cause legitimate large price moves)
     and not exists (
         select 1
-        from {{ ref('corporate_actions') }} ca
+        from {{ ref('stg_corporate_actions') }} ca
         where ca.source_table = '{{ table_name }}'
           and ca.symbol = {{ table_name }}_returns.symbol
           and ca.date = {{ table_name }}_returns.date

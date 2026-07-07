@@ -39,6 +39,22 @@ models:
       Provides the most recent aggregated housing inventory metrics, offering a
       current snapshot of housing availability and market conditions. Updated
       daily with the latest available inventory data.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: [series_code, month, date_grain]
+          config:
+            severity: warn
+    columns:
+      - name: series_code
+        tests:
+          - not_null
+      - name: month
+        tests:
+          - not_null
+      - name: current_value
+        tests:
+          - not_null
 
 
   - name: housing_inventory

@@ -74,7 +74,7 @@ major_index_snapshot as (
         period_end_price,
         'major_index' as market_category,
         DATE_TRUNC(period_end_date, MONTH) as snapshot_date
-    from {{ ref('major_indicies_summary') }}
+    from {{ ref('major_indices_summary') }}
     {% if is_incremental() %}
     where DATE_TRUNC(period_end_date, MONTH) >= COALESCE(
         (select max(snapshot_date) from {{ this }}),

@@ -47,12 +47,12 @@ models:
       - name: std_diff_1yr
         description: "Standard deviation difference over 1 year"
       - name: category
-        description: "Asset category: currency, fixed_income, global_markets, major_indicies, or sector"
+        description: "Asset category: currency, fixed_income, global_markets, major_indices, or sector"
         tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ['currency', 'fixed_income', 'global_markets', 'major_indicies', 'sector']
+                values: ['currency', 'fixed_income', 'global_markets', 'major_indices', 'sector']
       - name: series_name
         description: "Name of the FRED economic series"
       - name: value
@@ -311,3 +311,53 @@ models:
         description: "Sector's average exposure across all macro factors"
       - name: factor_rank
         description: "Rank of this sector within the factor (1 = highest exposure)"
+
+  - name: commodity_market_signals
+    description: >
+      Daily commodity market health signals, including copper/gold, gold/SPY,
+      and oil momentum indicators for market-regime analysis.
+    columns:
+      - name: date
+        tests:
+          - not_null
+          - unique
+
+  - name: reddit_cross_subreddit_activity
+    description: >
+      Cross-subreddit story detection using shared URLs and repeated titles across
+      financial and economic Reddit communities.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: [match_type, match_key, partition_date]
+          config:
+            severity: warn
+    columns:
+      - name: match_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['url_match', 'title_match']
+      - name: match_key
+        tests:
+          - not_null
+      - name: partition_date
+        tests:
+          - not_null
+
+  - name: reddit_thread_structure
+    description: >
+      Thread-level Reddit comment structure metrics, including depth, reply ratio,
+      controversy flags, and discussion quality by post.
+    columns:
+      - name: post_id
+        tests:
+          - not_null
+          - unique
+      - name: subreddit
+        tests:
+          - not_null
+      - name: partition_date
+        tests:
+          - not_null

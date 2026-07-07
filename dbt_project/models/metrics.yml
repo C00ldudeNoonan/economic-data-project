@@ -1,0 +1,433 @@
+version: 2
+
+metrics:
+
+  # ============================================================
+  # EQUITY MARKET METRICS
+  # ============================================================
+
+  - name: max_close_price
+    label: Max Close Price
+    description: >
+      Maximum daily closing price across the selected symbols and time range.
+      Group by stock and trade_date for point-in-time close price analysis.
+    type: simple
+    type_params:
+      measure:
+        name: cross_asset_close_price
+        fill_nulls_with: 0
+
+  - name: total_volume
+    label: Total Trading Volume
+    description: Total share volume traded across selected symbols and time range.
+    type: simple
+    type_params:
+      measure:
+        name: share_volume
+
+  - name: avg_return_1mo
+    label: Avg 1-Month Return (%)
+    description: >
+      Average 1-month trailing price return (%). Reflects the mean of each
+      symbol's 1-month lookback return across selected dates.
+    type: simple
+    type_params:
+      measure:
+        name: return_1mo
+
+  - name: avg_return_3mo
+    label: Avg 3-Month Return (%)
+    description: Average 3-month trailing price return (%).
+    type: simple
+    type_params:
+      measure:
+        name: return_3mo
+
+  - name: avg_return_6mo
+    label: Avg 6-Month Return (%)
+    description: Average 6-month trailing price return (%).
+    type: simple
+    type_params:
+      measure:
+        name: return_6mo
+
+  - name: avg_return_1yr
+    label: Avg 1-Year Return (%)
+    description: >
+      Average 1-year trailing price return (%). Common baseline for annual
+      performance comparisons (not annualized — reflects actual 12m return).
+    type: simple
+    type_params:
+      measure:
+        name: return_1yr
+
+  - name: price_volatility_proxy
+    label: Price Volatility (1-Year StdDev)
+    description: >
+      Average 1-year standard deviation of daily dollar or spot price changes.
+      Higher = more price dispersion. For a normalized volatility ratio,
+      see annualized_volatility_ratio.
+    type: simple
+    type_params:
+      measure:
+        name: cross_asset_price_std_1yr
+
+  - name: annualized_volatility_ratio
+    label: Annualized Volatility Ratio
+    description: >
+      Ratio of 1-year price StdDev to close price — a dimensionless proxy for
+      annualized volatility (analogous to daily vol * sqrt(252) / price).
+      Higher = more volatile relative to price level.
+    type: ratio
+    type_params:
+      numerator:
+        name: price_volatility_proxy
+      denominator:
+        name: max_close_price
+
+  - name: unique_symbols
+    label: Distinct Symbols
+    description: Count of distinct ticker symbols in the selection.
+    type: simple
+    type_params:
+      measure:
+        name: symbol_count
+
+  # ============================================================
+  # SECTOR METRICS
+  # ============================================================
+
+  - name: sector_avg_return_1yr
+    label: Sector Avg 1-Year Return (%)
+    description: Average 1-year trailing return across sector ETFs.
+    type: simple
+    type_params:
+      measure:
+        name: sector_return_1yr
+
+  - name: sector_avg_return_1mo
+    label: Sector Avg 1-Month Return (%)
+    description: Average 1-month trailing return across sector ETFs.
+    type: simple
+    type_params:
+      measure:
+        name: sector_return_1mo
+
+  - name: sector_volatility_proxy
+    label: Sector Price Volatility (1-Year StdDev)
+    description: Average 1-year standard deviation of daily price changes for sector ETFs.
+    type: simple
+    type_params:
+      measure:
+        name: sector_price_std_1yr
+
+  - name: sector_max_close_price
+    label: Sector Max Close Price
+    description: >
+      Maximum daily closing price for sector ETFs across the selected time range.
+      Group by sector ETF and trade_date for point-in-time price analysis.
+    type: simple
+    type_params:
+      measure:
+        name: sector_close_price
+
+  # ============================================================
+  # CURRENCY METRICS
+  # ============================================================
+
+  - name: fx_spot_rate
+    label: FX Spot Rate
+    description: >
+      Maximum daily FX rate across the selected currency pairs and time range.
+      Group by currency pair and trade_date for point-in-time rates.
+    type: simple
+    type_params:
+      measure:
+        name: fx_rate
+
+  - name: fx_return_1mo
+    label: FX 1-Month Return (%)
+    description: Average 1-month trailing return across selected currency pairs.
+    type: simple
+    type_params:
+      measure:
+        name: fx_return_1mo
+
+  - name: fx_return_1yr
+    label: FX 1-Year Return (%)
+    description: Average 1-year trailing return across selected currency pairs.
+    type: simple
+    type_params:
+      measure:
+        name: fx_return_1yr
+
+  # ============================================================
+  # FIXED INCOME METRICS
+  # ============================================================
+
+  - name: bond_max_price
+    label: Fixed Income Max Price
+    description: >
+      Maximum daily price for fixed income instruments across the selected time range.
+      Group by bond instrument and trade_date for point-in-time price analysis.
+    type: simple
+    type_params:
+      measure:
+        name: bond_price
+
+  - name: bond_return_1mo
+    label: Fixed Income 1-Month Return (%)
+    description: Average 1-month trailing return across selected fixed income instruments.
+    type: simple
+    type_params:
+      measure:
+        name: bond_return_1mo
+
+  - name: bond_return_1yr
+    label: Fixed Income 1-Year Return (%)
+    description: Average 1-year trailing return across selected fixed income instruments.
+    type: simple
+    type_params:
+      measure:
+        name: bond_return_1yr
+
+  - name: bond_volatility_proxy
+    label: Fixed Income Price Volatility (1-Year StdDev)
+    description: Average 1-year standard deviation of daily price changes for fixed income instruments.
+    type: simple
+    type_params:
+      measure:
+        name: bond_price_std_1yr
+
+  # ============================================================
+  # COMMODITY METRICS
+  # ============================================================
+
+  - name: commodity_spot_price
+    label: Commodity Spot Price
+    description: Daily spot price for the selected commodity.
+    type: simple
+    type_params:
+      measure:
+        name: spot_price
+
+  - name: commodity_return_1mo
+    label: Commodity 1-Month Return (%)
+    description: 1-month trailing return for commodities.
+    type: simple
+    type_params:
+      measure:
+        name: commodity_return_1mo
+
+  - name: commodity_return_1yr
+    label: Commodity 1-Year Return (%)
+    description: 1-year trailing return for commodities.
+    type: simple
+    type_params:
+      measure:
+        name: commodity_return_1yr
+
+  - name: energy_return_1yr
+    label: Energy Commodity 1-Year Return (%)
+    description: 1-year trailing return for energy commodities.
+    type: simple
+    type_params:
+      measure:
+        name: energy_return_1yr
+
+  - name: agri_return_1yr
+    label: Agricultural Commodity 1-Year Return (%)
+    description: 1-year trailing return for agricultural commodities.
+    type: simple
+    type_params:
+      measure:
+        name: agri_return_1yr
+
+  # ============================================================
+  # ECONOMIC INDICATOR METRICS (FRED)
+  # ============================================================
+
+  - name: fred_indicator_value
+    label: FRED Indicator Value
+    description: >
+      Current or most-recent value of a FRED economic series.
+      Group by series_code or series_name to compare multiple indicators.
+    type: simple
+    type_params:
+      measure:
+        name: indicator_value
+
+  - name: fred_mom_change
+    label: FRED Month-over-Month Change
+    description: >
+      Absolute month-over-month change in FRED indicator value.
+      Positive = rising, negative = falling.
+    type: simple
+    type_params:
+      measure:
+        name: indicator_mom_change
+
+  # ============================================================
+  # INFLATION METRICS
+  # ============================================================
+
+  - name: cpi_yoy
+    label: CPI Year-over-Year (%)
+    description: Consumer Price Index year-over-year percent change. Core inflation gauge.
+    type: simple
+    type_params:
+      measure:
+        name: cpi_12m_yoy
+
+  - name: cpi_3m_annualized
+    label: CPI 3-Month Annualized (%)
+    description: >
+      CPI 3-month annualized rate — a forward-looking inflation momentum signal.
+      When above cpi_yoy, inflation is re-accelerating.
+    type: simple
+    type_params:
+      measure:
+        name: cpi_3m_annualized
+
+  - name: inflation_momentum
+    label: CPI Momentum Spread
+    description: >
+      3-month annualized CPI minus 12-month YoY CPI. Positive = re-accelerating
+      inflation pressure. Negative = inflation decelerating.
+    type: simple
+    type_params:
+      measure:
+        name: cpi_momentum_spread
+
+  - name: core_pce_yoy
+    label: Core PCE Year-over-Year (%)
+    description: >
+      Core Personal Consumption Expenditures year-over-year change (%).
+      The Federal Reserve's preferred inflation gauge (2% target).
+    type: simple
+    type_params:
+      measure:
+        name: core_pce_yoy
+
+  - name: pce_above_target
+    label: PCE Deviation from 2% Target
+    description: >
+      Core PCE minus 2% Fed target. Positive = above target (hawkish signal),
+      negative = below target (dovish signal).
+    type: simple
+    type_params:
+      measure:
+        name: pce_vs_target
+
+  - name: breakeven_inflation_5y
+    label: 5-Year Breakeven Inflation Rate (%)
+    description: >
+      Market-implied 5-year inflation expectation from TIPS breakeven.
+      Reflects bond market inflation pricing over the near-term horizon.
+    type: simple
+    type_params:
+      measure:
+        name: breakeven_5y
+
+  - name: breakeven_inflation_10y
+    label: 10-Year Breakeven Inflation Rate (%)
+    description: Market-implied 10-year inflation expectation from TIPS breakeven.
+    type: simple
+    type_params:
+      measure:
+        name: breakeven_10y
+
+  - name: breakeven_term_spread
+    label: 5y/10y Breakeven Spread
+    description: >
+      5-year minus 10-year breakeven spread. Positive = near-term inflation
+      expectations exceed long-term (front-loaded inflation). Useful for
+      identifying transitory vs. structural inflation regimes.
+    type: simple
+    type_params:
+      measure:
+        name: breakeven_5y_10y_spread
+
+  # ============================================================
+  # LABOR MARKET METRICS
+  # ============================================================
+
+  - name: unemployment_rate
+    label: Unemployment Rate (%)
+    description: Civilian unemployment rate. Fed dual-mandate metric.
+    type: simple
+    type_params:
+      measure:
+        name: unemployment_rate
+
+  - name: labor_market_tightness
+    label: Job Openings / Unemployed Ratio
+    description: >
+      Job openings divided by unemployed workers. > 1.0 = more openings than
+      job seekers (tight market). < 1.0 = labor slack. Fed watches this closely.
+    type: simple
+    type_params:
+      measure:
+        name: jo_unemployed_ratio
+
+  - name: labor_tightness_momentum
+    label: Labor Tightness 3-Month Change
+    description: >
+      3-month change in the job openings / unemployed ratio. Negative = labor
+      market loosening. Key leading indicator for Fed pivot timing.
+    type: simple
+    type_params:
+      measure:
+        name: jo_ratio_3m_change
+
+  - name: sahm_rule_indicator
+    label: Sahm Rule Indicator
+    description: >
+      Sahm Rule recession indicator. Based on 3-month average unemployment rate
+      minus prior 12-month minimum. >= 0.5 historically signals recession onset.
+      Original work: Claudia Sahm, Fed (2019).
+    type: simple
+    type_params:
+      measure:
+        name: sahm_rule
+
+  - name: worker_confidence
+    label: Quits Rate
+    description: >
+      Job quits rate. Higher = workers more confident in finding new jobs
+      (tight market). Declining quits rate signals workers becoming less
+      confident — often leads unemployment rate rises.
+    type: simple
+    type_params:
+      measure:
+        name: quits_rate
+
+  - name: initial_claims
+    label: Average Monthly Initial Claims
+    description: >
+      Average monthly initial unemployment insurance claims. Rising claims
+      are an early warning of labor market deterioration.
+    type: simple
+    type_params:
+      measure:
+        name: avg_monthly_claims
+
+  - name: employment_population_ratio
+    label: Employment-Population Ratio (%)
+    description: >
+      Share of working-age population that is employed. More stable than
+      unemployment rate since it does not move with labor force participation.
+    type: simple
+    type_params:
+      measure:
+        name: employment_ratio
+
+  - name: unrate_3m_momentum
+    label: Unemployment Rate 3-Month Change
+    description: >
+      3-month change in unemployment rate (percentage points). Component of
+      the Sahm Rule calculation. Positive = rising unemployment (deteriorating).
+    type: simple
+    type_params:
+      measure:
+        name: unrate_3m_change

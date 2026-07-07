@@ -10,7 +10,7 @@
     Normalizes adjusted OHLCV columns from existing market staging models
     into a single spine that downstream indicator/signal models consume.
 
-    - S&P 500 stocks use split-adjusted prices (split_adjusted_prices) so
+    - S&P 500 stocks use split-adjusted prices (stg_split_adjusted_prices) so
       indicators are not distorted by splits.
     - ETF/index sources prefer MarketStack-adjusted fields, falling back
       to raw values when the adjusted column is NULL.
@@ -44,7 +44,7 @@ WITH unioned AS (
         split_adj_low AS low,
         split_adj_close AS close,
         split_adj_volume AS volume
-    FROM {{ ref('split_adjusted_prices') }}
+    FROM {{ ref('stg_split_adjusted_prices') }}
 
     {% for entry in etf_universes %}
     UNION ALL
