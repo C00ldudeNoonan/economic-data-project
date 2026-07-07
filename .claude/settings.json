@@ -3,7 +3,7 @@
     "allow": [
       "Bash(npx tsc:*)",
       "Bash(uv run ruff check:*)",
-      "Bash(uv run dg check defs:*)",
+      "Bash(uv run dg check --module-name macro_agents.definitions:*)",
       "Bash(docker compose ps:*)",
       "Bash(docker compose ps -a:*)",
       "Bash(docker compose logs:*)",
@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // empty' | { read file_path; if echo \"$file_path\" | grep -Eq '\\\\.(ts|tsx|py)$'; then npx tsc --noEmit && uv run ruff check . && uv run dg check defs; fi; }"
+            "command": "jq -r '.tool_input.file_path // empty' | { read file_path; if echo \"$file_path\" | grep -Eq '\\\\.(ts|tsx|py)$'; then npx tsc --noEmit && uv run ruff check . && cd macro_agents && uv run dg check --module-name macro_agents.definitions; fi; }"
           }
         ]
       }

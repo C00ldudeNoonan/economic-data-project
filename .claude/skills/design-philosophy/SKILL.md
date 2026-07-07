@@ -7,7 +7,7 @@ tags: [design, tufte, data-visualization, philosophy, nivo, react, typography]
 
 # Design Philosophy: Economic Data Visualization
 
-This skill consolidates the prior `design-philosphy`, `nivo-charts`, and `tufte-visualization` skills into a single, canonical guide.
+This skill replaces the prior `design-philosphy`, `nivo-charts`, and `tufte-visualization` aliases as the single canonical guide.
 
 ## Use When
 

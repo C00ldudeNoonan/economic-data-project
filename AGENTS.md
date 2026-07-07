@@ -220,6 +220,8 @@ Keep this at your repo root. It gives agents a cheap orientation pass instead of
 The well-scoped approach isn't just cheaper — it's more reliable. Smaller, focused context means fewer hallucinations and more accurate edits.
 
 ## Skills
+Skill definitions are mirrored under `.agents/skills/` and `.claude/skills/` for compatibility with different agent runtimes. Keep both trees in sync when adding, removing, or renaming a skill.
+
 - `context-doc-maintainer`: Automated agent that reviews and updates all Claude context files when code changes are made. (`.claude/skills/context-doc-maintainer/SKILL.md`)
 - `create-custom-dagster-component`: Create a custom Dagster Component with demo mode support, realistic asset structure, and optional custom scaffolder using the dg CLI. Use this skill if there is no Component included in an existing integration or if Dagster does not have the integration. (`.claude/skills/create-custom-dagster-component/SKILL.md`)
 - `dagster-expert`: Expert guidance for Dagster and the `dg` CLI. Use before any Dagster-specific task or question. (`.claude/skills/dagster-expert/SKILL.md`)
@@ -227,15 +229,21 @@ The well-scoped approach isn't just cheaper — it's more reliable. Smaller, foc
 - `dagster-init`: Initialize a dagster project using the create-dagster cli. Create a dagster project, uv virtual environment, and everything needed for a user to run dg dev or dg check defs successfully. (project) (`.claude/skills/dagster-init/SKILL.md`)
 - `dbt-development`: Expert guidance for developing dbt projects including project structure, model patterns, testing, and best practices. Use when working with dbt models, building data transformations, or setting up dbt projects. (`.claude/skills/dbt-development/dbt_skill.md`)
 - `design-philosophy`: Canonical data-first visualization guidance combining Tufte + Jobs/Ive principles for React/Nivo dashboards. (`.claude/skills/design-philosophy/SKILL.md`)
-- `design-philosphy`: Deprecated alias for `design-philosophy`. (`.claude/skills/design-philosphy/SKILL.md`)
 - `dignified-python`: Production Python coding standards for 3.10-3.13 (general Python, not Dagster-specific). (`.claude/skills/dignified-python/SKILL.md`)
 - `docker-env`: Standardized Docker/Dagster environment debugging workflows. (`.claude/skills/docker-env/SKILL.md`)
 - `git-pr-workflow`: Automates the complete git and GitHub workflow: initializes a git repository, creates a private GitHub repository if needed, commits changes, creates a pull request, monitors GitHub Actions for completion, and merges the PR if all checks pass. (`.claude/skills/git-pr-workflow/SKILL.md`)
 - `github-explorer`: General-purpose GitHub exploration and analysis tool for searching issues, creating PRs, analyzing git history, and reviewing PR comments. (`.claude/skills/github-explorer/SKILL.md`)
-- `nivo-charts`: Deprecated alias for `design-philosophy`. (`.claude/skills/nivo-charts/SKILL.md`)
 - `react-component-architecture` (React Data Dashboard Architecture): React component patterns, hooks, and state management for data visualization dashboards. (`.claude/skills/react-component-architecture/SKILL.md`)
 - `start-issue`: Issue → plan → branch workflow automation. (`.claude/skills/start-issue/SKILL.md`)
 - `tailwind-css-data-viz` (Tailwind CSS Data Visualization Patterns): Tailwind CSS configurations and patterns for building data-dense financial dashboard UIs. (`.claude/skills/tailwind-css-data-viz/SKILL.md`)
 - `testing-strategies`: Comprehensive testing patterns and examples for Dagster, dbt, FastAPI, and React. (`.claude/skills/testing-strategies/SKILL.md`)
-- `tufte-visualization-principles`: Deprecated alias for `design-philosophy`. (`.claude/skills/tufte-visualization/SKILL.md`)
 - `typescript-financial-data-modeling` (TypeScript Financial Data Modeling): Type-safe data modeling patterns for financial and economic data visualization applications. (`.claude/skills/typescript-financial-data-modeling/SKILL.md`)
+
+## MCP Servers
+
+Project MCP servers are configured in `.mcp.json`:
+
+- `dbt_index`: local dbt metadata/index server, launched with `dbt-index --auto-reingest serve`.
+- `motherduck`: hosted MotherDuck MCP endpoint authenticated with `MOTHERDUCK_TOKEN`.
+
+Do not add an MCP server just because a local folder exists. Add it to `.mcp.json` only when the command or hosted endpoint is usable from a clean checkout and the required environment variables are documented.
