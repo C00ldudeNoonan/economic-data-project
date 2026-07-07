@@ -341,6 +341,99 @@ models:
         tests:
           - not_null
 
+  - name: factor_analysis_return
+    description: >
+      Daily OHLCV price data and rolling returns for US equity factor ETFs
+      covering value, quality, momentum, size, and minimum volatility.
+      Grain: one row per factor ETF symbol per exchange per trading day.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['symbol', 'exchange', 'date']
+    columns:
+      - name: symbol
+        description: Factor ETF symbol.
+        tests:
+          - not_null
+      - name: exchange
+        description: Exchange where the ETF is traded.
+        tests:
+          - not_null
+      - name: date
+        description: Trading date.
+        tests:
+          - not_null
+      - name: current_price
+        description: Current adjusted close price.
+      - name: current_volume
+        description: Current day's trading volume.
+      - name: pct_change_1mo
+        description: Percentage change from 1 month ago to current price.
+      - name: pct_change_3mo
+        description: Percentage change from 3 months ago to current price.
+      - name: pct_change_1yr
+        description: Percentage change from 1 year ago to current price.
+      - name: std_diff_1yr
+        description: Standard deviation of daily price differences over the past 1 year.
+
+  - name: factor_sector_correlation
+    description: >
+      Latest rolling correlations and relative performance spreads between
+      US equity factor ETFs and sector, broad market, style, and thematic ETFs.
+      Supports factor rotation, sector exposure, and thematic relationship analysis.
+    tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns: ['factor_sector_key']
+    columns:
+      - name: factor_sector_key
+        description: Stable key for factor, sector, and as-of date.
+        tests:
+          - not_null
+          - unique
+      - name: as_of_date
+        description: Latest common trading date used for the correlation window.
+        tests:
+          - not_null
+      - name: factor_symbol
+        description: Factor ETF ticker symbol.
+        tests:
+          - not_null
+      - name: factor_name
+        description: Factor exposure represented by the ETF.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['value', 'quality', 'momentum', 'size', 'minimum_volatility']
+      - name: comparison_symbol
+        description: Compared ETF ticker symbol.
+        tests:
+          - not_null
+      - name: comparison_name
+        description: Human-readable compared ETF name.
+      - name: comparison_universe
+        description: Compared ETF universe.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['sector_etf', 'broad_market_etf', 'style_etf', 'thematic_etf']
+      - name: sector_symbol
+        description: Backward-compatible compared ETF ticker symbol.
+        tests:
+          - not_null
+      - name: sector_name
+        description: Backward-compatible compared ETF name.
+      - name: corr_3mo
+        description: Rolling 3-month daily-return correlation between the factor ETF and compared ETF.
+      - name: corr_1yr
+        description: Rolling 1-year daily-return correlation between the factor ETF and compared ETF.
+      - name: factor_sector_return_spread_3mo
+        description: Factor ETF 3-month return minus compared ETF 3-month return.
+      - name: factor_sector_return_spread_1yr
+        description: Factor ETF 1-year return minus compared ETF 1-year return.
+
   - name: sp500_companies_analysis_return
     description: >
       Daily OHLCV price data and rolling returns for S&P 500 companies.

@@ -97,6 +97,26 @@ models:
         tests:
           - not_null
 
+  - name: stg_factor_etfs
+    description: >
+      Raw data from MarketStack API for US equity factor ETFs covering value,
+      quality, momentum, size, and minimum volatility exposures.
+    tests:
+      - ohlc_consistency:
+          config:
+            severity: warn
+      - usd_currency_only:
+          column_name: price_currency
+          config:
+            severity: warn
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: symbol
+        tests:
+          - not_null
+
   - name: stg_major_indices
     description: >
       raw data from MarketStack API for Major Indices

@@ -24,6 +24,7 @@
     {'model': 'stg_fixed_income', 'universe': 'fixed_income_etf'},
     {'model': 'stg_currency', 'universe': 'currency_etf'},
     {'model': 'stg_commodity_etfs', 'universe': 'commodity_etf'},
+    {'model': 'stg_factor_etfs', 'universe': 'factor_etf'},
     {'model': 'stg_global_markets', 'universe': 'global_market'},
 ] %}
 

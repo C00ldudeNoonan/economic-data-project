@@ -7,6 +7,7 @@ WITH stocks AS (
         symbol,
         symbol AS stock_symbol,
         CAST(NULL AS STRING) AS sector_etf_symbol,
+        CAST(NULL AS STRING) AS factor_etf_symbol,
         CAST(NULL AS STRING) AS commodity_name,
         CAST(NULL AS STRING) AS commodity_unit,
         exchange,
@@ -26,6 +27,7 @@ sector_etfs AS (
         symbol,
         CAST(NULL AS STRING) AS stock_symbol,
         symbol AS sector_etf_symbol,
+        CAST(NULL AS STRING) AS factor_etf_symbol,
         CAST(NULL AS STRING) AS commodity_name,
         CAST(NULL AS STRING) AS commodity_unit,
         exchange,
@@ -34,6 +36,26 @@ sector_etfs AS (
         std_diff_1yr,
         pct_change_1yr
     FROM {{ ref('us_sector_analysis_return') }}
+),
+
+factor_etfs AS (
+    SELECT
+        CONCAT('factor_etf:', exchange, ':', symbol) AS asset_key,
+        'factor_etf' AS asset_class,
+        symbol AS asset_id,
+        symbol AS asset_name,
+        symbol,
+        CAST(NULL AS STRING) AS stock_symbol,
+        CAST(NULL AS STRING) AS sector_etf_symbol,
+        symbol AS factor_etf_symbol,
+        CAST(NULL AS STRING) AS commodity_name,
+        CAST(NULL AS STRING) AS commodity_unit,
+        exchange,
+        date AS trade_date,
+        current_price,
+        std_diff_1yr,
+        pct_change_1yr
+    FROM {{ ref('factor_analysis_return') }}
 ),
 
 commodities AS (
@@ -45,6 +67,7 @@ commodities AS (
         CAST(NULL AS STRING) AS symbol,
         CAST(NULL AS STRING) AS stock_symbol,
         CAST(NULL AS STRING) AS sector_etf_symbol,
+        CAST(NULL AS STRING) AS factor_etf_symbol,
         commodity_name,
         commodity_unit,
         CAST(NULL AS STRING) AS exchange,
@@ -64,6 +87,7 @@ unioned_assets AS (
         symbol,
         stock_symbol,
         sector_etf_symbol,
+        factor_etf_symbol,
         commodity_name,
         commodity_unit,
         exchange,
@@ -83,6 +107,7 @@ unioned_assets AS (
         symbol,
         stock_symbol,
         sector_etf_symbol,
+        factor_etf_symbol,
         commodity_name,
         commodity_unit,
         exchange,
@@ -102,6 +127,27 @@ unioned_assets AS (
         symbol,
         stock_symbol,
         sector_etf_symbol,
+        factor_etf_symbol,
+        commodity_name,
+        commodity_unit,
+        exchange,
+        trade_date,
+        current_price,
+        std_diff_1yr,
+        pct_change_1yr
+    FROM factor_etfs
+
+    UNION ALL
+
+    SELECT
+        asset_key,
+        asset_class,
+        asset_id,
+        asset_name,
+        symbol,
+        stock_symbol,
+        sector_etf_symbol,
+        factor_etf_symbol,
         commodity_name,
         commodity_unit,
         exchange,
@@ -120,6 +166,7 @@ SELECT
     symbol,
     stock_symbol,
     sector_etf_symbol,
+    factor_etf_symbol,
     commodity_name,
     commodity_unit,
     exchange,
@@ -130,5 +177,5 @@ SELECT
 FROM unioned_assets
 QUALIFY ROW_NUMBER() OVER (
     PARTITION BY asset_key, trade_date
-    ORDER BY current_price DESC
+    ORDER BY current_price DESC NULLS LAST
 ) = 1
