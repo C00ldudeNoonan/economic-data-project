@@ -409,14 +409,22 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         return df[column].to_list() if column in df.columns else []
 
 
-_environment = os.getenv("ENVIRONMENT", "dev")
+def default_raw_dataset() -> str:
+    """Environment-suffixed economics_raw dataset name.
 
-# Dataset suffix mirrors the dbt generate_schema_name macro:
-#   prod  → no suffix   → economics_raw
-#   staging → _staging  → economics_raw_staging
-#   dev   → _dev        → economics_raw_dev
-_dataset_suffix = {"prod": "", "staging": "_staging"}.get(_environment, "_dev")
-_default_dataset = f"economics_raw{_dataset_suffix}"
+    Mirrors the dbt generate_schema_name macro:
+      prod    → economics_raw
+      staging → economics_raw_staging
+      dev     → economics_raw_dev
+    BIGQUERY_DATASET overrides the derived name. Computed at call time so
+    env overrides (tests, sandbox runs) take effect without reimporting.
+    """
+    environment = os.getenv("ENVIRONMENT", "dev")
+    suffix = {"prod": "", "staging": "_staging"}.get(environment, "_dev")
+    return os.getenv("BIGQUERY_DATASET", f"economics_raw{suffix}")
+
+
+_default_dataset = default_raw_dataset()
 
 bigquery_warehouse_resource = BigQueryWarehouseResource(
     project=os.getenv("BIGQUERY_PROJECT", "econ-data-project-478800"),

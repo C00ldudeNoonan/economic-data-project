@@ -2,16 +2,23 @@
 
 Each function creates a table if it doesn't exist. Called inline by the
 asset that writes to the table, so there's no separate schema asset.
+
+The dataset defaults to the environment-suffixed economics_raw dataset
+(dev -> economics_raw_dev, staging -> economics_raw_staging, prod ->
+economics_raw) so dev/staging runs never create tables in prod.
 """
 
 from google.cloud import bigquery
 
+from macro_agents.defs.resources.bigquery_warehouse import default_raw_dataset
+
 
 def ensure_sec_company_cik_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_company_cik table if it doesn't exist."""
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_company_cik` (
             symbol STRING,
@@ -26,10 +33,11 @@ def ensure_sec_company_cik_table(
 
 
 def ensure_sec_filings_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_filings table if it doesn't exist."""
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filings` (
             filing_id STRING NOT NULL,
@@ -56,10 +64,11 @@ def ensure_sec_filings_table(
 
 
 def ensure_sec_company_cik_history_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_company_cik_history table for tracking historical CIK mappings."""
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_company_cik_history` (
             id STRING,
@@ -78,10 +87,11 @@ def ensure_sec_company_cik_history_table(
 
 
 def ensure_sec_filing_documents_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_filing_documents table if it doesn't exist."""
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_documents` (
             document_id STRING,
@@ -98,7 +108,7 @@ def ensure_sec_filing_documents_table(
 
 
 def ensure_sec_filing_content_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_filing_content table if it doesn't exist.
 
@@ -107,6 +117,7 @@ def ensure_sec_filing_content_table(
     This migration drops them if present using INFORMATION_SCHEMA.
     """
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_content` (
             content_id STRING,
@@ -142,10 +153,11 @@ def ensure_sec_filing_content_table(
 
 
 def ensure_sec_filing_llm_metadata_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_filing_llm_metadata table if it doesn't exist."""
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_llm_metadata` (
             metadata_id STRING,
@@ -167,10 +179,11 @@ def ensure_sec_filing_llm_metadata_table(
 
 
 def ensure_sec_filing_search_terms_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_filing_search_terms table if it doesn't exist."""
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_search_terms` (
             term_id STRING,
@@ -186,10 +199,11 @@ def ensure_sec_filing_search_terms_table(
 
 
 def ensure_sec_filing_markdown_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_filing_markdown table for tracking markdown conversions."""
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_markdown` (
             filing_id STRING,
@@ -203,10 +217,11 @@ def ensure_sec_filing_markdown_table(
 
 
 def ensure_sec_filing_chunks_table(
-    conn: bigquery.Client, dataset: str = "economics_raw"
+    conn: bigquery.Client, dataset: str | None = None
 ) -> None:
     """Create sec_filing_chunks table for chunked vector embeddings."""
     project = conn.project
+    dataset = dataset or default_raw_dataset()
     conn.query(f"""
         CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_chunks` (
             chunk_id STRING,
