@@ -10,8 +10,11 @@ preserved as JSON structure with char offsets.
 
 ```
 sec_filing_html (gs://econ-project-general-storage/sec_filings, *.htm)
-    └── sec_document_registry   one row per filing document/version
-            └── sec_document_chunks   one row per 800-char chunk (RAG grain)
+    └── sec_document_registry   one row per filing envelope (json backend:
+            │                   the .htm objects are JSON envelopes, not raw HTML)
+            └── sec_document_text    body text + domain keys (symbol, form_type,
+                    │                filing_date) via transforms/sec_envelope_text.py
+                    └── sec_document_chunks   one row per 800-char chunk (RAG grain)
 
 fomc_transcript_pdfs (gs://econ-project-general-storage/fomc_transcripts, *.pdf)
     └── fomc_document_registry  one row per transcript, per-page char offsets

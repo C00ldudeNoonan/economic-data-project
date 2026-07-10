@@ -7,4 +7,5 @@ extraction:
 
 source-paths: ["sources"]
 model-paths: ["models"]
+transform-paths: ["transforms"]
 target-path: "target"

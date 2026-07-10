@@ -7,7 +7,7 @@ version: 2
 models:
   - name: sec_document_chunks
     description: "Recursive character chunks of each SEC filing document"
-    depends_on: [ref('sec_document_registry')]
+    depends_on: [ref('sec_document_text')]
 
     chunk:
       strategy: recursive
