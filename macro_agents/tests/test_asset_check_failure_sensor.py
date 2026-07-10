@@ -3,7 +3,7 @@ Unit tests for asset check failure sensor.
 """
 
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytz
 
@@ -25,7 +25,36 @@ class TestAssetCheckFailureSensor:
 
         mock_md.execute_query.assert_called_once()
         call_args = mock_md.execute_query.call_args
-        assert "CREATE TABLE IF NOT EXISTS asset_check_failures" in call_args[0][0]
+        assert "CREATE TABLE IF NOT EXISTS `asset_check_failures`" in call_args[0][0]
+        assert "asset_key STRING NOT NULL" in call_args[0][0]
+        assert "PRIMARY KEY" not in call_args[0][0]
+        assert call_args.kwargs["read_only"] is False
+
+    def test_get_failure_tracking_record_uses_named_parameters(self):
+        """Test that failure lookup binds each key by name."""
+        from macro_agents.defs.asset_failure_sensor import (
+            _get_failure_tracking_record,
+        )
+
+        mock_md = Mock()
+        mock_md.execute_query.return_value = MagicMock()
+        mock_md.execute_query.return_value.__len__.return_value = 0
+
+        result = _get_failure_tracking_record(
+            mock_md,
+            asset_key="test_asset",
+            failure_type="asset_check",
+            check_name="test_check",
+        )
+
+        assert result is None
+        query = mock_md.execute_query.call_args.args[0]
+        assert "asset_key = @asset_key" in query
+        assert mock_md.execute_query.call_args.kwargs["params"] == {
+            "asset_key": "test_asset",
+            "failure_type": "asset_check",
+            "check_name": "test_check",
+        }
 
     def test_handle_first_failure(self):
         """Test handling the first failure of a check."""
@@ -51,7 +80,12 @@ class TestAssetCheckFailureSensor:
 
         mock_md.execute_query.assert_called_once()
         call_args = mock_md.execute_query.call_args
-        assert "INSERT INTO asset_check_failures" in call_args[0][0]
+        assert "MERGE `asset_check_failures`" in call_args[0][0]
+        assert call_args.kwargs["params"]["asset_key"] == "test_asset"
+        assert call_args.kwargs["params"]["check_name"] == "test_check"
+        assert isinstance(
+            call_args.kwargs["params"]["last_failure_timestamp"], datetime
+        )
 
     def test_handle_third_failure_creates_issue(self):
         """Test that the 3rd consecutive failure creates a GitHub issue."""
@@ -111,6 +145,8 @@ class TestAssetCheckFailureSensor:
         call_args = mock_md.execute_query.call_args
         assert "UPDATE asset_check_failures" in call_args[0][0]
         assert "consecutive_failures = 0" in call_args[0][0]
+        assert "@last_success_timestamp" in call_args[0][0]
+        assert call_args.kwargs["params"]["asset_key"] == "test_asset"
 
     def test_handle_materialization_failure(self):
         """Test handling asset materialization failure."""
@@ -136,8 +172,9 @@ class TestAssetCheckFailureSensor:
 
         mock_md.execute_query.assert_called_once()
         call_args = mock_md.execute_query.call_args
-        assert "INSERT INTO asset_check_failures" in call_args[0][0]
+        assert "MERGE `asset_check_failures`" in call_args[0][0]
         assert "asset_materialization" in call_args[0][0]
+        assert call_args.kwargs["params"]["asset_key"] == "test_asset"
 
     def test_handle_materialization_success(self):
         """Test handling successful asset materialization."""
@@ -167,6 +204,7 @@ class TestAssetCheckFailureSensor:
         call_args = mock_md.execute_query.call_args
         assert "UPDATE asset_check_failures" in call_args[0][0]
         assert "consecutive_failures = 0" in call_args[0][0]
+        assert call_args.kwargs["params"]["asset_key"] == "test_asset"
 
     def test_asset_failure_monitor_materializes_with_metadata(self):
         """Test that asset failure monitor materializes with metadata."""
@@ -195,7 +233,7 @@ class TestAssetCheckFailureSensor:
                 return_value=[],
             ),
             patch(
-                "macro_agents.definitions.defs.resolve_all_asset_keys",
+                "macro_agents.defs.asset_failure_sensor._get_all_asset_keys",
                 return_value=[],
             ),
         ):
@@ -258,7 +296,7 @@ class TestAssetFailureMonitorIntegration:
                 return_value=[],
             ),
             patch(
-                "macro_agents.definitions.defs.resolve_all_asset_keys",
+                "macro_agents.defs.asset_failure_sensor._get_all_asset_keys",
                 return_value=[],
             ),
         ):

@@ -446,11 +446,11 @@ def _fetch_analysis_row(
         analysis_content,
         chart_manifest
     FROM economy_state_analysis
-    WHERE dagster_run_id = ?
+    WHERE dagster_run_id = @run_id
     ORDER BY analysis_timestamp DESC
     LIMIT 1
     """
-    df = bq.execute_query(query, read_only=True, params=[run_id])
+    df = bq.execute_query(query, read_only=True, params={"run_id": run_id})
     if df.is_empty():
         return None
     return df.to_dicts()[0]
@@ -558,14 +558,18 @@ def generate_economy_state_charts(
     if manifest:
         update_query = """
         UPDATE economy_state_analysis
-        SET chart_manifest = CAST(? AS JSON),
-            analysis_content = ?
-        WHERE analysis_timestamp = ?
+        SET chart_manifest = PARSE_JSON(@chart_manifest),
+            analysis_content = @analysis_content
+        WHERE analysis_timestamp = CAST(@analysis_timestamp AS TIMESTAMP)
         """
         bq.execute_query(
             update_query,
             read_only=False,
-            params=[json.dumps(manifest), updated_content, timestamp_str],
+            params={
+                "chart_manifest": json.dumps(manifest),
+                "analysis_content": updated_content,
+                "analysis_timestamp": timestamp_str,
+            },
         )
 
     return dg.MaterializeResult(

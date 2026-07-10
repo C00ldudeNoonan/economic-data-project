@@ -1,5 +1,7 @@
 """Tests for BigQueryWarehouseResource client caching and error surfacing (issue #115)."""
 
+from datetime import date, datetime, timezone
+from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import polars as pl
@@ -7,6 +9,7 @@ import pyarrow as pa
 import pytest
 from google.cloud import bigquery
 
+from macro_agents.defs.resources.bigquery_query import QueryParameter
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
@@ -88,7 +91,16 @@ class TestExecuteQueryErrorSurfacing:
         assert df["value"].to_list() == [1, 2, 3]
 
     @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
-    def test_dml_statement_returns_empty_dataframe(self, mock_client_cls):
+    def test_read_only_query_rejects_dml(self, mock_client_cls):
+        resource = _make_resource()
+
+        with pytest.raises(ValueError, match="read_only=True"):
+            resource.execute_query("UPDATE some_table SET x = 1 WHERE TRUE")
+
+        mock_client_cls.assert_not_called()
+
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_explicit_dml_statement_returns_empty_dataframe(self, mock_client_cls):
         mock_result = Mock()
         mock_result.schema = []
         mock_job = Mock()
@@ -96,11 +108,125 @@ class TestExecuteQueryErrorSurfacing:
         mock_client_cls.return_value.query.return_value = mock_job
         resource = _make_resource()
 
-        df = resource.execute_query("UPDATE some_table SET x = 1 WHERE TRUE")
+        df = resource.execute_query(
+            "UPDATE some_table SET x = 1 WHERE TRUE",
+            read_only=False,
+        )
 
         assert isinstance(df, pl.DataFrame)
         assert df.is_empty()
         mock_result.to_arrow.assert_not_called()
+
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_read_only_query_rejects_multiple_statements(self, mock_client_cls):
+        resource = _make_resource()
+
+        with pytest.raises(ValueError, match="Exactly one SQL statement"):
+            resource.execute_query("SELECT 1; SELECT 2")
+
+        mock_client_cls.assert_not_called()
+
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_named_parameters_are_bound_with_inferred_types(self, mock_client_cls):
+        mock_result = Mock()
+        mock_result.schema = []
+        mock_job = Mock()
+        mock_job.result.return_value = mock_result
+        mock_client_cls.return_value.query.return_value = mock_job
+        resource = _make_resource()
+        as_of = datetime(2026, 7, 10, 12, 30, tzinfo=timezone.utc)
+        report_date = date(2026, 7, 10)
+
+        resource.execute_query(
+            """
+            SELECT
+                @series_name,
+                @observation_count,
+                @is_current,
+                @score,
+                @as_of,
+                @report_date,
+                @amount,
+                @payload
+            """,
+            params={
+                "series_name": "GDP",
+                "observation_count": 42,
+                "is_current": True,
+                "score": 1.5,
+                "as_of": as_of,
+                "report_date": report_date,
+                "amount": Decimal("12.34"),
+                "payload": b"data",
+            },
+        )
+
+        job_config = mock_client_cls.return_value.query.call_args.kwargs["job_config"]
+        actual_parameters = {
+            parameter.name: (parameter.type_, parameter.value)
+            for parameter in job_config.query_parameters
+        }
+        assert actual_parameters == {
+            "series_name": ("STRING", "GDP"),
+            "observation_count": ("INT64", 42),
+            "is_current": ("BOOL", True),
+            "score": ("FLOAT64", 1.5),
+            "as_of": ("TIMESTAMP", as_of),
+            "report_date": ("DATE", report_date),
+            "amount": ("NUMERIC", Decimal("12.34")),
+            "payload": ("BYTES", b"data"),
+        }
+
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_explicit_parameter_type_supports_null(self, mock_client_cls):
+        mock_result = Mock()
+        mock_result.schema = []
+        mock_job = Mock()
+        mock_job.result.return_value = mock_result
+        mock_client_cls.return_value.query.return_value = mock_job
+        resource = _make_resource()
+
+        resource.execute_query(
+            "SELECT @optional_value",
+            params={
+                "optional_value": QueryParameter(
+                    value=None,
+                    bigquery_type="string",
+                )
+            },
+        )
+
+        job_config = mock_client_cls.return_value.query.call_args.kwargs["job_config"]
+        parameter = job_config.query_parameters[0]
+        assert (parameter.name, parameter.type_, parameter.value) == (
+            "optional_value",
+            "STRING",
+            None,
+        )
+
+    @pytest.mark.parametrize(
+        ("params", "message"),
+        [
+            ({}, "missing parameters: series_name"),
+            (
+                {"series_name": "GDP", "unused": "value"},
+                "unexpected parameters: unused",
+            ),
+        ],
+    )
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_parameter_mismatches_fail_before_client_creation(
+        self,
+        mock_client_cls,
+        params,
+        message,
+    ):
+        resource = _make_resource()
+
+        with pytest.raises(ValueError, match=message):
+            resource.execute_query("SELECT @series_name", params=params)
+
+        mock_client_cls.assert_not_called()
 
 
 class TestNormalizeColumnTypes:
