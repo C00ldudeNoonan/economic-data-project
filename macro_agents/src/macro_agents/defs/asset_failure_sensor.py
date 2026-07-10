@@ -12,18 +12,17 @@ UTC_TZ = cast(tzinfo, pytz.UTC)
 def _initialize_failure_tracking_table(md, context):
     """Create the failure tracking table if it doesn't exist."""
     create_table_query = """
-    CREATE TABLE IF NOT EXISTS asset_check_failures (
-        asset_key VARCHAR NOT NULL,
-        check_name VARCHAR NOT NULL DEFAULT '',
-        failure_type VARCHAR NOT NULL,
-        consecutive_failures INTEGER NOT NULL DEFAULT 0,
+    CREATE TABLE IF NOT EXISTS `asset_check_failures` (
+        asset_key STRING NOT NULL,
+        check_name STRING NOT NULL DEFAULT '',
+        failure_type STRING NOT NULL,
+        consecutive_failures INT64 NOT NULL DEFAULT 0,
         last_failure_timestamp TIMESTAMP NOT NULL,
         last_success_timestamp TIMESTAMP,
-        github_issue_number INTEGER,
-        github_issue_url VARCHAR,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (asset_key, failure_type, check_name)
+        github_issue_number INT64,
+        github_issue_url STRING,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP()
     )
     """
 
@@ -49,6 +48,13 @@ def _get_all_asset_check_keys(context):
     return check_keys
 
 
+def _get_all_asset_keys() -> list[dg.AssetKey]:
+    """Resolve asset keys without loading definitions at module import time."""
+    from macro_agents.definitions import defs
+
+    return list(defs.resolve_all_asset_keys())
+
+
 def _get_failure_tracking_record(
     md, asset_key: str, failure_type: str, check_name: str | None = None, context=None
 ):
@@ -57,12 +63,20 @@ def _get_failure_tracking_record(
 
     query = """
     SELECT * FROM asset_check_failures
-    WHERE asset_key = ? AND failure_type = ? AND check_name = ?
+    WHERE asset_key = @asset_key
+      AND failure_type = @failure_type
+      AND check_name = @check_name
     """
 
     try:
         result = md.execute_query(
-            query, read_only=True, params=[asset_key, failure_type, check_name_value]
+            query,
+            read_only=True,
+            params={
+                "asset_key": asset_key,
+                "failure_type": failure_type,
+                "check_name": check_name_value,
+            },
         )
         if len(result) > 0:
             return result.to_dicts()[0]
@@ -93,16 +107,23 @@ def _handle_check_failure(
 
         update_query = """
         UPDATE asset_check_failures
-        SET consecutive_failures = ?,
-            last_failure_timestamp = ?,
+        SET consecutive_failures = @consecutive_failures,
+            last_failure_timestamp = @last_failure_timestamp,
             updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = ? AND failure_type = 'asset_check' AND check_name = ?
+        WHERE asset_key = @asset_key
+          AND failure_type = 'asset_check'
+          AND check_name = @check_name
         """
 
         md.execute_query(
             update_query,
             read_only=False,
-            params=[new_count, timestamp.isoformat(), asset_key, check_name],
+            params={
+                "consecutive_failures": new_count,
+                "last_failure_timestamp": timestamp,
+                "asset_key": asset_key,
+                "check_name": check_name,
+            },
         )
 
         context.log.info(
@@ -139,19 +160,43 @@ def _handle_check_failure(
             )
     else:
         upsert_query = """
-        INSERT INTO asset_check_failures
-        (asset_key, check_name, failure_type, consecutive_failures, last_failure_timestamp)
-        VALUES (?, ?, 'asset_check', 1, ?)
-        ON CONFLICT (asset_key, failure_type, check_name) DO UPDATE SET
-            consecutive_failures = asset_check_failures.consecutive_failures + 1,
-            last_failure_timestamp = EXCLUDED.last_failure_timestamp,
+        MERGE `asset_check_failures` AS target
+        USING (
+            SELECT
+                @asset_key AS asset_key,
+                @check_name AS check_name,
+                @last_failure_timestamp AS last_failure_timestamp
+        ) AS source
+        ON target.asset_key = source.asset_key
+           AND target.failure_type = 'asset_check'
+           AND target.check_name = source.check_name
+        WHEN MATCHED THEN UPDATE SET
+            consecutive_failures = target.consecutive_failures + 1,
+            last_failure_timestamp = source.last_failure_timestamp,
             updated_at = CURRENT_TIMESTAMP()
+        WHEN NOT MATCHED THEN INSERT (
+            asset_key,
+            check_name,
+            failure_type,
+            consecutive_failures,
+            last_failure_timestamp
+        ) VALUES (
+            source.asset_key,
+            source.check_name,
+            'asset_check',
+            1,
+            source.last_failure_timestamp
+        )
         """
 
         md.execute_query(
             upsert_query,
             read_only=False,
-            params=[asset_key, check_name, timestamp.isoformat()],
+            params={
+                "asset_key": asset_key,
+                "check_name": check_name,
+                "last_failure_timestamp": timestamp,
+            },
         )
 
         context.log.info(f"Failure recorded for check {check_name} on {asset_key}")
@@ -181,17 +226,23 @@ def _handle_check_success(
         update_query = """
         UPDATE asset_check_failures
         SET consecutive_failures = 0,
-            last_success_timestamp = ?,
+            last_success_timestamp = @last_success_timestamp,
             github_issue_number = NULL,
             github_issue_url = NULL,
             updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = ? AND failure_type = 'asset_check' AND check_name = ?
+        WHERE asset_key = @asset_key
+          AND failure_type = 'asset_check'
+          AND check_name = @check_name
         """
 
         md.execute_query(
             update_query,
             read_only=False,
-            params=[timestamp.isoformat(), asset_key, check_name],
+            params={
+                "last_success_timestamp": timestamp,
+                "asset_key": asset_key,
+                "check_name": check_name,
+            },
         )
 
 
@@ -204,16 +255,22 @@ def _handle_materialization_failure(
 
         update_query = """
         UPDATE asset_check_failures
-        SET consecutive_failures = ?,
-            last_failure_timestamp = ?,
+        SET consecutive_failures = @consecutive_failures,
+            last_failure_timestamp = @last_failure_timestamp,
             updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = ? AND failure_type = 'asset_materialization' AND check_name = ''
+        WHERE asset_key = @asset_key
+          AND failure_type = 'asset_materialization'
+          AND check_name = ''
         """
 
         md.execute_query(
             update_query,
             read_only=False,
-            params=[new_count, timestamp.isoformat(), asset_key],
+            params={
+                "consecutive_failures": new_count,
+                "last_failure_timestamp": timestamp,
+                "asset_key": asset_key,
+            },
         )
 
         context.log.info(
@@ -250,19 +307,41 @@ def _handle_materialization_failure(
             )
     else:
         upsert_query = """
-        INSERT INTO asset_check_failures
-        (asset_key, check_name, failure_type, consecutive_failures, last_failure_timestamp)
-        VALUES (?, '', 'asset_materialization', 1, ?)
-        ON CONFLICT (asset_key, failure_type, check_name) DO UPDATE SET
-            consecutive_failures = asset_check_failures.consecutive_failures + 1,
-            last_failure_timestamp = EXCLUDED.last_failure_timestamp,
+        MERGE `asset_check_failures` AS target
+        USING (
+            SELECT
+                @asset_key AS asset_key,
+                @last_failure_timestamp AS last_failure_timestamp
+        ) AS source
+        ON target.asset_key = source.asset_key
+           AND target.failure_type = 'asset_materialization'
+           AND target.check_name = ''
+        WHEN MATCHED THEN UPDATE SET
+            consecutive_failures = target.consecutive_failures + 1,
+            last_failure_timestamp = source.last_failure_timestamp,
             updated_at = CURRENT_TIMESTAMP()
+        WHEN NOT MATCHED THEN INSERT (
+            asset_key,
+            check_name,
+            failure_type,
+            consecutive_failures,
+            last_failure_timestamp
+        ) VALUES (
+            source.asset_key,
+            '',
+            'asset_materialization',
+            1,
+            source.last_failure_timestamp
+        )
         """
 
         md.execute_query(
             upsert_query,
             read_only=False,
-            params=[asset_key, timestamp.isoformat()],
+            params={
+                "asset_key": asset_key,
+                "last_failure_timestamp": timestamp,
+            },
         )
 
         context.log.info(f"Materialization failure recorded for asset {asset_key}")
@@ -288,17 +367,22 @@ def _handle_materialization_success(
         update_query = """
         UPDATE asset_check_failures
         SET consecutive_failures = 0,
-            last_success_timestamp = ?,
+            last_success_timestamp = @last_success_timestamp,
             github_issue_number = NULL,
             github_issue_url = NULL,
             updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = ? AND failure_type = 'asset_materialization' AND check_name = ''
+        WHERE asset_key = @asset_key
+          AND failure_type = 'asset_materialization'
+          AND check_name = ''
         """
 
         md.execute_query(
             update_query,
             read_only=False,
-            params=[timestamp.isoformat(), asset_key],
+            params={
+                "last_success_timestamp": timestamp,
+                "asset_key": asset_key,
+            },
         )
 
 
@@ -377,28 +461,41 @@ def _create_github_issue_for_failure(
     if failure_type == "asset_check":
         update_query = """
         UPDATE asset_check_failures
-        SET github_issue_number = ?,
-            github_issue_url = ?,
+        SET github_issue_number = @github_issue_number,
+            github_issue_url = @github_issue_url,
             updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = ? AND failure_type = 'asset_check' AND check_name = ?
+        WHERE asset_key = @asset_key
+          AND failure_type = 'asset_check'
+          AND check_name = @check_name
         """
         md.execute_query(
             update_query,
             read_only=False,
-            params=[issue_number, issue_url, asset_key, check_name],
+            params={
+                "github_issue_number": issue_number,
+                "github_issue_url": issue_url,
+                "asset_key": asset_key,
+                "check_name": check_name or "",
+            },
         )
     else:
         update_query = """
         UPDATE asset_check_failures
-        SET github_issue_number = ?,
-            github_issue_url = ?,
+        SET github_issue_number = @github_issue_number,
+            github_issue_url = @github_issue_url,
             updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = ? AND failure_type = 'asset_materialization' AND check_name = ''
+        WHERE asset_key = @asset_key
+          AND failure_type = 'asset_materialization'
+          AND check_name = ''
         """
         md.execute_query(
             update_query,
             read_only=False,
-            params=[issue_number, issue_url, asset_key],
+            params={
+                "github_issue_number": issue_number,
+                "github_issue_url": issue_url,
+                "asset_key": asset_key,
+            },
         )
 
     context.log.info(
@@ -544,9 +641,7 @@ def asset_failure_monitor(context):
                 )
                 continue
 
-        from macro_agents.definitions import defs
-
-        all_asset_keys = list(defs.resolve_all_asset_keys())
+        all_asset_keys = _get_all_asset_keys()
 
         for asset_key in all_asset_keys:
             asset_key_str = str(asset_key)

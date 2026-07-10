@@ -374,11 +374,11 @@ def build_data_dictionary(
     """
 
     context.log.info("Creating data_dictionary table if not exists...")
-    bq.execute_query(create_table_query)
+    bq.execute_query(create_table_query, read_only=False)
 
     # Clear existing data (full refresh)
     context.log.info("Clearing existing data dictionary...")
-    bq.execute_query("DELETE FROM data_dictionary")
+    bq.execute_query("DELETE FROM data_dictionary", read_only=False)
 
     # Write new data
     context.log.info(f"Writing {len(df)} rows to data_dictionary table...")

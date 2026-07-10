@@ -461,11 +461,11 @@ def _fetch_recommendations_row(
         personality,
         recommendations_content
     FROM investment_recommendations
-    WHERE dagster_run_id = ?
+    WHERE dagster_run_id = @run_id
     ORDER BY analysis_timestamp DESC
     LIMIT 1
     """
-    df = bq.execute_query(query, read_only=True, params=[run_id])
+    df = bq.execute_query(query, read_only=True, params={"run_id": run_id})
     if df.is_empty():
         return None
     return df.to_dicts()[0]
@@ -579,14 +579,18 @@ def generate_investment_recommendation_charts(
         )
         update_query = """
         UPDATE investment_recommendations
-        SET chart_manifest = CAST(? AS JSON),
-            recommendations_content = ?
-        WHERE analysis_timestamp = ?
+        SET chart_manifest = PARSE_JSON(@chart_manifest),
+            recommendations_content = @recommendations_content
+        WHERE analysis_timestamp = CAST(@analysis_timestamp AS TIMESTAMP)
         """
         bq.execute_query(
             update_query,
             read_only=False,
-            params=[json.dumps(manifest), updated_content, timestamp_str],
+            params={
+                "chart_manifest": json.dumps(manifest),
+                "recommendations_content": updated_content,
+                "analysis_timestamp": timestamp_str,
+            },
         )
 
     return dg.MaterializeResult(

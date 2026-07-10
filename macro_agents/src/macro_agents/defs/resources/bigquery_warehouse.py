@@ -13,6 +13,11 @@ from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 from pydantic import Field, PrivateAttr
 
+from macro_agents.defs.resources.bigquery_query import (
+    QueryParameters,
+    prepare_query_parameters,
+)
+
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*){0,2}$")
 _BIGQUERY_TYPE_ALIASES = {
     "BOOL": "BOOL",
@@ -259,24 +264,33 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         return client.query(f"SELECT * FROM `{ref}`").to_dataframe().to_dict("records")
 
     def execute_query(
-        self, query: str, read_only: bool = True, params: list[Any] | None = None
+        self,
+        query: str,
+        read_only: bool = True,
+        params: QueryParameters | None = None,
     ) -> pl.DataFrame:
         """Execute a SQL query and return results as a Polars DataFrame.
 
         Bare table names are resolved against self.dataset so callers don't
         need to fully qualify every reference.
 
+        Parameters use BigQuery named placeholders such as ``@asset_key``.
         Query failures (bad SQL, missing tables, permissions) raise so they
         surface as asset failures instead of masquerading as empty result
-        sets. DML/DDL statements, which produce no row schema, return an
-        empty DataFrame.
+        sets. When ``read_only`` is true, only one SELECT-style query is
+        accepted. DML/DDL statements must opt in with ``read_only=False`` and
+        return an empty DataFrame because they have no result schema.
         """
-        from google.cloud.bigquery import DatasetReference, QueryJobConfig
-
-        client = self.get_client()
-        job_config = QueryJobConfig(
-            default_dataset=DatasetReference(self.project, self.dataset)
+        query_parameters = prepare_query_parameters(
+            query,
+            read_only=read_only,
+            params=params,
         )
+        client = self.get_client()
+        job_config = bigquery.QueryJobConfig(
+            default_dataset=bigquery.DatasetReference(self.project, self.dataset)
+        )
+        job_config.query_parameters = query_parameters
         job = client.query(query, job_config=job_config)
         result = job.result()
         if not result.schema:

@@ -9,16 +9,53 @@ import duckdb
 import polars as pl
 import pytest
 
+from macro_agents.defs.resources.bigquery_query import (
+    QueryParameters,
+    prepare_query_parameters,
+)
+
 _TIMESTAMP_CALL_RE = re.compile(
     r"TIMESTAMP\('(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) UTC'\)"
 )
+_NAMED_PARAMETER_RE = re.compile(r"@([A-Za-z_][A-Za-z0-9_]*)")
 
 
 def _bq_to_duckdb(sql: str) -> str:
     """Translate BigQuery-specific SQL constructs to DuckDB equivalents."""
+    sql = sql.replace("`", "")
     sql = re.sub(r"\bFLOAT64\b", "DOUBLE", sql)
+    sql = re.sub(r"\bINT64\b", "BIGINT", sql)
+    sql = re.sub(r"\bSTRING\b", "VARCHAR", sql)
+    sql = sql.replace("CURRENT_TIMESTAMP()", "CURRENT_TIMESTAMP")
     sql = _TIMESTAMP_CALL_RE.sub(r"TIMESTAMPTZ '\1 UTC'", sql)
     return sql
+
+
+def _bind_named_parameters(
+    query: str,
+    *,
+    read_only: bool,
+    params: QueryParameters | None,
+) -> tuple[str, list[object]]:
+    if params is None and "@" not in query:
+        return query, []
+
+    query_parameters = prepare_query_parameters(
+        query,
+        read_only=read_only,
+        params=params,
+    )
+    values_by_name = {parameter.name: parameter.value for parameter in query_parameters}
+    ordered_values: list[object] = []
+
+    def replace_parameter(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name not in values_by_name:
+            return match.group(0)
+        ordered_values.append(values_by_name[name])
+        return "?"
+
+    return _NAMED_PARAMETER_RE.sub(replace_parameter, query), ordered_values
 
 
 class DuckDBWarehouseStub:
@@ -28,17 +65,23 @@ class DuckDBWarehouseStub:
         self._conn = duckdb.connect()
 
     def execute_query(
-        self, query: str, read_only: bool = True, params=None
+        self,
+        query: str,
+        read_only: bool = True,
+        params: QueryParameters | None = None,
     ) -> pl.DataFrame:
-        translated = _bq_to_duckdb(query)
-        try:
-            result = self._conn.execute(translated)
-            try:
-                return result.pl()
-            except Exception:
-                return pl.DataFrame()
-        except Exception:
+        bound_query, bound_values = _bind_named_parameters(
+            query,
+            read_only=read_only,
+            params=params,
+        )
+        result = self._conn.execute(_bq_to_duckdb(bound_query), bound_values)
+        if result.description is None:
             return pl.DataFrame()
+        return result.pl()
+
+    def close(self) -> None:
+        self._conn.close()
 
     def get_connection(self):
         return self._conn
@@ -87,7 +130,9 @@ class DuckDBWarehouseStub:
 @pytest.fixture
 def bq_test_resource():
     """Fresh DuckDB-backed warehouse stub for each test."""
-    return DuckDBWarehouseStub()
+    resource = DuckDBWarehouseStub()
+    yield resource
+    resource.close()
 
 
 @pytest.fixture

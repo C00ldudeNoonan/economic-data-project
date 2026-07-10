@@ -38,8 +38,11 @@ def query_data_for_findings(
         pct_change_1y,
         date_grain
     FROM agent_fred_series_latest_aggregates
-    WHERE month >= DATE_TRUNC('month', CAST(? AS DATE) - INTERVAL '12 months')
-      AND month <= CAST(? AS DATE)
+    WHERE month >= DATE_SUB(
+        DATE_TRUNC(DATE(@week_start), MONTH),
+        INTERVAL 12 MONTH
+    )
+      AND month <= DATE(@week_end)
       AND current_value IS NOT NULL
     ORDER BY series_code, month DESC
     """
@@ -99,17 +102,18 @@ def query_data_for_findings(
         weekly_avg_score,
         score_momentum_pct
     FROM agent_reddit_sentiment_trends
-    WHERE date >= CAST(? AS DATE) - INTERVAL '3 months'
-      AND date <= CAST(? AS DATE)
+    WHERE date >= DATE_SUB(DATE(@week_start), INTERVAL 3 MONTH)
+      AND date <= DATE(@week_end)
     ORDER BY date DESC
     """
 
     # Execute queries
-    economic_df = bq.execute_query(economic_query, params=[week_start, week_end])
+    date_params = {"week_start": week_start, "week_end": week_end}
+    economic_df = bq.execute_query(economic_query, params=date_params)
     market_df = bq.execute_query(market_query)
     commodity_df = bq.execute_query(commodity_query)
     correlation_df = bq.execute_query(correlation_query)
-    sentiment_df = bq.execute_query(sentiment_query, params=[week_start, week_end])
+    sentiment_df = bq.execute_query(sentiment_query, params=date_params)
 
     return {
         "economic": economic_df,
