@@ -21,7 +21,12 @@ import dagster as dg
 from macro_agents.defs.transformation.dbt import environment
 
 DBT_ML_SOURCE_NAME = "dbt_ml_document_extraction"
-DBT_ML_TABLES = ("sec_document_registry", "sec_document_chunks")
+DBT_ML_TABLES = (
+    "sec_document_registry",
+    "sec_document_chunks",
+    "fomc_document_registry",
+    "fomc_document_chunks",
+)
 
 _DEFAULT_GCP_PROJECT = "econ-data-project-478800"
 

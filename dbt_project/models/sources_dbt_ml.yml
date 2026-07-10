@@ -44,3 +44,26 @@ sources:
           - name: chunk_id
           - name: document_id
           - name: text
+
+      - name: fomc_document_registry
+        description: One row per FOMC transcript PDF, with text + page offsets.
+        meta:
+          dagster:
+            asset_key:
+              - dbt_ml_document_extraction
+              - fomc_document_registry
+        columns:
+          - name: document_id
+          - name: text
+
+      - name: fomc_document_chunks
+        description: Recursive character chunks of each FOMC transcript.
+        meta:
+          dagster:
+            asset_key:
+              - dbt_ml_document_extraction
+              - fomc_document_chunks
+        columns:
+          - name: chunk_id
+          - name: document_id
+          - name: text

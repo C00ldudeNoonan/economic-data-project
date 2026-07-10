@@ -38,6 +38,13 @@ RUN uv pip install -e .
 # Build context is repo root, so we can reference dbt_project directly
 COPY dbt_project /opt/dagster/dbt_project
 
+# Copy the dbt-ml document extraction project and pre-build its isolated
+# environment (dbt-ml requires Python >= 3.12; uv provisions it). The
+# Dagster asset locates it via DBT_ML_PROJECT_DIR.
+COPY document_extraction /opt/dagster/document_extraction
+RUN uv sync --project /opt/dagster/document_extraction
+ENV DBT_ML_PROJECT_DIR=/opt/dagster/document_extraction
+
 # Copy Dagster instance config for run containers
 RUN mkdir -p /opt/dagster/dagster_home
 COPY dagster.yaml /opt/dagster/dagster_home/dagster.yaml

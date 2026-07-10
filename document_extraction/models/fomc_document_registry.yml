@@ -1,0 +1,22 @@
+version: 2
+
+# One row per FOMC transcript PDF/version. include_pages emits per-page char
+# offsets into `text`, so downstream speaker-turn parsing can attribute any
+# match to a page without re-reading the PDF. Speaker parsing itself is
+# domain logic and belongs in a transform or downstream dbt model.
+models:
+  - name: fomc_document_registry
+    description: "One row per FOMC transcript PDF, with text + page offsets"
+    source: ref('fomc_transcript_pdfs')
+
+    extraction:
+      backend: pdf
+      options:
+        include_pages: true
+      flush_every: 500
+
+    materialization: incremental
+
+    tests:
+      - not_null: [document_id, text]
+      - unique: document_id

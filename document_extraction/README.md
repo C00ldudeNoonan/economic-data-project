@@ -12,6 +12,10 @@ preserved as JSON structure with char offsets.
 sec_filing_html (gs://econ-project-general-storage/sec_filings, *.htm)
     └── sec_document_registry   one row per filing document/version
             └── sec_document_chunks   one row per 800-char chunk (RAG grain)
+
+fomc_transcript_pdfs (gs://econ-project-general-storage/fomc_transcripts, *.pdf)
+    └── fomc_document_registry  one row per transcript, per-page char offsets
+            └── fomc_document_chunks  one row per 800-char chunk (RAG grain)
 ```
 
 Tables land in `economics_documents_dev` (dev) / `economics_documents` (prod)
