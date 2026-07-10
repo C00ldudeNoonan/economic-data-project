@@ -44,9 +44,11 @@ runs skip unchanged GCS objects without downloading them.
 
 Environment note: the BigQuery side switches per target (dev/prod
 datasets), but the GCS source path is pinned to the canonical prod bucket —
-dbt-ml does not yet support per-target source paths (upstream request
-pending). The macro_agents Dagster pipelines, by contrast, derive their
-bucket from ENVIRONMENT (see resources/gcs.py default_gcs_bucket).
+dbt-ml does not yet support per-target source paths (blocked on
+[dbt-ml#110](https://github.com/C00ldudeNoonan/dbt-ml/issues/110)). The
+macro_agents Dagster pipelines, by contrast, derive their bucket from
+ENVIRONMENT (see resources/gcs.py default_gcs_bucket). Once #110 lands,
+point each target at its environment bucket and drop this note.
 
 ## Orchestration
 

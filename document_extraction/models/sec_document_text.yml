@@ -3,7 +3,9 @@ version: 2
 # One row per filing with clean body text parsed from the envelope's HTML,
 # plus the domain keys (symbol, form_type, filing_date, accession) lifted
 # out of the envelope metadata. This is the model downstream dbt staging
-# and chunking consume; the registry keeps the raw HTML.
+# and chunking consume; the registry keeps the raw HTML. Duplicate
+# envelopes (same filing at legacy and symbol paths post-migration) are
+# collapsed here by content_hash, so content_hash is unique at this grain.
 models:
   - name: sec_document_text
     description: "One row per SEC filing: body text + domain keys from envelope metadata"
@@ -20,3 +22,4 @@ models:
     tests:
       - not_null: [document_id, text, symbol, form_type]
       - unique: document_id
+      - unique: content_hash

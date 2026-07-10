@@ -51,8 +51,30 @@ def _metadata_dict(value: Any) -> dict[str, Any]:
     return {}
 
 
+def _is_symbol_layout(source_path: str | None) -> bool:
+    """True when the path uses the target layout ({symbol}/ first segment)."""
+    if not source_path:
+        return False
+    first = source_path.split("/", 1)[0]
+    return not first.startswith("10-")
+
+
 def run(deps: dict[str, pl.DataFrame]) -> pl.DataFrame:
     registry = deps["sec_document_registry"]
+
+    # The GCS migration copies legacy-layout objects to symbol-layout paths
+    # without deleting the originals, so migrated filings appear twice in
+    # the registry with identical content. Keep one row per content_hash,
+    # preferring the symbol-layout path (the target convention).
+    registry = (
+        registry.sort(
+            pl.col("source_path")
+            .map_elements(_is_symbol_layout, return_dtype=pl.Boolean)
+            .fill_null(False),
+            descending=True,
+        )
+        .unique(subset=["content_hash"], keep="first")
+    )
 
     rows: list[dict[str, Any]] = []
     for row in registry.iter_rows(named=True):
