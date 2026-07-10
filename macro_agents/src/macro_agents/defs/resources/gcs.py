@@ -22,10 +22,35 @@ except ImportError:
     pass
 
 
+def default_gcs_bucket() -> str:
+    """Environment-suffixed document storage bucket name.
+
+    GCS_BUCKET_NAME overrides when set (deployment pins it explicitly).
+    Otherwise mirrors default_raw_dataset()'s environment convention:
+      prod    → econ-project-general-storage
+      staging → econ-project-general-storage-staging
+      dev     → econ-project-general-storage-dev
+    Computed at call time so env overrides take effect without reimport.
+    """
+    explicit = os.getenv("GCS_BUCKET_NAME")
+    if explicit:
+        return explicit
+    environment = os.getenv("ENVIRONMENT", "dev")
+    suffix = {"prod": "", "staging": "-staging"}.get(environment, "-dev")
+    return f"econ-project-general-storage{suffix}"
+
+
 class GCSResource(dg.ConfigurableResource):
     """Resource for managing DSPy model storage in Google Cloud Storage."""
 
-    bucket_name: str = Field(description="GCS bucket name for storing models")
+    bucket_name: str = Field(
+        default="",
+        description=(
+            "GCS bucket name. Empty means resolve at runtime via "
+            "default_gcs_bucket() (GCS_BUCKET_NAME env var, else the "
+            "ENVIRONMENT-suffixed document bucket)."
+        ),
+    )
     credentials_path: str | None = Field(
         default=None,
         description="Path to Google service account credentials JSON file. Can be set via GOOGLE_APPLICATION_CREDENTIALS env var.",
@@ -34,6 +59,11 @@ class GCSResource(dg.ConfigurableResource):
         default=".dspy_models",
         description="Local directory for caching downloaded models",
     )
+
+    @property
+    def resolved_bucket_name(self) -> str:
+        """Configured bucket, or the environment-derived default."""
+        return self.bucket_name or default_gcs_bucket()
 
     def setup_for_execution(self, context: dg.InitResourceContext) -> None:
         """Initialize GCS client."""
@@ -75,7 +105,7 @@ class GCSResource(dg.ConfigurableResource):
             )
 
         self._client = storage.Client(credentials=credentials)
-        self._bucket = self._client.bucket(self.bucket_name)
+        self._bucket = self._client.bucket(self.resolved_bucket_name)
 
         # Create local cache directory if it doesn't exist
         Path(self.local_cache_dir).mkdir(parents=True, exist_ok=True)
@@ -250,7 +280,7 @@ class GCSResource(dg.ConfigurableResource):
         if log:
             log.info(f"Uploaded JSON to GCS path {gcs_path}")
 
-        return f"gs://{self.bucket_name}/{gcs_path}"
+        return f"gs://{self.resolved_bucket_name}/{gcs_path}"
 
     def upload_bytes(
         self,
@@ -279,7 +309,7 @@ class GCSResource(dg.ConfigurableResource):
         if log:
             log.info(f"Uploaded bytes to GCS path {gcs_path}")
 
-        return f"gs://{self.bucket_name}/{gcs_path}"
+        return f"gs://{self.resolved_bucket_name}/{gcs_path}"
 
     def download_json(
         self,

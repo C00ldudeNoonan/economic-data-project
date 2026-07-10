@@ -42,6 +42,12 @@ Set `GOOGLE_CLOUD_PROJECT=econ-data-project-478800` when using user ADC —
 the GCS client cannot infer a project from user credentials. Incremental
 runs skip unchanged GCS objects without downloading them.
 
+Environment note: the BigQuery side switches per target (dev/prod
+datasets), but the GCS source path is pinned to the canonical prod bucket —
+dbt-ml does not yet support per-target source paths (upstream request
+pending). The macro_agents Dagster pipelines, by contrast, derive their
+bucket from ENVIRONMENT (see resources/gcs.py default_gcs_bucket).
+
 ## Orchestration
 
 Dagster runs this project via `dbt-ml run --json` (see
