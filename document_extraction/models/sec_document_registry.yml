@@ -1,0 +1,25 @@
+version: 2
+
+# One row per filing document/version. The extraction contract supplies
+# identity and lineage (document_id, source_uri with the GCS object
+# generation, content_hash, backend provenance, extracted_at), and
+# include_structure keeps headings/tables as JSON with char offsets into
+# `text` so downstream section parsing never touches HTML. Domain keys
+# (form_type, year, cik, accession) are encoded in source_path and belong
+# in downstream dbt staging models, not here.
+models:
+  - name: sec_document_registry
+    description: "One row per SEC filing HTML document, with text + structure"
+    source: ref('sec_filing_html')
+
+    extraction:
+      backend: html
+      options:
+        include_structure: true
+      flush_every: 500
+
+    materialization: incremental
+
+    tests:
+      - not_null: [document_id, text]
+      - unique: document_id

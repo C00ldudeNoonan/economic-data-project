@@ -1,0 +1,21 @@
+# Warehouse config for the dbt-ml document extraction project.
+# Auth is Application Default Credentials (gcloud auth application-default
+# login locally; workload identity or a service-account keyfile in CI).
+# GOOGLE_APPLICATION_CREDENTIALS in this repo holds inline JSON, which the
+# Dagster BigQueryWarehouseResource rewrites to a temp-file path before any
+# dbt-ml subprocess launches — plain ADC works in both contexts.
+document_extraction:
+  target: dev
+  outputs:
+    dev:
+      warehouse:
+        type: bigquery
+        project: "{{ env_var('GOOGLE_CLOUD_PROJECT', 'econ-data-project-478800') }}"
+        dataset: economics_documents_dev
+        location: US
+    prod:
+      warehouse:
+        type: bigquery
+        project: "{{ env_var('GOOGLE_CLOUD_PROJECT', 'econ-data-project-478800') }}"
+        dataset: economics_documents
+        location: US

@@ -1,0 +1,16 @@
+version: 2
+
+# Raw SEC filing primary documents (HTML) stored by the macro_agents
+# ingestion pipeline. Actual bucket layout (note: gcs_schema.py documents a
+# {symbol} level that current objects do not have):
+#   sec_filings/{form_type}/{year}/{cik}/{accession}/{ticker}-{period}.htm
+# file_pattern matches basenames, so "*.htm" selects the primary documents;
+# the pipeline's own extracts (extracted/*.json) are excluded by extension.
+sources:
+  - name: sec_filing_html
+    description: "Raw SEC 10-K/10-Q primary documents (HTML) from EDGAR"
+    path: gs://econ-project-general-storage/sec_filings
+    file_pattern: "*.htm"
+    max_objects: 20000
+    freshness:
+      warn_after: { count: 45, period: day }
