@@ -10,7 +10,10 @@ import pytest
 from google.cloud import bigquery
 
 from macro_agents.defs.resources.bigquery_query import QueryParameter
-from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
+from macro_agents.defs.resources.bigquery_warehouse import (
+    BigQueryWarehouseResource,
+    default_dataset_for_schema,
+)
 
 
 def _make_resource() -> BigQueryWarehouseResource:
@@ -61,6 +64,39 @@ class TestGetClientCaching:
 
         assert resource.get_client() is cached
         cached.close.assert_not_called()
+
+
+class TestDefaultDatasetForSchema:
+    """dbt's own schema resolution keys off DBT_TARGET (profiles.yml,
+    generate_schema_name.sql), not ENVIRONMENT — these must stay in sync
+    or cross-dataset references 404 or silently read the wrong dataset."""
+
+    @pytest.mark.parametrize(
+        ("dbt_target", "expected"),
+        [
+            ("prod", "economics_staging"),
+            ("staging", "economics_staging_staging"),
+            ("dev", "economics_staging_dev"),
+            ("unrecognized", "economics_staging_dev"),
+        ],
+    )
+    def test_follows_dbt_target(self, monkeypatch, dbt_target, expected):
+        monkeypatch.setenv("DBT_TARGET", dbt_target)
+        monkeypatch.setenv("ENVIRONMENT", "prod")  # must not win over DBT_TARGET
+        assert default_dataset_for_schema("economics_staging") == expected
+
+    def test_falls_back_to_environment_when_dbt_target_unset(self, monkeypatch):
+        monkeypatch.delenv("DBT_TARGET", raising=False)
+        monkeypatch.setenv("ENVIRONMENT", "staging")
+        assert (
+            default_dataset_for_schema("economics_staging")
+            == "economics_staging_staging"
+        )
+
+    def test_defaults_to_dev_when_neither_is_set(self, monkeypatch):
+        monkeypatch.delenv("DBT_TARGET", raising=False)
+        monkeypatch.delenv("ENVIRONMENT", raising=False)
+        assert default_dataset_for_schema("economics_staging") == "economics_staging_dev"
 
 
 class TestExecuteQueryErrorSurfacing:
