@@ -409,6 +409,29 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         return df[column].to_list() if column in df.columns else []
 
 
+def default_dataset_for_schema(schema: str) -> str:
+    """Environment-suffixed dataset name for a given dbt schema base name.
+
+    Mirrors dbt's generate_schema_name macro (dbt_project/macros/
+    generate_schema_name.sql): prod uses the schema name as-is, staging/dev
+    append a suffix. Use this to reference dbt-managed models living in a
+    schema other than a resource's own default dataset — e.g. staging-schema
+    `stg_*` views queried by a job whose BigQueryWarehouseResource defaults
+    to the raw dataset. Computed at call time (not module load) so env
+    overrides in tests take effect.
+
+    Reads DBT_TARGET first — that's what dbt's own profiles.yml
+    (`target: "{{ env_var('DBT_TARGET', 'dev') }}"`) and generate_schema_name
+    actually key off — falling back to ENVIRONMENT only when DBT_TARGET is
+    unset. The two can diverge (e.g. ENVIRONMENT=prod with DBT_TARGET=staging
+    for an ad hoc dbt run against the production deployment), and the
+    dataset a dbt model is actually materialized into follows DBT_TARGET.
+    """
+    target = os.getenv("DBT_TARGET") or os.getenv("ENVIRONMENT", "dev")
+    suffix = {"prod": "", "staging": "_staging"}.get(target, "_dev")
+    return f"{schema}{suffix}"
+
+
 _environment = os.getenv("ENVIRONMENT", "dev")
 
 # Dataset suffix mirrors the dbt generate_schema_name macro:
