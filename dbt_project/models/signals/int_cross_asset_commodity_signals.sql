@@ -74,7 +74,7 @@ gold_real_zscore AS (
             STDDEV_SAMP(CASE WHEN beta IS NOT NULL AND alpha IS NOT NULL THEN gold_price - (alpha + beta * real_yield_10y) END) OVER w AS residual_std
         FROM gold_real_residual
         WINDOW w AS (ORDER BY date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW)
-    )
+    ) AS rolling_residuals
 ),
 
 copper_gold_yield_corr AS (

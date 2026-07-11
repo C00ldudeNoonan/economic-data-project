@@ -100,6 +100,7 @@ root_module = "macro_agents"
 [tool.pytest.ini_options]
 markers = [
     "essential: Essential tests that must pass in CI",
+    "network: Tests that require external network access and are opt-in",
     "skip_ci: Tests to skip in CI (brittle or non-essential)",
 ]
 filterwarnings = [
@@ -109,3 +110,16 @@ filterwarnings = [
     "ignore::DeprecationWarning:dagster._core.definitions.sensor_definition:",
     "ignore:Non-compliant tag keys like .*:DeprecationWarning:dagster._core.definitions.schedule_definition",
 ]
+
+[tool.coverage.run]
+source = ["macro_agents"]
+
+[tool.coverage.report]
+fail_under = 50
+include = [
+    "src/macro_agents/defs/asset_failure_sensor.py",
+    "src/macro_agents/defs/domains/sec/search.py",
+    "src/macro_agents/defs/resources/bigquery_query.py",
+    "src/macro_agents/defs/resources/bigquery_warehouse.py",
+]
+show_missing = true

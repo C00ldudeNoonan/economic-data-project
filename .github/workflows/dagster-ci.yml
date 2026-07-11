@@ -52,6 +52,30 @@ jobs:
           cd macro_agents
           uv sync --extra dev
 
+      - name: Cache dbt packages
+        id: cache-dbt-packages
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5
+        with:
+          path: dbt_project/dbt_packages
+          key: ${{ runner.os }}-dbt-packages-${{ hashFiles('dbt_project/package-lock.yml') }}
+
+      - name: Install dbt packages
+        if: steps.cache-dbt-packages.outputs.cache-hit != 'true'
+        env:
+          BIGQUERY_PROJECT: econ-data-project-478800
+          DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+        run: |
+          cd macro_agents
+          uv run dbt deps --project-dir ../dbt_project --profiles-dir ../dbt_project --target dev --no-send-anonymous-usage-stats
+
+      - name: Prepare dbt manifest offline
+        env:
+          BIGQUERY_PROJECT: econ-data-project-478800
+          DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+        run: |
+          cd macro_agents
+          uv run dbt parse --project-dir ../dbt_project --profiles-dir ../dbt_project --target dev --no-send-anonymous-usage-stats
+
       - name: Lint with ruff
         run: |
           cd macro_agents
@@ -62,6 +86,12 @@ jobs:
         run: |
           cd macro_agents
           uv run ty check --extra-search-path src src/macro_agents
+
+      - name: Lint dbt SQL with SQLFluff
+        run: |
+          cd macro_agents
+          # The preceding dbt parse validates dbt templating; Jinja mode keeps style lint credential-free.
+          uv run sqlfluff lint ../dbt_project/models --templater jinja --ignore templating,parsing --disable-progress-bar --processes 4
 
       - name: Test Dagster definitions with dbt Platform
         if: ${{ env.DBT_PLATFORM_TOKEN != '' }}
@@ -85,4 +115,9 @@ jobs:
       - name: Test with pytest
         run: |
           cd macro_agents
-          uv run pytest tests/ -v -m "not skip_ci"
+          uv run pytest tests/ -v -m "not skip_ci and not network"
+
+      - name: Enforce critical-path coverage floor
+        run: |
+          cd macro_agents
+          uv run pytest tests/test_bigquery_warehouse.py tests/test_asset_check_failure_sensor.py tests/test_sec_search.py --cov --cov-report=term-missing

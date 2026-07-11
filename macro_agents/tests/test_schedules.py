@@ -3,7 +3,6 @@ Tests for scheduled execution and scheduling configuration.
 """
 
 from dagster import DefaultSensorStatus
-from macro_agents.definitions import defs
 from macro_agents.defs.analysis.schedules import (
     daily_reddit_summary_schedule,
     weekly_economic_analysis_schedule_bullish,
@@ -111,9 +110,9 @@ class TestTelemetrySchedules:
 class TestScheduledJobs:
     """Test cases for scheduled job definitions."""
 
-    def test_job_creation(self):
+    def test_job_creation(self, dagster_defs):
         """Test that scheduled jobs are created correctly."""
-        job_names = [job.name for job in defs.jobs]
+        job_names = [job.name for job in dagster_defs.jobs]
 
         assert "weekly_economic_analysis_job_skeptical" in job_names
         assert "weekly_economic_analysis_job_neutral" in job_names
@@ -156,9 +155,9 @@ class TestScheduledJobs:
         assert "entropy_complexity_job" in job_names
         assert "network_correlation_job" in job_names
 
-    def test_job_asset_selection(self):
+    def test_job_asset_selection(self, dagster_defs):
         """Test that jobs select the correct assets."""
-        job_names = {job.name for job in defs.jobs}
+        job_names = {job.name for job in dagster_defs.jobs}
 
         assert "weekly_economic_analysis_job_skeptical" in job_names
         assert "weekly_economic_analysis_job_neutral" in job_names
@@ -219,12 +218,12 @@ class TestIngestionSchedules:
 class TestDefinitionsIntegration:
     """Test integration of schedules with definitions."""
 
-    def test_definitions_include_schedules(self):
+    def test_definitions_include_schedules(self, dagster_defs):
         """Test that definitions include all schedules."""
-        assert defs is not None
-        assert len(defs.schedules) > 0
+        assert dagster_defs is not None
+        assert len(dagster_defs.schedules) > 0
 
-        schedule_names = [schedule.name for schedule in defs.schedules]
+        schedule_names = [schedule.name for schedule in dagster_defs.schedules]
         expected_schedules = [
             "weekly_economic_analysis_schedule_skeptical",
             "weekly_economic_analysis_schedule_neutral",
@@ -259,12 +258,12 @@ class TestDefinitionsIntegration:
         for expected_schedule in expected_schedules:
             assert expected_schedule in schedule_names
 
-    def test_definitions_include_sensors(self):
+    def test_definitions_include_sensors(self, dagster_defs):
         """Test that definitions include ingestion sensors."""
-        assert defs is not None
-        assert len(defs.sensors) > 0
+        assert dagster_defs is not None
+        assert len(dagster_defs.sensors) > 0
 
-        sensor_names = [sensor.name for sensor in defs.sensors]
+        sensor_names = [sensor.name for sensor in dagster_defs.sensors]
         expected_sensors = [
             "treasury_yields_ingestion_schedule",
             "realtor_gdrive_file_monitor",
@@ -273,12 +272,12 @@ class TestDefinitionsIntegration:
         for expected_sensor in expected_sensors:
             assert expected_sensor in sensor_names
 
-    def test_definitions_include_jobs(self):
+    def test_definitions_include_jobs(self, dagster_defs):
         """Test that definitions include scheduled jobs."""
-        assert defs is not None
-        assert len(defs.jobs) > 0
+        assert dagster_defs is not None
+        assert len(dagster_defs.jobs) > 0
 
-        job_names = [job.name for job in defs.jobs]
+        job_names = [job.name for job in dagster_defs.jobs]
         expected_jobs = [
             "weekly_economic_analysis_job_skeptical",
             "weekly_economic_analysis_job_neutral",
@@ -324,9 +323,9 @@ class TestAssetScheduling:
     """Test cases for asset scheduling metadata."""
 
     @staticmethod
-    def _get_asset_key_strings():
+    def _get_asset_key_strings(dagster_defs):
         asset_key_strings = []
-        for asset_def in defs.assets:
+        for asset_def in dagster_defs.assets:
             if hasattr(asset_def, "keys"):
                 asset_key_strings.extend(
                     [key.to_user_string() for key in asset_def.keys]
@@ -335,7 +334,7 @@ class TestAssetScheduling:
                 asset_key_strings.append(asset_def.key.to_user_string())
         return asset_key_strings
 
-    def test_economic_analysis_assets_exist(self):
+    def test_economic_analysis_assets_exist(self, dagster_defs):
         """Test that economic analysis assets exist."""
         economic_assets = [
             "analyze_economy_state",
@@ -343,15 +342,15 @@ class TestAssetScheduling:
             "generate_investment_recommendations",
         ]
 
-        asset_key_strings = self._get_asset_key_strings()
+        asset_key_strings = self._get_asset_key_strings(dagster_defs)
 
         for asset_name in economic_assets:
             assert asset_name in asset_key_strings
 
-    def test_asset_failure_monitor_has_cron_automation(self):
+    def test_asset_failure_monitor_has_cron_automation(self, dagster_defs):
         """Test that asset failure monitoring is configured with a cron automation condition."""
         asset_def = None
-        for asset in defs.assets:
+        for asset in dagster_defs.assets:
             if hasattr(asset, "keys"):
                 for key in asset.keys:
                     if key.to_user_string() == "asset_failure_monitor":
@@ -478,13 +477,13 @@ class TestCronScheduleValidation:
 class TestScheduleDependencies:
     """Test cases for schedule dependencies and ordering."""
 
-    def test_economic_analysis_pipeline_dependencies(self):
+    def test_economic_analysis_pipeline_dependencies(self, dagster_defs):
         """Test that economic analysis pipeline dependencies are correct."""
         # Verify the pipeline order: economy_state -> relationships -> recommendations
         asset_key_strings = []
         asset_defs_by_key_string = {}
 
-        for asset_def in defs.assets:
+        for asset_def in dagster_defs.assets:
             if hasattr(asset_def, "keys"):
                 for key in asset_def.keys:
                     key_str = key.to_user_string()

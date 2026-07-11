@@ -8,10 +8,10 @@ lint:
 fix:
 	cd macro_agents && uv sync --extra dev && uv run sqlfluff fix ../dbt_project/models --disable-progress-bar --processes 4
 
-test: dbt-manifest
+test:
 	cd macro_agents && uv sync --extra dev && uv run pytest tests/ -v
 
-test-dagster: dbt-manifest
+test-dagster:
 	cd macro_agents && uv sync --extra dev && uv run pytest tests/ -v
 
 typecheck-dagster:
@@ -27,15 +27,21 @@ typecheck-dagster:
 dbt-manifest:
 	cd macro_agents && uv sync --extra dev && uv run dbt parse \
 		--project-dir ../dbt_project \
-		--profiles-dir ../dbt_project
+		--profiles-dir ../dbt_project \
+		--no-send-anonymous-usage-stats
+
+dbt-deps:
+	cd macro_agents && uv sync --extra dev && uv run dbt deps \
+		--project-dir ../dbt_project \
+		--profiles-dir ../dbt_project \
+		--no-send-anonymous-usage-stats
 
 # =============================================================================
 # Local Development
 # =============================================================================
 
 # Dagster Setup (uses uv)
-setup-dagster:
-	cd macro_agents && uv sync --extra dev
+setup-dagster: dbt-deps
 	@echo "Dagster environment synced with uv"
 	@echo "Run 'make run-dagster' to start Dagster"
 

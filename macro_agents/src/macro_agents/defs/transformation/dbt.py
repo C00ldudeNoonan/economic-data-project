@@ -30,6 +30,7 @@ DBT_NASDAQ_EXCLUDE = (
     "nasdaq_companies_summary "
     "source:staging.nasdaq_companies_prices_raw"
 )
+REQUIRED_DBT_PACKAGES = ("dbt_project_evaluator", "dbt_utils")
 
 
 class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
@@ -89,6 +90,21 @@ def _required_env_var(*names: str) -> dg.EnvVar:
     else:
         joined_names = " or ".join(names)
         raise RuntimeError(f"Set {joined_names} to enable dbt Platform orchestration.")
+
+
+def _require_dbt_packages(project_dir: Path) -> None:
+    """Require explicitly installed dbt packages without network side effects."""
+    packages_dir = project_dir / "dbt_packages"
+    missing_packages = [
+        package
+        for package in REQUIRED_DBT_PACKAGES
+        if not (packages_dir / package).exists()
+    ]
+    if missing_packages:
+        raise RuntimeError(
+            "dbt packages are not installed: "
+            f"{', '.join(missing_packages)}. Run `make dbt-deps`."
+        )
 
 
 dbt_platform_mode = orchestration_mode in {
@@ -156,11 +172,12 @@ if dbt_platform_mode:
 else:
     dbt_project_dir = os.getenv("DBT_PROJECT_DIR")
     if dbt_project_dir:
-        dbt_project_dir = Path(dbt_project_dir).resolve()
-        if not dbt_project_dir.exists():
+        configured_project_dir = Path(dbt_project_dir)
+        if not configured_project_dir.exists():
             raise FileNotFoundError(
                 "DBT_PROJECT_DIR environment variable points to a non-existent path."
             )
+        dbt_project_dir = configured_project_dir.resolve()
     else:
         current_file = Path(__file__).resolve()
         macro_agents_root = current_file.parent.parent.parent
@@ -184,16 +201,14 @@ else:
 
         dbt_project_dir = None
         for path in possible_dbt_project_paths:
-            try:
-                abs_path = path.resolve()
-                if abs_path.exists() and abs_path.is_dir():
-                    if (abs_path / "dbt_project.yml").exists() or (
-                        abs_path / "dbt_project.yaml"
-                    ).exists():
-                        dbt_project_dir = abs_path
-                        break
-            except (OSError, RuntimeError):
+            if not path.exists() or not path.is_dir():
                 continue
+            abs_path = path.resolve()
+            if (abs_path / "dbt_project.yml").exists() or (
+                abs_path / "dbt_project.yaml"
+            ).exists():
+                dbt_project_dir = abs_path
+                break
 
         if dbt_project_dir is None:
             raise FileNotFoundError(
@@ -207,83 +222,28 @@ else:
 
     dbt_project_dir_path = dbt_project_dir
 
-    dbt_packages_dir = dbt_project_dir_path / "dbt_packages"
-    dbt_utils_dir = (
-        dbt_packages_dir / "dbt_utils" if dbt_packages_dir.exists() else None
-    )
-
-    if not dbt_packages_dir.exists() or not dbt_utils_dir or not dbt_utils_dir.exists():
-        import subprocess
-
-        logger.warning("dbt packages not found. Running 'dbt deps' (15s timeout)...")
-        try:
-            result = subprocess.run(
-                ["dbt", "deps", "--target", environment],
-                cwd=dbt_project_dir_path,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            if result.returncode != 0:
-                logger.warning(
-                    f"dbt deps failed (non-fatal): {result.stderr or result.stdout}"
-                )
-            else:
-                logger.info("dbt packages installed successfully")
-        except subprocess.TimeoutExpired:
-            logger.warning(
-                "dbt deps timed out (network may be unavailable), continuing without packages"
-            )
-        except Exception as e:
-            logger.warning(f"Could not install dbt packages (non-fatal): {e}")
+    _require_dbt_packages(dbt_project_dir_path)
 
     dbt_project = DbtProject(
         project_dir=dbt_project_dir_path,
         target=environment,
     )
 
-    dbt_project.prepare_if_dev()
-
     manifest_path = dbt_project.manifest_path
-    if manifest_path and manifest_path.exists():
-        logger.info("Using dbt manifest")
+    if not manifest_path.exists():
+        raise FileNotFoundError(
+            f"dbt manifest not found at {manifest_path}. Run `make dbt-manifest`."
+        )
+    logger.info("Using dbt manifest at %s", manifest_path)
 
     dbt_resource = DbtCliResource(project_dir=dbt_project_dir_path)
     dbt_cloud_polling_sensor = None
 
     @dbt_assets(
-        manifest=dbt_project.manifest_path,
+        manifest=manifest_path,
         exclude=DBT_NASDAQ_EXCLUDE,
         dagster_dbt_translator=CustomizedDagsterDbtTranslator(),
     )
     def full_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCliResource):
-        dbt_packages_dir = dbt_project_dir_path / "dbt_packages"
-        dbt_utils_dir = (
-            dbt_packages_dir / "dbt_utils" if dbt_packages_dir.exists() else None
-        )
-
-        if (
-            not dbt_packages_dir.exists()
-            or not dbt_utils_dir
-            or not dbt_utils_dir.exists()
-        ):
-            context.log.info(
-                "dbt packages not found. Running 'dbt deps' before build..."
-            )
-            try:
-                deps_result = dbt.cli(["deps"], context=context).wait()
-                return_code = getattr(deps_result, "return_code", None)
-                if return_code not in (None, 0):
-                    context.log.error("Failed to install dbt packages.")
-                    raise RuntimeError(
-                        "dbt packages installation failed. Please run 'dbt deps' manually"
-                    )
-                else:
-                    context.log.info("dbt packages installed successfully")
-            except Exception as e:
-                context.log.error(f"Could not install dbt packages: {e}")
-                raise RuntimeError(
-                    "dbt packages are required but could not be installed. Please run 'dbt deps' manually"
-                ) from e
-
+        _require_dbt_packages(dbt_project_dir_path)
         yield from dbt.cli(["build"], context=context).stream()
