@@ -90,7 +90,8 @@ jobs:
       - name: Lint dbt SQL with SQLFluff
         run: |
           cd macro_agents
-          uv run sqlfluff lint ../dbt_project/models --disable-progress-bar --processes 4
+          # The preceding dbt parse validates dbt templating; Jinja mode keeps style lint credential-free.
+          uv run sqlfluff lint ../dbt_project/models --templater jinja --ignore templating,parsing --disable-progress-bar --processes 4
 
       - name: Test Dagster definitions with dbt Platform
         if: ${{ env.DBT_PLATFORM_TOKEN != '' }}
