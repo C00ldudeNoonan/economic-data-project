@@ -19,7 +19,10 @@ import dagster as dg
 import numpy as np
 import polars as pl
 
-from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
+from macro_agents.defs.resources.bigquery_warehouse import (
+    BigQueryWarehouseResource,
+    default_dataset_for_schema,
+)
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -66,10 +69,14 @@ def entropy_complexity_signals(
     bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
     context.log.info("Fetching SPY and QQQ prices...")
+    # stg_major_indices is a dbt staging view living in the
+    # economics_staging schema, not this resource's default
+    # (economics_raw) dataset.
+    staging_dataset = default_dataset_for_schema("economics_staging")
     prices_df = bq.execute_query(
-        """
+        f"""
         SELECT date, symbol, adj_close
-        FROM stg_major_indices
+        FROM {staging_dataset}.stg_major_indices
         WHERE symbol IN ('SPY', 'QQQ')
           AND adj_close IS NOT NULL
           AND date >= CURRENT_DATE - INTERVAL 3 YEAR
