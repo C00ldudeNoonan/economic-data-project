@@ -9,7 +9,10 @@ import pyarrow as pa
 import pytest
 from google.cloud import bigquery
 
-from macro_agents.defs.resources.bigquery_query import QueryParameter
+from macro_agents.defs.resources.bigquery_query import (
+    QueryArrayParameter,
+    QueryParameter,
+)
 from macro_agents.defs.resources.bigquery_warehouse import (
     BigQueryWarehouseResource,
     default_dataset_for_schema,
@@ -240,6 +243,33 @@ class TestExecuteQueryErrorSurfacing:
             "optional_value",
             "STRING",
             None,
+        )
+
+    @patch("macro_agents.defs.resources.bigquery_warehouse.bigquery.Client")
+    def test_explicit_array_parameter_supports_embeddings(self, mock_client_cls):
+        mock_result = Mock()
+        mock_result.schema = []
+        mock_job = Mock()
+        mock_job.result.return_value = mock_result
+        mock_client_cls.return_value.query.return_value = mock_job
+        resource = _make_resource()
+
+        resource.execute_query(
+            "SELECT @embedding",
+            params={
+                "embedding": QueryArrayParameter(
+                    values=[0.25, 0.75],
+                    bigquery_type="float64",
+                )
+            },
+        )
+
+        job_config = mock_client_cls.return_value.query.call_args.kwargs["job_config"]
+        parameter = job_config.query_parameters[0]
+        assert (parameter.name, parameter.array_type, parameter.values) == (
+            "embedding",
+            "FLOAT64",
+            [0.25, 0.75],
         )
 
     @pytest.mark.parametrize(

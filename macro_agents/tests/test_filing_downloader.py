@@ -11,7 +11,6 @@ from macro_agents.defs.domains.sec.filing_downloader import (
 
 
 def _make_filing_row(**overrides):
-    """Create a standard filing row dict for tests."""
     defaults = {
         "filing_id": "fid-001",
         "cik": "0000320193",
@@ -28,20 +27,20 @@ def _make_filing_row(**overrides):
 
 
 def _make_downloader():
-    """Create a FilingDownloader with mocked resources."""
     sec_edgar = MagicMock()
     gcs = MagicMock()
+    bq = MagicMock()
+    bq.dataset = "economics_raw_dev"
     log = MagicMock()
-    return FilingDownloader(sec_edgar, gcs, log), sec_edgar, gcs, log
+    return FilingDownloader(sec_edgar, gcs, bq, log), sec_edgar, gcs, bq, log
 
 
 class TestDownloadFiling:
-    def test_success(self):
-        downloader, sec_edgar, gcs, _ = _make_downloader()
+    def test_success_marks_filing_processed_with_named_parameters(self):
+        downloader, sec_edgar, gcs, bq, _ = _make_downloader()
         sec_edgar.download_filing_document.return_value = "<html>content</html>"
-        conn = MagicMock()
 
-        result = downloader.download_filing(conn, _make_filing_row())
+        result = downloader.download_filing(_make_filing_row())
 
         assert result.status == "downloaded"
         assert result.filing_id == "fid-001"
@@ -49,60 +48,54 @@ class TestDownloadFiling:
         assert result.gcs_path is not None
         assert "AAPL" in result.gcs_path
         assert result.error is None
-
         sec_edgar.download_filing_document.assert_called_once()
         gcs.upload_json.assert_called_once()
-        conn.query.assert_called_once()
+        query = bq.execute_query.call_args.args[0]
+        assert "gcs_path = @gcs_path" in query
+        assert bq.execute_query.call_args.kwargs == {
+            "read_only": False,
+            "params": {
+                "gcs_path": result.gcs_path,
+                "symbol": "AAPL",
+                "filing_id": "fid-001",
+            },
+        }
 
-    def test_no_primary_document_empty(self):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
+    def test_no_primary_document(self):
+        downloader, _, _, bq, _ = _make_downloader()
 
-        result = downloader.download_filing(conn, _make_filing_row(primary_document=""))
-
-        assert result.status == "no_document"
-        assert result.filing_id == "fid-001"
-        conn.query.assert_not_called()
-
-    def test_no_primary_document_none(self):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-
-        result = downloader.download_filing(
-            conn, _make_filing_row(primary_document=None)
-        )
+        result = downloader.download_filing(_make_filing_row(primary_document=None))
 
         assert result.status == "no_document"
+        bq.execute_query.assert_not_called()
 
     def test_sec_download_error(self):
-        downloader, sec_edgar, _, _ = _make_downloader()
+        downloader, sec_edgar, _, bq, _ = _make_downloader()
         sec_edgar.download_filing_document.side_effect = RuntimeError("SEC timeout")
-        conn = MagicMock()
 
-        result = downloader.download_filing(conn, _make_filing_row())
+        result = downloader.download_filing(_make_filing_row())
 
         assert result.status == "error"
         assert result.error is not None
         assert "SEC timeout" in result.error
-        conn.commit.assert_not_called()
+        bq.execute_query.assert_not_called()
 
     def test_gcs_upload_error(self):
-        downloader, sec_edgar, gcs, _ = _make_downloader()
+        downloader, sec_edgar, gcs, bq, _ = _make_downloader()
         sec_edgar.download_filing_document.return_value = "<html>content</html>"
         gcs.upload_json.side_effect = RuntimeError("GCS permission denied")
-        conn = MagicMock()
 
-        result = downloader.download_filing(conn, _make_filing_row())
+        result = downloader.download_filing(_make_filing_row())
 
         assert result.status == "error"
         assert "GCS permission denied" in result.error
+        bq.execute_query.assert_not_called()
 
     def test_gcs_path_format(self):
-        downloader, sec_edgar, gcs, _ = _make_downloader()
+        downloader, sec_edgar, _, _, _ = _make_downloader()
         sec_edgar.download_filing_document.return_value = "<html/>"
-        conn = MagicMock()
 
-        result = downloader.download_filing(conn, _make_filing_row())
+        result = downloader.download_filing(_make_filing_row())
 
         expected_prefix = "sec_filings/AAPL/10-K/2024/0000320193/000032019324000008"
         assert result.gcs_path == f"{expected_prefix}/aapl-10k.htm"
@@ -110,11 +103,13 @@ class TestDownloadFiling:
 
 class TestDownloadBatch:
     def test_all_success(self):
-        downloader, sec_edgar, _, _ = _make_downloader()
+        downloader, sec_edgar, _, bq, _ = _make_downloader()
         sec_edgar.download_filing_document.return_value = "<html/>"
-        conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = (0,)
-
+        bq.execute_query.side_effect = [
+            pl.DataFrame(),
+            pl.DataFrame(),
+            pl.DataFrame({"count": [0]}),
+        ]
         filings = pl.DataFrame(
             [
                 _make_filing_row(filing_id="fid-001", symbol="AAPL"),
@@ -122,22 +117,21 @@ class TestDownloadBatch:
             ]
         )
 
-        result = downloader.download_batch(conn, filings)
+        result = downloader.download_batch(filings)
 
         assert isinstance(result, BatchDownloadResult)
         assert result.total_downloaded == 2
         assert result.total_errors == 0
         assert result.error_details == []
+        assert result.remaining == 0
 
     def test_mixed_results(self):
-        downloader, sec_edgar, _, _ = _make_downloader()
+        downloader, sec_edgar, _, bq, _ = _make_downloader()
         sec_edgar.download_filing_document.side_effect = [
             "<html/>",
             RuntimeError("timeout"),
         ]
-        conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = (5,)
-
+        bq.execute_query.side_effect = [pl.DataFrame(), pl.DataFrame({"count": [5]})]
         filings = pl.DataFrame(
             [
                 _make_filing_row(filing_id="fid-001"),
@@ -145,130 +139,72 @@ class TestDownloadBatch:
             ]
         )
 
-        result = downloader.download_batch(conn, filings)
+        result = downloader.download_batch(filings)
 
         assert result.total_downloaded == 1
         assert result.total_errors == 1
         assert len(result.error_details) == 1
         assert result.remaining == 5
 
-    def test_empty_dataframe(self):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = (0,)
-
-        filings = pl.DataFrame(
-            schema={
-                "filing_id": pl.Utf8,
-                "cik": pl.Utf8,
-                "symbol": pl.Utf8,
-                "accession_number": pl.Utf8,
-                "form_type": pl.Utf8,
-                "filing_date": pl.Utf8,
-                "report_date": pl.Utf8,
-                "primary_document": pl.Utf8,
-                "company_name": pl.Utf8,
-            }
-        )
-
-        result = downloader.download_batch(conn, filings)
-
-        assert result.total_downloaded == 0
-        assert result.total_errors == 0
-
 
 class TestQueryMethods:
     @patch("macro_agents.defs.domains.sec.filing_downloader.ensure_sec_filings_table")
-    def test_query_unprocessed_no_symbol(self, mock_ensure):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.execute.return_value.pl.return_value = pl.DataFrame([_make_filing_row()])
+    def test_query_unprocessed_uses_named_symbol_and_limit(self, mock_ensure):
+        downloader, _, _, bq, _ = _make_downloader()
+        conn = bq.get_connection.return_value
+        bq.execute_query.return_value = pl.DataFrame([_make_filing_row()])
 
-        result = downloader.query_unprocessed_filings(conn)
+        result = downloader.query_unprocessed_filings(symbol="AAPL", limit=10)
 
-        mock_ensure.assert_called_once_with(conn)
-        call_args = conn.execute.call_args
-        query = call_args[0][0]
-        assert "processed = FALSE" in query
-        assert "f.symbol = ?" not in query
+        mock_ensure.assert_called_once_with(conn, "economics_raw_dev")
+        conn.close.assert_called_once()
+        query = bq.execute_query.call_args.args[0]
+        assert "f.symbol = @symbol" in query
+        assert "LIMIT @limit" in query
+        assert bq.execute_query.call_args.kwargs["params"] == {
+            "symbol": "AAPL",
+            "limit": 10,
+        }
         assert len(result) == 1
 
     @patch("macro_agents.defs.domains.sec.filing_downloader.ensure_sec_filings_table")
-    def test_query_unprocessed_with_symbol(self, mock_ensure):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.execute.return_value.pl.return_value = pl.DataFrame([_make_filing_row()])
+    def test_query_filing_by_id_uses_named_parameters(self, _mock_ensure):
+        downloader, _, _, bq, _ = _make_downloader()
+        bq.execute_query.return_value = pl.DataFrame([_make_filing_row()])
 
-        downloader.query_unprocessed_filings(conn, symbol="AAPL")
+        result = downloader.query_filing_by_id("fid-001", symbol="AAPL")
 
-        call_args = conn.execute.call_args
-        query = call_args[0][0]
-        params = call_args[0][1]
-        assert "f.symbol = ?" in query
-        assert "AAPL" in params
-
-    @patch("macro_agents.defs.domains.sec.filing_downloader.ensure_sec_filings_table")
-    def test_query_filing_by_id(self, mock_ensure):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.execute.return_value.pl.return_value = pl.DataFrame([_make_filing_row()])
-
-        result = downloader.query_filing_by_id(conn, "fid-001")
-
-        call_args = conn.execute.call_args
-        query = call_args[0][0]
-        assert "f.filing_id = ?" in query
-        assert "f.symbol = ?" not in query
+        query = bq.execute_query.call_args.args[0]
+        assert "f.filing_id = @filing_id" in query
+        assert "f.symbol = @symbol" in query
+        assert bq.execute_query.call_args.kwargs["params"] == {
+            "filing_id": "fid-001",
+            "symbol": "AAPL",
+        }
         assert len(result) == 1
 
-    @patch("macro_agents.defs.domains.sec.filing_downloader.ensure_sec_filings_table")
-    def test_query_filing_by_id_with_symbol(self, mock_ensure):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.execute.return_value.pl.return_value = pl.DataFrame([_make_filing_row()])
 
-        downloader.query_filing_by_id(conn, "fid-001", symbol="AAPL")
+class TestStatusQueries:
+    def test_is_filing_processed(self):
+        downloader, _, _, bq, _ = _make_downloader()
+        bq.execute_query.return_value = pl.DataFrame({"processed": [True]})
 
-        call_args = conn.execute.call_args
-        query = call_args[0][0]
-        assert "f.filing_id = ?" in query
-        assert "f.symbol = ?" in query
+        assert downloader.is_filing_processed("fid-001", "AAPL") is True
+        assert bq.execute_query.call_args.kwargs["params"] == {
+            "filing_id": "fid-001",
+            "symbol": "AAPL",
+        }
 
+    def test_is_filing_processed_when_not_found(self):
+        downloader, _, _, bq, _ = _make_downloader()
+        bq.execute_query.return_value = pl.DataFrame(
+            {"processed": []}, schema={"processed": pl.Boolean}
+        )
 
-class TestIsFilingProcessed:
-    def test_processed_true(self):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.query.return_value.result.return_value.fetchone.return_value = (True,)
+        assert downloader.is_filing_processed("fid-001", "AAPL") is False
 
-        assert downloader.is_filing_processed(conn, "fid-001", "AAPL") is True
+    def test_count_remaining_unprocessed(self):
+        downloader, _, _, bq, _ = _make_downloader()
+        bq.execute_query.return_value = pl.DataFrame({"count": [42]})
 
-    def test_processed_false(self):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.query.return_value.result.return_value.fetchone.return_value = (False,)
-
-        assert downloader.is_filing_processed(conn, "fid-001", "AAPL") is False
-
-    def test_not_found(self):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.query.return_value.result.return_value.fetchone.return_value = None
-
-        assert downloader.is_filing_processed(conn, "fid-001", "AAPL") is False
-
-
-class TestCountRemainingUnprocessed:
-    def test_some_remaining(self):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = (42,)
-
-        assert downloader.count_remaining_unprocessed(conn) == 42
-
-    def test_none_remaining(self):
-        downloader, _, _, _ = _make_downloader()
-        conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = (0,)
-
-        assert downloader.count_remaining_unprocessed(conn) == 0
+        assert downloader.count_remaining_unprocessed() == 42

@@ -173,26 +173,44 @@ def sec_filing_business_intelligence(
                         filing_id, signal.category, signal.position
                     )
 
-                    conn.query(
+                    bq.execute_query(
                         """
-                        INSERT INTO sec_filing_search_terms
-                        (term_id, filing_id, term_category, term_text,
-                         context_text, section_name, confidence_score)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT (term_id) DO UPDATE SET
-                        context_text = EXCLUDED.context_text,
-                        confidence_score = EXCLUDED.confidence_score
+                        MERGE sec_filing_search_terms AS target
+                        USING (
+                            SELECT
+                                @term_id AS term_id,
+                                @filing_id AS filing_id,
+                                @term_category AS term_category,
+                                @term_text AS term_text,
+                                @context_text AS context_text,
+                                @section_name AS section_name,
+                                @confidence_score AS confidence_score
+                        ) AS source
+                        ON target.term_id = source.term_id
+                        WHEN MATCHED THEN UPDATE SET
+                            context_text = source.context_text,
+                            confidence_score = source.confidence_score
+                        WHEN NOT MATCHED THEN INSERT (
+                            term_id, filing_id, term_category, term_text,
+                            context_text, section_name, confidence_score
+                        ) VALUES (
+                            source.term_id, source.filing_id,
+                            source.term_category, source.term_text,
+                            source.context_text, source.section_name,
+                            source.confidence_score
+                        )
                         """,
-                        [  # ty: ignore[invalid-argument-type]
-                            term_id,
-                            filing_id,
-                            signal.category,
-                            signal.term[:SIGNAL_TERM_MAX_LENGTH],
-                            signal.context[:SIGNAL_CONTEXT_MAX_LENGTH],
-                            signal.section_name,
-                            signal.confidence_score,
-                        ],
-                    ).result()
+                        read_only=False,
+                        params={
+                            "term_id": term_id,
+                            "filing_id": filing_id,
+                            "term_category": signal.category,
+                            "term_text": signal.term[:SIGNAL_TERM_MAX_LENGTH],
+                            "context_text": signal.context[:SIGNAL_CONTEXT_MAX_LENGTH],
+                            "section_name": signal.section_name,
+                            "confidence_score": signal.confidence_score,
+                        },
+                    )
 
                     # Track category counts
                     category_counts[signal.category] = (

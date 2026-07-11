@@ -106,22 +106,28 @@ def sec_filing_gcs_migration(
                             gcs.upload_json(new_gcs_path, data, context=context)
 
                     # Update sec_filings row
-                    conn.query(
+                    bq.execute_query(
                         """
                         UPDATE sec_filings
-                        SET gcs_path = ?
-                        WHERE symbol = ? AND filing_id = ?
+                        SET gcs_path = @gcs_path
+                        WHERE symbol = @symbol AND filing_id = @filing_id
                         """,
-                        [new_gcs_path, symbol, filing_id],  # ty: ignore[invalid-argument-type]
-                    ).result()
+                        read_only=False,
+                        params={
+                            "gcs_path": new_gcs_path,
+                            "symbol": symbol,
+                            "filing_id": filing_id,
+                        },
+                    )
 
                     # Migrate extracted content paths
                     content_df = bq.execute_query(
-                        f"""
+                        """
                         SELECT content_id, gcs_path
                         FROM sec_filing_content
-                        WHERE filing_id = '{filing_id}' AND gcs_path IS NOT NULL
-                        """
+                        WHERE filing_id = @filing_id AND gcs_path IS NOT NULL
+                        """,
+                        params={"filing_id": filing_id},
                     )
 
                     for content_row in content_df.iter_rows(named=True):
@@ -155,14 +161,18 @@ def sec_filing_gcs_migration(
                                     new_content_path, content_data, context=context
                                 )
 
-                        conn.query(
+                        bq.execute_query(
                             """
                             UPDATE sec_filing_content
-                            SET gcs_path = ?
-                            WHERE content_id = ?
+                            SET gcs_path = @gcs_path
+                            WHERE content_id = @content_id
                             """,
-                            [new_content_path, content_row["content_id"]],  # ty: ignore[invalid-argument-type]
-                        ).result()
+                            read_only=False,
+                            params={
+                                "gcs_path": new_content_path,
+                                "content_id": content_row["content_id"],
+                            },
+                        )
                     total_migrated += 1
                     context.log.debug(f"Migrated {symbol}/{filing_id}")
 

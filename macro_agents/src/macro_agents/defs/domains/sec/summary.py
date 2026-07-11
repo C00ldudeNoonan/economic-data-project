@@ -1,6 +1,7 @@
 import dagster as dg
 
 from macro_agents.defs.domains.sec.bi import sec_filing_business_intelligence
+from macro_agents.defs.resources.bigquery_query import QueryParameter
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
@@ -144,59 +145,94 @@ def sec_company_bi_summary(
             risk_score = min(1.0, category_counts["risk_factors"] / 20)
 
             # Upsert summary record
-            conn.query(
+            bq.execute_query(
                 """
-                INSERT INTO sec_company_bi_summary (
-                    symbol, company_name, latest_10k_date, latest_10q_date,
-                    total_filings, total_signals,
-                    growth_signals_count, hiring_signals_count,
-                    market_expansion_count, capex_signals_count,
-                    innovation_signals_count, efficiency_signals_count,
-                    risk_signals_count, financial_health_count,
-                    strategic_signals_count, avg_confidence,
-                    growth_score, risk_score, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT (symbol) DO UPDATE SET
-                    company_name = EXCLUDED.company_name,
-                    latest_10k_date = EXCLUDED.latest_10k_date,
-                    latest_10q_date = EXCLUDED.latest_10q_date,
-                    total_filings = EXCLUDED.total_filings,
-                    total_signals = EXCLUDED.total_signals,
-                    growth_signals_count = EXCLUDED.growth_signals_count,
-                    hiring_signals_count = EXCLUDED.hiring_signals_count,
-                    market_expansion_count = EXCLUDED.market_expansion_count,
-                    capex_signals_count = EXCLUDED.capex_signals_count,
-                    innovation_signals_count = EXCLUDED.innovation_signals_count,
-                    efficiency_signals_count = EXCLUDED.efficiency_signals_count,
-                    risk_signals_count = EXCLUDED.risk_signals_count,
-                    financial_health_count = EXCLUDED.financial_health_count,
-                    strategic_signals_count = EXCLUDED.strategic_signals_count,
-                    avg_confidence = EXCLUDED.avg_confidence,
-                    growth_score = EXCLUDED.growth_score,
-                    risk_score = EXCLUDED.risk_score,
+                MERGE sec_company_bi_summary AS target
+                USING (
+                    SELECT
+                        @symbol AS symbol,
+                        @company_name AS company_name,
+                        @latest_10k_date AS latest_10k_date,
+                        @latest_10q_date AS latest_10q_date,
+                        @total_filings AS total_filings,
+                        @total_signals AS total_signals,
+                        @growth_signals_count AS growth_signals_count,
+                        @hiring_signals_count AS hiring_signals_count,
+                        @market_expansion_count AS market_expansion_count,
+                        @capex_signals_count AS capex_signals_count,
+                        @innovation_signals_count AS innovation_signals_count,
+                        @efficiency_signals_count AS efficiency_signals_count,
+                        @risk_signals_count AS risk_signals_count,
+                        @financial_health_count AS financial_health_count,
+                        @strategic_signals_count AS strategic_signals_count,
+                        @avg_confidence AS avg_confidence,
+                        @growth_score AS growth_score,
+                        @risk_score AS risk_score
+                ) AS source
+                ON target.symbol = source.symbol
+                WHEN MATCHED THEN UPDATE SET
+                    company_name = source.company_name,
+                    latest_10k_date = source.latest_10k_date,
+                    latest_10q_date = source.latest_10q_date,
+                    total_filings = source.total_filings,
+                    total_signals = source.total_signals,
+                    growth_signals_count = source.growth_signals_count,
+                    hiring_signals_count = source.hiring_signals_count,
+                    market_expansion_count = source.market_expansion_count,
+                    capex_signals_count = source.capex_signals_count,
+                    innovation_signals_count = source.innovation_signals_count,
+                    efficiency_signals_count = source.efficiency_signals_count,
+                    risk_signals_count = source.risk_signals_count,
+                    financial_health_count = source.financial_health_count,
+                    strategic_signals_count = source.strategic_signals_count,
+                    avg_confidence = source.avg_confidence,
+                    growth_score = source.growth_score,
+                    risk_score = source.risk_score,
                     updated_at = CURRENT_TIMESTAMP
-            """,
-                [  # ty: ignore[invalid-argument-type]
-                    symbol,
-                    company_name,
-                    latest_10k,
-                    latest_10q,
-                    total_filings,
-                    total_signals,
-                    category_counts["growth_signals"],
-                    category_counts["hiring_plans"],
-                    category_counts["market_expansion"],
-                    category_counts["capex_investment"],
-                    category_counts["product_innovation"],
-                    category_counts["cost_efficiency"],
-                    category_counts["risk_factors"],
-                    category_counts["financial_health"],
-                    category_counts["strategic_initiatives"],
-                    avg_confidence,
-                    growth_score,
-                    risk_score,
-                ],
-            ).result()
+                WHEN NOT MATCHED THEN INSERT (
+                    symbol, company_name, latest_10k_date, latest_10q_date,
+                    total_filings, total_signals, growth_signals_count,
+                    hiring_signals_count, market_expansion_count,
+                    capex_signals_count, innovation_signals_count,
+                    efficiency_signals_count, risk_signals_count,
+                    financial_health_count, strategic_signals_count,
+                    avg_confidence, growth_score, risk_score, updated_at
+                ) VALUES (
+                    source.symbol, source.company_name,
+                    source.latest_10k_date, source.latest_10q_date,
+                    source.total_filings, source.total_signals,
+                    source.growth_signals_count, source.hiring_signals_count,
+                    source.market_expansion_count, source.capex_signals_count,
+                    source.innovation_signals_count,
+                    source.efficiency_signals_count,
+                    source.risk_signals_count,
+                    source.financial_health_count,
+                    source.strategic_signals_count, source.avg_confidence,
+                    source.growth_score, source.risk_score, CURRENT_TIMESTAMP
+                )
+                """,
+                read_only=False,
+                params={
+                    "symbol": symbol,
+                    "company_name": QueryParameter(company_name, "STRING"),
+                    "latest_10k_date": QueryParameter(latest_10k, "DATE"),
+                    "latest_10q_date": QueryParameter(latest_10q, "DATE"),
+                    "total_filings": total_filings,
+                    "total_signals": total_signals,
+                    "growth_signals_count": category_counts["growth_signals"],
+                    "hiring_signals_count": category_counts["hiring_plans"],
+                    "market_expansion_count": category_counts["market_expansion"],
+                    "capex_signals_count": category_counts["capex_investment"],
+                    "innovation_signals_count": category_counts["product_innovation"],
+                    "efficiency_signals_count": category_counts["cost_efficiency"],
+                    "risk_signals_count": category_counts["risk_factors"],
+                    "financial_health_count": category_counts["financial_health"],
+                    "strategic_signals_count": category_counts["strategic_initiatives"],
+                    "avg_confidence": avg_confidence,
+                    "growth_score": growth_score,
+                    "risk_score": risk_score,
+                },
+            )
 
             total_updated += 1
         # Get summary statistics

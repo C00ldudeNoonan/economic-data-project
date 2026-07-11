@@ -8,6 +8,7 @@ import polars as pl
 import dagster as dg
 
 from macro_agents.defs.analysis.fed_sentiment.resource import FedSentimentResource
+from macro_agents.defs.resources.bigquery_query import QueryParameter
 from macro_agents.defs.resources.federal_reserve import FederalReserveResource
 from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
@@ -398,36 +399,70 @@ def process_fomc_transcripts(
                 page_count = meta["page_count"]
 
                 # Update fomc_transcripts with extracted text
-                conn.query(
+                bq.execute_query(
                     """
                     UPDATE fomc_transcripts
-                    SET full_text = $1, word_count = $2, page_count = $3,
+                    SET full_text = @full_text,
+                        word_count = @word_count,
+                        page_count = @page_count,
                         processed_date = CURRENT_TIMESTAMP
-                    WHERE transcript_id = $4
+                    WHERE transcript_id = @transcript_id
                     """,
-                    [full_text, word_count, page_count, transcript_id],  # ty: ignore[invalid-argument-type]
-                ).result()
+                    read_only=False,
+                    params={
+                        "full_text": full_text,
+                        "word_count": word_count,
+                        "page_count": page_count,
+                        "transcript_id": transcript_id,
+                    },
+                )
 
                 # Parse into speaker sections
                 sections = _parse_transcript_sections(full_text, transcript_id)
                 for section in sections:
-                    conn.query(
+                    bq.execute_query(
                         """
-                        INSERT OR REPLACE INTO transcript_sections
-                        (section_id, transcript_id, section_order, section_type,
-                         speaker, speaker_role, content)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        MERGE transcript_sections AS target
+                        USING (
+                            SELECT
+                                @section_id AS section_id,
+                                @transcript_id AS transcript_id,
+                                @section_order AS section_order,
+                                @section_type AS section_type,
+                                @speaker AS speaker,
+                                @speaker_role AS speaker_role,
+                                @content AS content
+                        ) AS source
+                        ON target.section_id = source.section_id
+                        WHEN MATCHED THEN UPDATE SET
+                            transcript_id = source.transcript_id,
+                            section_order = source.section_order,
+                            section_type = source.section_type,
+                            speaker = source.speaker,
+                            speaker_role = source.speaker_role,
+                            content = source.content
+                        WHEN NOT MATCHED THEN INSERT (
+                            section_id, transcript_id, section_order,
+                            section_type, speaker, speaker_role, content
+                        ) VALUES (
+                            source.section_id, source.transcript_id,
+                            source.section_order, source.section_type,
+                            source.speaker, source.speaker_role, source.content
+                        )
                         """,
-                        [  # ty: ignore[invalid-argument-type]
-                            section["section_id"],
-                            transcript_id,
-                            section["section_order"],
-                            section["section_type"],
-                            section["speaker"],
-                            section.get("speaker_role"),
-                            section["content"],
-                        ],
-                    ).result()
+                        read_only=False,
+                        params={
+                            "section_id": section["section_id"],
+                            "transcript_id": transcript_id,
+                            "section_order": section["section_order"],
+                            "section_type": section["section_type"],
+                            "speaker": section["speaker"],
+                            "speaker_role": QueryParameter(
+                                section.get("speaker_role"), "STRING"
+                            ),
+                            "content": section["content"],
+                        },
+                    )
 
                 total_sections += len(sections)
                 context.log.info(

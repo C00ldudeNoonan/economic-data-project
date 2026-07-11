@@ -15,6 +15,7 @@ from macro_agents.defs.domains.sec.helpers import (
     build_filing_metadata_envelope,
 )
 from macro_agents.defs.domains.sec.tables import ensure_sec_filings_table
+from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 
@@ -68,16 +69,22 @@ _REMAINING_COUNT_QUERY = """
 class FilingDownloader:
     """Downloads SEC filing documents to GCS and marks them processed in the database."""
 
-    def __init__(self, sec_edgar: SECEdgarResource, gcs: GCSResource, log: Logger):
+    def __init__(
+        self,
+        sec_edgar: SECEdgarResource,
+        gcs: GCSResource,
+        bq: BigQueryWarehouseResource,
+        log: Logger,
+    ) -> None:
         self.sec_edgar = sec_edgar
         self.gcs = gcs
+        self.bq = bq
         self.log = log
 
-    def download_filing(self, conn, filing_row: dict) -> FilingDownloadResult:
+    def download_filing(self, filing_row: dict) -> FilingDownloadResult:
         """Download a single filing document to GCS and mark it processed.
 
         Args:
-            conn: DuckDB connection
             filing_row: Dict with keys: filing_id, cik, symbol, accession_number,
                         form_type, filing_date, report_date, primary_document,
                         company_name
@@ -130,14 +137,19 @@ class FilingDownloader:
                 context=None,
             )
 
-            conn.query(
+            self.bq.execute_query(
                 """
                 UPDATE sec_filings
-                SET gcs_path = ?, processed = TRUE
-                WHERE symbol = ? AND filing_id = ?
+                SET gcs_path = @gcs_path, processed = TRUE
+                WHERE symbol = @symbol AND filing_id = @filing_id
                 """,
-                [doc_gcs_path, symbol, filing_id],
-            ).result()
+                read_only=False,
+                params={
+                    "gcs_path": doc_gcs_path,
+                    "symbol": symbol,
+                    "filing_id": filing_id,
+                },
+            )
             self.log.debug(f"Downloaded {form_type} for {symbol} ({filing_id})")
             return FilingDownloadResult(
                 status="downloaded",
@@ -156,11 +168,10 @@ class FilingDownloader:
                 error=error_msg,
             )
 
-    def download_batch(self, conn, filings_df: pl.DataFrame) -> BatchDownloadResult:
+    def download_batch(self, filings_df: pl.DataFrame) -> BatchDownloadResult:
         """Download multiple filings, collecting results and errors.
 
         Args:
-            conn: DuckDB connection
             filings_df: DataFrame with filing rows (same columns as query_unprocessed_filings)
 
         Returns:
@@ -171,7 +182,7 @@ class FilingDownloader:
         errors: list[str] = []
 
         for row in filings_df.iter_rows(named=True):
-            result = self.download_filing(conn, row)
+            result = self.download_filing(row)
             if result.status == "downloaded":
                 total_downloaded += 1
             elif result.status == "error":
@@ -179,7 +190,7 @@ class FilingDownloader:
                 if result.error:
                     errors.append(result.error)
 
-        remaining = self.count_remaining_unprocessed(conn)
+        remaining = self.count_remaining_unprocessed()
 
         return BatchDownloadResult(
             total_downloaded=total_downloaded,
@@ -189,65 +200,73 @@ class FilingDownloader:
         )
 
     def query_unprocessed_filings(
-        self, conn, *, symbol: str | None = None, limit: int = BATCH_SIZE_STANDARD
+        self, *, symbol: str | None = None, limit: int = BATCH_SIZE_STANDARD
     ) -> pl.DataFrame:
         """Query sec_filings for unprocessed filings.
 
         Args:
-            conn: DuckDB connection
             symbol: If provided, filter to this company symbol
             limit: Max number of filings to return
 
         Returns:
             DataFrame with filing rows ready for download_filing().
         """
-        ensure_sec_filings_table(conn)
+        self._ensure_sec_filings_table()
 
         query = _FILINGS_QUERY + _UNPROCESSED_FILTER
-        params: list = []
+        params: dict[str, str | int] = {"limit": limit}
 
         if symbol:
-            query += " AND f.symbol = ?"
-            params.append(symbol)
+            query += " AND f.symbol = @symbol"
+            params["symbol"] = symbol
 
-        query += f" LIMIT {limit}"
+        query += " LIMIT @limit"
 
-        return conn.execute(query, params).pl()
+        return self.bq.execute_query(query, params=params)
 
     def query_filing_by_id(
-        self, conn, filing_id: str, *, symbol: str | None = None
+        self, filing_id: str, *, symbol: str | None = None
     ) -> pl.DataFrame:
         """Load a specific filing by ID.
 
         Args:
-            conn: DuckDB connection
             filing_id: The filing ID to look up
             symbol: Optional symbol filter
 
         Returns:
             DataFrame with 0 or 1 rows.
         """
-        ensure_sec_filings_table(conn)
+        self._ensure_sec_filings_table()
 
-        query = _FILINGS_QUERY + " WHERE f.filing_id = ?"
-        params: list = [filing_id]
+        query = _FILINGS_QUERY + " WHERE f.filing_id = @filing_id"
+        params = {"filing_id": filing_id}
 
         if symbol:
-            query += " AND f.symbol = ?"
-            params.append(symbol)
+            query += " AND f.symbol = @symbol"
+            params["symbol"] = symbol
 
-        return conn.execute(query, params).pl()
+        return self.bq.execute_query(query, params=params)
 
-    def is_filing_processed(self, conn, filing_id: str, symbol: str) -> bool:
+    def is_filing_processed(self, filing_id: str, symbol: str) -> bool:
         """Check if a filing has already been processed."""
-        result = conn.query(
-            "SELECT processed FROM sec_filings WHERE filing_id = ? AND symbol = ?",
-            [filing_id, symbol],
-        ).result()
-        row = result.fetchone()
-        return bool(row and row[0] is True)
+        result = self.bq.execute_query(
+            """
+            SELECT processed
+            FROM sec_filings
+            WHERE filing_id = @filing_id AND symbol = @symbol
+            """,
+            params={"filing_id": filing_id, "symbol": symbol},
+        )
+        return not result.is_empty() and result["processed"][0] is True
 
-    def count_remaining_unprocessed(self, conn) -> int:
+    def count_remaining_unprocessed(self) -> int:
         """Count filings still awaiting processing."""
-        row = conn.execute(_REMAINING_COUNT_QUERY).fetchone()
-        return row[0] if row else 0
+        result = self.bq.execute_query(_REMAINING_COUNT_QUERY)
+        return 0 if result.is_empty() else int(result.item(0, 0))
+
+    def _ensure_sec_filings_table(self) -> None:
+        conn = self.bq.get_connection()
+        try:
+            ensure_sec_filings_table(conn, self.bq.dataset)
+        finally:
+            conn.close()

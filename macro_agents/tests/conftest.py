@@ -16,6 +16,7 @@ from unittest.mock import Mock
 import duckdb
 import polars as pl
 import pytest
+from google.cloud import bigquery
 
 from macro_agents.defs.resources.bigquery_query import (
     QueryParameters,
@@ -165,7 +166,14 @@ def _bind_named_parameters(
         read_only=read_only,
         params=params,
     )
-    values_by_name = {parameter.name: parameter.value for parameter in query_parameters}
+    values_by_name = {
+        parameter.name: (
+            parameter.values
+            if isinstance(parameter, bigquery.ArrayQueryParameter)
+            else parameter.value
+        )
+        for parameter in query_parameters
+    }
     ordered_values: list[object] = []
 
     def replace_parameter(match: re.Match[str]) -> str:

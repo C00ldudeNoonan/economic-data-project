@@ -133,25 +133,43 @@ def sec_filing_fts_index(
                     if not content_text:
                         continue
 
-                    conn.query(
+                    bq.execute_query(
                         f"""
-                        INSERT INTO {FTS_TABLE}
-                        (content_id, filing_id, symbol, form_type,
-                         filing_date, section_name, content_text, word_count)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT (content_id) DO NOTHING
+                        MERGE {FTS_TABLE} AS target
+                        USING (
+                            SELECT
+                                @content_id AS content_id,
+                                @filing_id AS filing_id,
+                                @symbol AS symbol,
+                                @form_type AS form_type,
+                                @filing_date AS filing_date,
+                                @section_name AS section_name,
+                                @content_text AS content_text,
+                                @word_count AS word_count
+                        ) AS source
+                        ON target.content_id = source.content_id
+                        WHEN NOT MATCHED THEN INSERT (
+                            content_id, filing_id, symbol, form_type,
+                            filing_date, section_name, content_text, word_count
+                        ) VALUES (
+                            source.content_id, source.filing_id, source.symbol,
+                            source.form_type, source.filing_date,
+                            source.section_name, source.content_text,
+                            source.word_count
+                        )
                         """,
-                        [  # ty: ignore[invalid-argument-type]
-                            row["content_id"],
-                            row["filing_id"],
-                            row["symbol"],
-                            row["form_type"],
-                            row["filing_date"],
-                            row["section_name"],
-                            content_text,
-                            row["word_count"],
-                        ],
-                    ).result()
+                        read_only=False,
+                        params={
+                            "content_id": row["content_id"],
+                            "filing_id": row["filing_id"],
+                            "symbol": row["symbol"],
+                            "form_type": row["form_type"],
+                            "filing_date": row["filing_date"],
+                            "section_name": row["section_name"],
+                            "content_text": content_text,
+                            "word_count": row["word_count"],
+                        },
+                    )
                     rows_inserted += 1
 
                 except Exception as e:

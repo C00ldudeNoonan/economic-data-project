@@ -13,6 +13,7 @@ from macro_agents.defs.domains.markets.partitions import sp500_company_tickers
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_llm_metadata_table
 from macro_agents.defs.domains.sec.config import MAX_ERROR_DETAILS
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
+from macro_agents.defs.resources.bigquery_query import QueryArrayParameter
 from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.ollama import OllamaResource
@@ -129,42 +130,70 @@ def sec_filing_llm_analysis(
                 # Build metadata record
                 metadata_id = _generate_metadata_id(filing_id, section_name)
 
-                conn.query(
+                bq.execute_query(
                     """
-                    INSERT INTO sec_filing_llm_metadata
-                    (metadata_id, filing_id, symbol, section_name,
-                     executive_summary, key_topics, sentiment,
-                     named_entities, financial_metrics,
-                     forward_looking_statements, risk_factors,
-                     embedding, model_name)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT (metadata_id) DO UPDATE SET
-                        executive_summary = EXCLUDED.executive_summary,
-                        key_topics = EXCLUDED.key_topics,
-                        sentiment = EXCLUDED.sentiment,
-                        named_entities = EXCLUDED.named_entities,
-                        financial_metrics = EXCLUDED.financial_metrics,
-                        forward_looking_statements = EXCLUDED.forward_looking_statements,
-                        risk_factors = EXCLUDED.risk_factors,
-                        embedding = EXCLUDED.embedding,
-                        model_name = EXCLUDED.model_name
+                    MERGE sec_filing_llm_metadata AS target
+                    USING (
+                        SELECT
+                            @metadata_id AS metadata_id,
+                            @filing_id AS filing_id,
+                            @symbol AS symbol,
+                            @section_name AS section_name,
+                            @executive_summary AS executive_summary,
+                            @key_topics AS key_topics,
+                            @sentiment AS sentiment,
+                            @named_entities AS named_entities,
+                            @financial_metrics AS financial_metrics,
+                            @forward_looking_statements AS forward_looking_statements,
+                            @risk_factors AS risk_factors,
+                            @embedding AS embedding,
+                            @model_name AS model_name
+                    ) AS source
+                    ON target.metadata_id = source.metadata_id
+                    WHEN MATCHED THEN UPDATE SET
+                        executive_summary = source.executive_summary,
+                        key_topics = source.key_topics,
+                        sentiment = source.sentiment,
+                        named_entities = source.named_entities,
+                        financial_metrics = source.financial_metrics,
+                        forward_looking_statements = source.forward_looking_statements,
+                        risk_factors = source.risk_factors,
+                        embedding = source.embedding,
+                        model_name = source.model_name
+                    WHEN NOT MATCHED THEN INSERT (
+                        metadata_id, filing_id, symbol, section_name,
+                        executive_summary, key_topics, sentiment,
+                        named_entities, financial_metrics,
+                        forward_looking_statements, risk_factors,
+                        embedding, model_name
+                    ) VALUES (
+                        source.metadata_id, source.filing_id, source.symbol,
+                        source.section_name, source.executive_summary,
+                        source.key_topics, source.sentiment,
+                        source.named_entities, source.financial_metrics,
+                        source.forward_looking_statements, source.risk_factors,
+                        source.embedding, source.model_name
+                    )
                     """,
-                    [  # ty: ignore[invalid-argument-type]
-                        metadata_id,
-                        filing_id,
-                        ticker,
-                        section_name,
-                        str(result.executive_summary),
-                        str(result.key_topics),
-                        str(result.sentiment),
-                        str(result.named_entities),
-                        str(result.financial_metrics),
-                        str(result.forward_looking_statements),
-                        str(result.risk_factors),
-                        embedding,
-                        ollama._model,
-                    ],
-                ).result()
+                    read_only=False,
+                    params={
+                        "metadata_id": metadata_id,
+                        "filing_id": filing_id,
+                        "symbol": ticker,
+                        "section_name": section_name,
+                        "executive_summary": str(result.executive_summary),
+                        "key_topics": str(result.key_topics),
+                        "sentiment": str(result.sentiment),
+                        "named_entities": str(result.named_entities),
+                        "financial_metrics": str(result.financial_metrics),
+                        "forward_looking_statements": str(
+                            result.forward_looking_statements
+                        ),
+                        "risk_factors": str(result.risk_factors),
+                        "embedding": QueryArrayParameter(embedding or [], "FLOAT64"),
+                        "model_name": ollama._model,
+                    },
+                )
                 total_analyzed += 1
                 context.log.debug(f"Analyzed {section_name} for {ticker} ({filing_id})")
 
