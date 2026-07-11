@@ -96,7 +96,9 @@ class TestDefaultDatasetForSchema:
     def test_defaults_to_dev_when_neither_is_set(self, monkeypatch):
         monkeypatch.delenv("DBT_TARGET", raising=False)
         monkeypatch.delenv("ENVIRONMENT", raising=False)
-        assert default_dataset_for_schema("economics_staging") == "economics_staging_dev"
+        assert (
+            default_dataset_for_schema("economics_staging") == "economics_staging_dev"
+        )
 
 
 class TestExecuteQueryErrorSurfacing:
