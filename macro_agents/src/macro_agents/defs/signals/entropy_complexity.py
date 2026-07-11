@@ -72,7 +72,7 @@ def entropy_complexity_signals(
         FROM stg_major_indices
         WHERE symbol IN ('SPY', 'QQQ')
           AND adj_close IS NOT NULL
-          AND date >= CURRENT_DATE - INTERVAL '3 years'
+          AND date >= CURRENT_DATE - INTERVAL 3 YEAR
         ORDER BY date
         """,
         read_only=True,
