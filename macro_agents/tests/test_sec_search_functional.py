@@ -4,6 +4,8 @@ Tests the full FTS index, vector search, keyword search, and hybrid search
 against an in-memory DuckDB with realistic SEC filing content.
 """
 
+import os
+
 import duckdb
 import polars as pl
 import pytest
@@ -16,6 +18,14 @@ from macro_agents.defs.domains.sec.search import (
 from macro_agents.defs.domains.sec.semantic_search import (
     keyword_search,
 )
+
+pytestmark = [
+    pytest.mark.network,
+    pytest.mark.skipif(
+        os.getenv("RUN_NETWORK_TESTS") != "1",
+        reason=("DuckDB downloads the FTS extension; run with RUN_NETWORK_TESTS=1"),
+    ),
+]
 
 
 def vector_search_3d(

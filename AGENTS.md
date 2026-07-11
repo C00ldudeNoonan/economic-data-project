@@ -12,6 +12,7 @@
 - `make ruff`: lint/format Python with Ruff.
 - `make lint` / `make fix`: lint or fix dbt SQL with SQLFluff.
 - `make typecheck-dagster`: run `ty` type-checker over `macro_agents`.
+- `make dbt-deps`: explicitly install locked dbt packages (networked setup step).
 - `make dbt-manifest`: parse dbt project.
 
 ## Worktrunk Hooks (wt)
@@ -54,11 +55,13 @@
 ## Testing Guidelines
 - Framework: `pytest` for Python (`macro_agents`).
 - Run Dagster tests: `cd macro_agents && uv run pytest tests/ -v`.
+- Install dbt packages once with `make dbt-deps`; pytest performs one offline dbt parse per session.
+- Network integration tests are opt-in: `RUN_NETWORK_TESTS=1 uv run pytest -m network`.
 - Test standards:
   - Prefer behavior-focused assertions (status, metadata, materialized values) over snapshots.
   - Cover loading, empty, error, and populated states.
   - Use deterministic fixtures and local resources (temp DuckDB, ephemeral Dagster instances); avoid network calls.
-  - For Dagster assets, use `DagsterInstance.ephemeral()` and `build_op_context` with mocked resources.
+  - Use `DagsterInstance.ephemeral()` and `build_op_context` as context managers so their database resources are disposed deterministically.
   - Keep tests isolated and fast; clean up temp files and avoid shared mutable state.
 
 ## Commit & Pull Request Guidelines

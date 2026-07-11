@@ -81,8 +81,11 @@ Dagster UI: `http://localhost:3000`
 ### Development (without Docker)
 
 ```bash
+# From the repository root, install Python and locked dbt dependencies
+make setup-dagster
+make dbt-manifest
+
 cd macro_agents
-uv sync --extra dev
 
 # Validate definitions
 uv run dg check defs
@@ -152,6 +155,9 @@ docker compose --env-file .env build       # Rebuild images
 docker compose logs -f dagster_user_code   # Tail user code logs
 
 # Development
+make dbt-deps                            # Install locked dbt packages
+make dbt-manifest                        # Generate the local manifest
+cd macro_agents
 uv run pytest tests/ -v                    # Run tests
 uv run ruff check . && ruff format .       # Lint + format
 uv run dg check defs                       # Validate Dagster definitions
