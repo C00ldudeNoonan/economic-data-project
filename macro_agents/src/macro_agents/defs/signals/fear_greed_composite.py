@@ -52,7 +52,9 @@ def fear_greed_signals(
     context: dg.AssetExecutionContext,
     bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
-    lookback = "3 years"
+    # BigQuery INTERVAL literals must be unquoted (`INTERVAL 3 YEAR`), unlike
+    # the DuckDB/Postgres quoted-string form (`INTERVAL '3 years'`).
+    lookback_years = 3
 
     # 1. Market Momentum: SPY vs 125-day MA
     context.log.info("Computing market momentum component...")
@@ -62,7 +64,7 @@ def fear_greed_signals(
                AVG(adj_close) OVER (ORDER BY date ROWS BETWEEN 124 PRECEDING AND CURRENT ROW) AS sma_125
         FROM stg_major_indices
         WHERE symbol = 'SPY' AND adj_close IS NOT NULL
-          AND date >= CURRENT_DATE - INTERVAL '{lookback}'
+          AND date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
         ORDER BY date
         """,
         read_only=True,
@@ -81,7 +83,7 @@ def fear_greed_signals(
                 MIN(adj_close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS low_52w
             FROM stg_sp500_companies_prices
             WHERE adj_close IS NOT NULL
-              AND date >= CURRENT_DATE - INTERVAL '{lookback}' - INTERVAL '1 year'
+              AND date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR - INTERVAL 1 YEAR
         ),
         daily_stats AS (
             SELECT
@@ -93,7 +95,7 @@ def fear_greed_signals(
         )
         SELECT date, new_highs, new_lows, new_highs - new_lows AS net_new_highs
         FROM daily_stats
-        WHERE date >= CURRENT_DATE - INTERVAL '{lookback}'
+        WHERE date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
         ORDER BY date
         """,
         read_only=True,
@@ -107,7 +109,7 @@ def fear_greed_signals(
                AVG(literal) OVER (ORDER BY date ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) AS vix_sma_50
         FROM stg_fred_series
         WHERE series_code = 'VIXCLS' AND literal IS NOT NULL
-          AND date >= CURRENT_DATE - INTERVAL '{lookback}'
+          AND date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
         ORDER BY date
         """,
         read_only=True,
@@ -129,7 +131,7 @@ def fear_greed_signals(
                s.spy_20d_ret - g.govt_20d_ret AS stock_bond_diff
         FROM spy_ret s
         INNER JOIN govt_ret g ON s.date = g.date
-        WHERE s.date >= CURRENT_DATE - INTERVAL '{lookback}'
+        WHERE s.date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
           AND s.spy_20d_ret IS NOT NULL AND g.govt_20d_ret IS NOT NULL
         ORDER BY s.date
         """,
@@ -150,7 +152,7 @@ def fear_greed_signals(
         )
         SELECT h.date, h.hy_spread, i.ig_spread, h.hy_spread - i.ig_spread AS hy_ig_diff
         FROM hy h INNER JOIN ig i ON h.date = i.date
-        WHERE h.date >= CURRENT_DATE - INTERVAL '{lookback}'
+        WHERE h.date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
         ORDER BY h.date
         """,
         read_only=True,

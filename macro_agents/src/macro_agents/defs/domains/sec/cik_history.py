@@ -160,7 +160,7 @@ def sec_company_cik_history(
                 SELECT current_symbol, MAX(created_at) as last_updated
                 FROM sec_company_cik_history
                 GROUP BY current_symbol
-                HAVING MAX(created_at) > CURRENT_TIMESTAMP - INTERVAL '90 days'
+                HAVING MAX(created_at) > CURRENT_TIMESTAMP - INTERVAL 90 DAY
                 """)
             recent_symbols = set(existing_df["current_symbol"].to_list())
         except Exception:

@@ -38,7 +38,7 @@ def network_correlation_signals(
         SELECT date, symbol, adj_close
         FROM sp500_companies_prices_raw
         WHERE adj_close IS NOT NULL
-          AND CAST(date AS DATE) >= CURRENT_DATE - INTERVAL '2 years'
+          AND CAST(date AS DATE) >= CURRENT_DATE - INTERVAL 2 YEAR
         ORDER BY date, symbol
         """,
         read_only=True,
