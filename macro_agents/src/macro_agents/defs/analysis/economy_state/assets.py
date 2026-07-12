@@ -306,20 +306,28 @@ def analyze_economy_state_v2(
         EconomicStateAggregatorModule,
         DomainAnalysisResult,
     )
-    from macro_agents.defs.analysis.economy_state.domain_data_fetchers import (
-        get_labor_market_data,
-        get_labor_trends_data,
-        get_financial_conditions_data,
-        get_yield_curve_data,
-        get_credit_data,
+    from macro_agents.defs.analysis.economy_state.domain_fetchers.commodities import (
+        get_agriculture_commodities_data,
         get_energy_commodities_data,
         get_input_commodities_data,
-        get_agriculture_commodities_data,
-        get_sector_data,
-        get_sector_correlation_data,
-        get_major_indices_data,
+    )
+    from macro_agents.defs.analysis.economy_state.domain_fetchers.financial import (
+        get_credit_data,
+        get_financial_conditions_data,
+        get_yield_curve_data,
+    )
+    from macro_agents.defs.analysis.economy_state.domain_fetchers.labor import (
+        get_labor_market_data,
+        get_labor_trends_data,
+    )
+    from macro_agents.defs.analysis.economy_state.domain_fetchers.market_structure import (
         get_fixed_income_data,
         get_global_markets_data,
+        get_major_indices_data,
+    )
+    from macro_agents.defs.analysis.economy_state.domain_fetchers.sectors import (
+        get_sector_data,
+        get_sector_correlation_data,
     )
 
     context.log.info(
