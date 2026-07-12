@@ -40,14 +40,20 @@ while true; do
   fi
 
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
+  raw="${BACKUP_DIR}/dagster_${stamp}.sql.partial"
   tmp="${BACKUP_DIR}/dagster_${stamp}.sql.gz.partial"
   final="${BACKUP_DIR}/dagster_${stamp}.sql.gz"
 
-  # -Fc would be smaller/parallel-restorable, but plain SQL + gzip keeps the
-  # restore drill dependency-free (psql only). Fail the cycle (not the loop)
-  # if the dump errors, so a transient failure doesn't kill the service.
+  # Dump to a temp file first and check pg_dump's OWN exit status. POSIX sh has
+  # no pipefail, so `pg_dump | gzip` would report gzip's status (often 0) and
+  # publish an empty/partial dump as a success — after which pruning could
+  # delete older valid backups. -Fc would be smaller, but plain SQL keeps the
+  # restore drill dependency-free (psql only). Failures fail the cycle, not the
+  # service loop, and pruning runs ONLY after a verified good backup.
   if pg_dump -h "$DAGSTER_DB_HOST" -p "$DAGSTER_DB_PORT" -U "$DAGSTER_DB_USER" \
-       -d "$DAGSTER_DB_NAME" --no-owner --no-privileges | gzip -c > "$tmp"; then
+       -d "$DAGSTER_DB_NAME" --no-owner --no-privileges > "$raw" \
+     && gzip -c "$raw" > "$tmp"; then
+    rm -f "$raw"
     if [ -n "$BACKUP_GPG_PASSPHRASE" ] && command -v gpg >/dev/null 2>&1; then
       gpg --batch --yes --passphrase "$BACKUP_GPG_PASSPHRASE" \
         --symmetric --cipher-algo AES256 -o "${final}.gpg" "$tmp"
@@ -57,14 +63,15 @@ while true; do
       mv "$tmp" "$final"
       echo "backup: wrote ${final}"
     fi
-  else
-    echo "backup: ERROR pg_dump failed for ${stamp}" >&2
-    rm -f "$tmp"
-  fi
 
-  # Prune old backups (both plain and encrypted).
-  find "$BACKUP_DIR" -maxdepth 1 -type f -name 'dagster_*.sql.gz*' \
-    -mtime "+${BACKUP_RETENTION_DAYS}" -print -delete 2>/dev/null || true
+    # Prune old backups (both plain and encrypted) — only after this cycle
+    # produced a valid dump, so a failed run never rotates good backups away.
+    find "$BACKUP_DIR" -maxdepth 1 -type f -name 'dagster_*.sql.gz*' \
+      -mtime "+${BACKUP_RETENTION_DAYS}" -print -delete 2>/dev/null || true
+  else
+    echo "backup: ERROR pg_dump/gzip failed for ${stamp}; keeping existing backups" >&2
+    rm -f "$raw" "$tmp"
+  fi
 
   sleep "$BACKUP_INTERVAL_SECONDS"
 done

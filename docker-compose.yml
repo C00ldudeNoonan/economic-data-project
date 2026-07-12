@@ -299,6 +299,10 @@ services:
       DAGSTER_LOG_RETENTION_DAYS: ${DAGSTER_LOG_RETENTION_DAYS:-30}
       DAGSTER_LOG_CLEANUP_BATCH_SIZE: ${DAGSTER_LOG_CLEANUP_BATCH_SIZE:-5000}
       DAGSTER_EVENT_CLEANUP_INTERVAL_SECONDS: ${DAGSTER_EVENT_CLEANUP_INTERVAL_SECONDS:-3600}
+      # Backward-compat: if a deployment still sets the legacy hours var, honor
+      # it (converted to days, log rows only) instead of silently jumping to the
+      # 30-day default. Empty when unset -> new default applies.
+      DAGSTER_EVENT_RETENTION_HOURS: ${DAGSTER_EVENT_RETENTION_HOURS:-}
     volumes:
       - ./docker/cleanup_event_logs.sh:/opt/dagster/cleanup_event_logs.sh:ro
     entrypoint: ["/bin/sh", "/opt/dagster/cleanup_event_logs.sh"]
