@@ -457,7 +457,7 @@ def _fetch_analysis_row(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb", "gcs"},
+    kinds={"dspy", "bigquery", "gcs"},
     group_name="economic_analysis",
     description="Generate chart images for the economy state analysis and store a chart manifest",
     deps=[dg.AssetKey(["analyze_economy_state"])],

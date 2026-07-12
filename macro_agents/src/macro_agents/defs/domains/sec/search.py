@@ -121,7 +121,7 @@ def _split_text_into_chunks(
 @metaxify(key="sec_filing_search_index")
 @dg.asset(
     group_name="transformation",
-    kinds={"llm", "duckdb", "ollama"},
+    kinds={"llm", "bigquery", "ollama"},
     deps=[sec_filing_text_extracted],
     description=(
         "Generate chunked embeddings from SEC filing text for semantic search. "

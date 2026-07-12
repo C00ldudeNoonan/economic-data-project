@@ -61,7 +61,7 @@ def get_latest_economic_context(bq: BigQueryWarehouseResource) -> str:
 
 @dg.asset(
     group_name="economic_analysis",
-    kinds={"ai", "duckdb"},
+    kinds={"ai", "bigquery"},
     partitions_def=dg.WeeklyPartitionsDefinition(start_date="2024-01-01"),
     deps=[
         dg.AssetKey(["agent_fred_series_latest_aggregates"]),

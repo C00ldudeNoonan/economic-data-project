@@ -23,7 +23,7 @@ from macro_agents.defs.utils.sec_bi_extractor import SECBIExtractor
 @metaxify(key="sec_filing_business_intelligence")
 @dg.asset(
     group_name="transformation",
-    kinds={"gcs", "duckdb", "sec_filing_documents"},
+    kinds={"gcs", "bigquery", "sec_filing_documents"},
     deps=[sec_filing_text_extracted],
     description="Extract business intelligence signals from SEC filing content",
     metadata={"metaxy/feature": "sec/bi_signals"},

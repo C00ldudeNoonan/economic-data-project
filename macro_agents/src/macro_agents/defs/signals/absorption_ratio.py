@@ -22,7 +22,7 @@ SIGNALS_GROUP = "computed_signals"
 
 @dg.asset(
     group_name=SIGNALS_GROUP,
-    kinds={"python", "duckdb"},
+    kinds={"python", "bigquery"},
     deps=[dg.AssetKey(["sp500_companies_prices_raw"])],
     description="Absorption ratio systemic risk signal from S&P 500 stock returns PCA",
 )

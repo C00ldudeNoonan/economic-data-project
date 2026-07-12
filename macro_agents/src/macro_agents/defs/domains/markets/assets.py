@@ -81,7 +81,7 @@ def _ensure_sp500_scd2_columns(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"web_scraping", "duckdb"},
+    kinds={"web_scraping", "bigquery"},
     description="S&P 500 company list from Wikipedia with SCD2 history tracking",
 )
 def sp500_companies_raw(
@@ -226,7 +226,7 @@ def sp500_companies_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"web_scraping", "duckdb"},
+    kinds={"web_scraping", "bigquery"},
     description="NASDAQ company list from Stock Analysis with aggressive rate limiting",
 )
 def nasdaq_companies_raw(
@@ -274,7 +274,7 @@ def nasdaq_companies_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     deps=[dg.AssetKey(["sp500_companies_raw"])],
     description="Stock split history from MarketStack /splits API for S&P 500 companies",
 )
@@ -462,7 +462,7 @@ def _fetch_commodity_partitions(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=us_sector_etfs_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -480,7 +480,7 @@ def us_sector_etfs_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=currency_etfs_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -498,7 +498,7 @@ def currency_etfs_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=commodity_etfs_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -516,7 +516,7 @@ def commodity_etfs_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=major_indices_tickers_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -534,7 +534,7 @@ def major_indices_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=fixed_income_etfs_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -552,7 +552,7 @@ def fixed_income_etfs_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=global_markets_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -570,7 +570,7 @@ def global_markets_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=sp500_companies_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -591,7 +591,7 @@ def sp500_companies_prices_raw(
 
 @dg.asset(
     group_name=MARKETS_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=nasdaq_companies_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -612,7 +612,7 @@ def nasdaq_companies_prices_raw(
 
 @dg.asset(
     group_name=COMMODITIES_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=energy_commodities_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -632,7 +632,7 @@ def energy_commodities_raw(
 
 @dg.asset(
     group_name=COMMODITIES_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=input_commodities_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(
@@ -652,7 +652,7 @@ def input_commodities_raw(
 
 @dg.asset(
     group_name=COMMODITIES_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=agriculture_commodities_partitions,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=50),
     automation_condition=dg.AutomationCondition.on_cron(

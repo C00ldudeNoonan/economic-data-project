@@ -79,7 +79,7 @@ fred_series_partition = dg.StaticPartitionsDefinition(_all_series_codes)
 
 @dg.asset(
     group_name=MACRO_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=fred_series_partition,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=10),
     description="Raw data from FRED API - runs weekly on Sundays at 2 AM EST",
@@ -109,7 +109,7 @@ year_partition = dg.StaticPartitionsDefinition(
 
 @dg.asset(
     group_name=MACRO_GROUP,
-    kinds={"polars", "duckdb", "web_scraping"},
+    kinds={"polars", "bigquery", "web_scraping"},
     partitions_def=year_partition,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=10),
     description="Raw Treasury yield curve data scraped from Treasury.gov XML feed",

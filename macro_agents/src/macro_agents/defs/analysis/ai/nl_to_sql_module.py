@@ -26,17 +26,20 @@ class NaturalLanguageToSQLSignature(dspy.Signature):
     )
 
     sql_query: str = dspy.OutputField(
-        desc="""DuckDB-compatible SQL query (SELECT only, no DROP/DELETE/UPDATE).
+        desc="""BigQuery Standard SQL (GoogleSQL) query (SELECT only, no DROP/DELETE/UPDATE).
         CRITICAL RULES:
         1. Only SELECT queries allowed
         2. Respect column additivity:
            - ADDITIVE: Use SUM() for aggregation
-           - NON_ADDITIVE: Use AVG(), MIN(), MAX(), or FIRST() - NEVER SUM
+           - NON_ADDITIVE: Use AVG(), MIN(), MAX(), or ANY_VALUE() - NEVER SUM
            - SEMI_ADDITIVE: Use for GROUP BY, ORDER BY, WHERE only
         3. Always include proper GROUP BY for aggregations
-        4. Use date filters intelligently (WHERE date >= '2023-01-01')
+        4. Use date filters intelligently (WHERE date >= DATE '2023-01-01')
         5. Table and column names must exactly match data_dictionary
-        6. LIMIT results to max 1000 rows if not specified
+        6. Use BigQuery syntax: backtick-quote identifiers when needed, DATE_SUB/
+           DATE_TRUNC/INTERVAL for date math, SAFE_CAST for casts. Do NOT use
+           DuckDB-only constructs (e.g. list_*/QUALIFY-less window tricks, `::` casts).
+        7. LIMIT results to max 1000 rows if not specified
         """
     )
 
@@ -96,10 +99,10 @@ class NaturalLanguageToSQLModule(dspy.Module):
 class SQLValidator:
     """Validates SQL queries for safety and correctness.
 
-    Uses sqlglot to parse the query into an AST and verify it is a single
-    read-only SELECT. The prior implementation matched forbidden keywords
-    as substrings of the raw string, which was bypassable by comments,
-    mixed case, and embedded newlines.
+    Uses sqlglot to parse the query into an AST (BigQuery dialect) and verify
+    it is a single read-only SELECT. The prior implementation matched
+    forbidden keywords as substrings of the raw string, which was bypassable
+    by comments, mixed case, and embedded newlines.
     """
 
     # AST node types that mutate or escape data — reject if present anywhere.
@@ -139,7 +142,7 @@ class SQLValidator:
             )
 
         try:
-            statements = sqlglot.parse(sql, dialect="duckdb")
+            statements = sqlglot.parse(sql, dialect="bigquery")
         except sqlglot.errors.ParseError as e:
             return False, f"SQL parse error: {e}"
 

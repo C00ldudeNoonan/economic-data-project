@@ -234,7 +234,7 @@ def create_indicator_forecast_table_if_not_exists(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="economic_narratives",
     description="Generate plain-English narratives for economic indicator releases and store in database",
     deps=[
@@ -423,7 +423,7 @@ def generate_economic_narratives(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="economic_narratives",
     description="Generate short-term forecasts for economic indicators",
     deps=[

@@ -11,7 +11,7 @@ DATA_QUALITY_GROUP = "data_quality"
 
 @dg.asset(
     group_name=DATA_QUALITY_GROUP,
-    kinds={"google_sheets", "duckdb"},
+    kinds={"google_sheets", "bigquery"},
     description=(
         "Write data quality anomalies from BigQuery to a Google Sheet "
         "with GOOGLEFINANCE formulas for price verification."
@@ -62,7 +62,7 @@ def dq_anomalies_to_sheets(
 
 @dg.asset(
     group_name=DATA_QUALITY_GROUP,
-    kinds={"google_sheets", "duckdb"},
+    kinds={"google_sheets", "bigquery"},
     description=(
         "Read verified corrections from Google Sheets and update "
         "the corresponding rows in BigQuery raw tables."

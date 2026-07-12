@@ -74,7 +74,7 @@ def extract_tickers(text: str) -> list[str]:
 
 @dg.asset(
     group_name=TICKER_GROUP,
-    kinds={"python", "duckdb"},
+    kinds={"python", "bigquery"},
     partitions_def=reddit_partitions,
     deps=["reddit_post_content_raw", "reddit_comments_raw"],
     description="Stock ticker mentions extracted from Reddit posts and comments",

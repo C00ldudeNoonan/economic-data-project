@@ -60,7 +60,7 @@ def permutation_entropy(series: np.ndarray, order: int = 3, delay: int = 1) -> f
 
 @dg.asset(
     group_name=SIGNALS_GROUP,
-    kinds={"python", "duckdb"},
+    kinds={"python", "bigquery"},
     deps=[dg.AssetKey(["stg_major_indices"])],
     description="Permutation entropy complexity measure for SPY and QQQ returns",
 )
