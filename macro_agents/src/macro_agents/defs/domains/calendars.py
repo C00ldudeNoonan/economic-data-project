@@ -337,6 +337,23 @@ def parse_numeric_value(value: str | None) -> float | None:
         return None
 
 
+def _to_float(value: object) -> float | None:
+    """Coerce a source EPS value (str, float, or None) to float, or None.
+
+    Yahoo's earnings feed returns EPS fields as strings, floats, or None
+    depending on the row. The BigQuery ``earnings_calendar`` table types these
+    columns as FLOAT64, so blank/None values must map to NULL and everything
+    else must be a real float before the frame is built (otherwise Polars
+    infers a String column and the MERGE is rejected).
+    """
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 @dg.asset(
     group_name=CALENDAR_GROUP,
     kinds={"api", "economic_calendar"},
@@ -475,8 +492,8 @@ def earnings_calendar(
                 "company_name": row.get("company_name", ""),
                 "report_date": report_date,
                 "fiscal_date_ending": "",
-                "eps_estimated": row.get("eps_estimated"),
-                "eps_actual": row.get("eps_actual"),
+                "eps_estimated": _to_float(row.get("eps_estimated")),
+                "eps_actual": _to_float(row.get("eps_actual")),
                 "revenue_estimated": None,
                 "revenue_actual": None,
                 "report_time": row.get("report_time", ""),
@@ -489,6 +506,18 @@ def earnings_calendar(
         )
 
     processed_df = pl.DataFrame(processed_records)
+    # Pin numeric columns to Float64 so the staging table always matches the
+    # FLOAT64 raw-table schema — even for a batch where every value is None,
+    # which would otherwise infer a Null/String column and break the MERGE.
+    numeric_columns = [
+        "eps_estimated",
+        "eps_actual",
+        "revenue_estimated",
+        "revenue_actual",
+    ]
+    processed_df = processed_df.with_columns(
+        pl.col(col).cast(pl.Float64, strict=False) for col in numeric_columns
+    )
     context.log.info(f"Fetched {len(processed_df)} earnings announcements")
 
     bq.upsert_data("earnings_calendar", processed_df, ["event_id"], context=context)
