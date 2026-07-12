@@ -1,7 +1,10 @@
 import dagster as dg
 
 from macro_agents.defs.domains.sec.bi import sec_filing_business_intelligence
-from macro_agents.defs.resources.bigquery_query import QueryParameter
+from macro_agents.defs.resources.bigquery_query import (
+    QueryParameter,
+    numeric_query_parameter,
+)
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 
 
@@ -228,9 +231,9 @@ def sec_company_bi_summary(
                     "risk_signals_count": category_counts["risk_factors"],
                     "financial_health_count": category_counts["financial_health"],
                     "strategic_signals_count": category_counts["strategic_initiatives"],
-                    "avg_confidence": avg_confidence,
-                    "growth_score": growth_score,
-                    "risk_score": risk_score,
+                    "avg_confidence": numeric_query_parameter(avg_confidence),
+                    "growth_score": numeric_query_parameter(growth_score),
+                    "risk_score": numeric_query_parameter(risk_score),
                 },
             )
 

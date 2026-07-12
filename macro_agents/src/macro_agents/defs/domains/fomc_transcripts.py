@@ -456,7 +456,7 @@ def process_fomc_transcripts(
                             "transcript_id": transcript_id,
                             "section_order": section["section_order"],
                             "section_type": section["section_type"],
-                            "speaker": section["speaker"],
+                            "speaker": QueryParameter(section["speaker"], "STRING"),
                             "speaker_role": QueryParameter(
                                 section.get("speaker_role"), "STRING"
                             ),

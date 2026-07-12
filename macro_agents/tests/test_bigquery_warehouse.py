@@ -12,6 +12,7 @@ from google.cloud import bigquery
 from macro_agents.defs.resources.bigquery_query import (
     QueryArrayParameter,
     QueryParameter,
+    numeric_query_parameter,
 )
 from macro_agents.defs.resources.bigquery_warehouse import (
     BigQueryWarehouseResource,
@@ -21,6 +22,21 @@ from macro_agents.defs.resources.bigquery_warehouse import (
 
 def _make_resource() -> BigQueryWarehouseResource:
     return BigQueryWarehouseResource(project="test-project", dataset="test_dataset")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0.1, Decimal("0.1")),
+        (1, Decimal("1")),
+        (None, None),
+    ],
+)
+def test_numeric_query_parameter_uses_exact_decimal(value, expected) -> None:
+    parameter = numeric_query_parameter(value)
+
+    assert parameter.bigquery_type == "NUMERIC"
+    assert parameter.value == expected
 
 
 class TestGetClientCaching:

@@ -48,6 +48,12 @@ QueryParameterInput = QueryParameterScalar | QueryParameter | QueryArrayParamete
 QueryParameters = Mapping[str, QueryParameterInput]
 
 
+def numeric_query_parameter(value: Decimal | int | float | None) -> QueryParameter:
+    """Build an exact BigQuery NUMERIC parameter from a Python number."""
+    decimal_value = None if value is None else Decimal(str(value))
+    return QueryParameter(decimal_value, "NUMERIC")
+
+
 def prepare_query_parameters(
     query: str,
     *,

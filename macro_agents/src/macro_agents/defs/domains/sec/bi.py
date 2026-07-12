@@ -7,6 +7,7 @@ from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register fea
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_search_terms_table
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
 from macro_agents.defs.resources.gcs import GCSResource
+from macro_agents.defs.resources.bigquery_query import numeric_query_parameter
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 from macro_agents.defs.domains.sec.config import (
@@ -208,7 +209,9 @@ def sec_filing_business_intelligence(
                             "term_text": signal.term[:SIGNAL_TERM_MAX_LENGTH],
                             "context_text": signal.context[:SIGNAL_CONTEXT_MAX_LENGTH],
                             "section_name": signal.section_name,
-                            "confidence_score": signal.confidence_score,
+                            "confidence_score": numeric_query_parameter(
+                                signal.confidence_score
+                            ),
                         },
                     )
 
