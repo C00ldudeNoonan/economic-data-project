@@ -337,7 +337,7 @@ def parse_numeric_value(value: str | None) -> float | None:
         return None
 
 
-def _to_float(value: object) -> float | None:
+def _to_float(value: str | float | int | None) -> float | None:
     """Coerce a source EPS value (str, float, or None) to float, or None.
 
     Yahoo's earnings feed returns EPS fields as strings, floats, or None
