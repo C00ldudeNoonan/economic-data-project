@@ -12,133 +12,25 @@ from macro_agents.defs.resources.yahoo_finance import (
     YahooFinanceResource,
     yahoo_finance_resource,
 )
+from macro_agents.defs.domains.calendar_events import (
+    ECONOMIC_CALENDAR_FEEDS,
+    EARNINGS_NUMERIC_COLUMNS,
+    EARNINGS_NUMERIC_COLUMN_TYPES,
+    _to_float,
+    classify_event_type,
+    parse_numeric_value,
+)
+from macro_agents.defs.domains.calendar_holidays import (
+    CALENDAR_END_DATE,
+    CALENDAR_START_DATE,
+    MONTH_ABBRS,
+    MONTH_NAMES,
+    WEEKDAY_ABBRS,
+    WEEKDAY_NAMES,
+    _build_us_federal_holidays,
+)
 
 CALENDAR_GROUP = "calendar_ingestion"
-
-CALENDAR_START_DATE = date(1995, 1, 1)
-CALENDAR_END_DATE = date(2030, 12, 31)
-
-MONTH_NAMES = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-]
-
-MONTH_ABBRS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-]
-
-WEEKDAY_NAMES = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-]
-
-WEEKDAY_ABBRS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-# earnings_calendar numeric columns typed as FLOAT64 in BigQuery. Used both to
-# pin the staging frame's dtypes and to normalize any drifted target columns
-# (older tables created by pre-fix code can hold these as STRING).
-EARNINGS_NUMERIC_COLUMNS = [
-    "eps_estimated",
-    "eps_actual",
-    "revenue_estimated",
-    "revenue_actual",
-]
-EARNINGS_NUMERIC_COLUMN_TYPES = {col: "FLOAT64" for col in EARNINGS_NUMERIC_COLUMNS}
-
-
-def _nth_weekday_of_month(year: int, month: int, weekday: int, n: int) -> date:
-    """Return the date for the nth weekday of a month (weekday: 0=Mon)."""
-    first_day = date(year, month, 1)
-    days_until_weekday = (weekday - first_day.weekday()) % 7
-    day = 1 + days_until_weekday + (n - 1) * 7
-    return date(year, month, day)
-
-
-def _last_weekday_of_month(year: int, month: int, weekday: int) -> date:
-    """Return the date for the last weekday of a month (weekday: 0=Mon)."""
-    last_day = date(year, month, calendar.monthrange(year, month)[1])
-    days_back = (last_day.weekday() - weekday) % 7
-    return last_day - timedelta(days=days_back)
-
-
-def _observed_date(holiday_date: date) -> date:
-    """Return the observed date when a holiday falls on a weekend."""
-    if holiday_date.weekday() == 5:
-        return holiday_date - timedelta(days=1)
-    if holiday_date.weekday() == 6:
-        return holiday_date + timedelta(days=1)
-    return holiday_date
-
-
-def _add_holiday(
-    holidays: dict[date, tuple[str, bool]],
-    holiday_date: date,
-    name: str,
-    is_observed: bool,
-) -> None:
-    if holiday_date in holidays:
-        existing_name, existing_observed = holidays[holiday_date]
-        combined_name = f"{existing_name} / {name}"
-        holidays[holiday_date] = (combined_name, existing_observed or is_observed)
-        return
-    holidays[holiday_date] = (name, is_observed)
-
-
-def _build_us_federal_holidays(
-    start_year: int, end_year: int
-) -> dict[date, tuple[str, bool]]:
-    holidays: dict[date, tuple[str, bool]] = {}
-
-    for year in range(start_year, end_year + 1):
-        entries = [
-            ("New Year's Day", date(year, 1, 1)),
-            ("Martin Luther King Jr. Day", _nth_weekday_of_month(year, 1, 0, 3)),
-            ("Presidents' Day", _nth_weekday_of_month(year, 2, 0, 3)),
-            ("Memorial Day", _last_weekday_of_month(year, 5, 0)),
-            ("Independence Day", date(year, 7, 4)),
-            ("Labor Day", _nth_weekday_of_month(year, 9, 0, 1)),
-            ("Columbus Day", _nth_weekday_of_month(year, 10, 0, 2)),
-            ("Veterans Day", date(year, 11, 11)),
-            ("Thanksgiving Day", _nth_weekday_of_month(year, 11, 3, 4)),
-            ("Christmas Day", date(year, 12, 25)),
-        ]
-
-        if year >= 2021:
-            entries.append(("Juneteenth", date(year, 6, 19)))
-
-        for name, actual_date in entries:
-            _add_holiday(holidays, actual_date, name, False)
-            observed = _observed_date(actual_date)
-            if observed != actual_date:
-                _add_holiday(holidays, observed, name, True)
-
-    return holidays
 
 
 @dg.asset(
@@ -248,121 +140,6 @@ def calendar_dates(
             "first_10_rows": str(df.head(10)),
         }
     )
-
-
-ECONOMIC_CALENDAR_FEEDS = {
-    "this_week": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
-    "next_week": "https://nfs.faireconomy.media/ff_calendar_nextweek.json",
-}
-
-EVENT_TYPE_MAPPING = {
-    "GDP": "growth",
-    "Retail Sales": "growth",
-    "Industrial Production": "growth",
-    "Manufacturing": "growth",
-    "PMI": "growth",
-    "Trade Balance": "growth",
-    "Current Account": "growth",
-    "CPI": "inflation",
-    "PPI": "inflation",
-    "Inflation": "inflation",
-    "Price Index": "inflation",
-    "PCE": "inflation",
-    "Employment": "employment",
-    "Unemployment": "employment",
-    "Jobless Claims": "employment",
-    "NFP": "employment",
-    "Non-Farm": "employment",
-    "Jobs": "employment",
-    "Payrolls": "employment",
-    "Labor": "employment",
-    "Claimant": "employment",
-    "Interest Rate": "central_bank",
-    "Rate Decision": "central_bank",
-    "Monetary Policy": "central_bank",
-    "FOMC": "central_bank",
-    "Fed": "central_bank",
-    "ECB": "central_bank",
-    "BOE": "central_bank",
-    "BOJ": "central_bank",
-    "BOC": "central_bank",
-    "RBA": "central_bank",
-    "RBNZ": "central_bank",
-    "SNB": "central_bank",
-    "Bond": "bonds",
-    "Auction": "bonds",
-    "Treasury": "bonds",
-    "Yield": "bonds",
-    "Housing": "housing",
-    "Home": "housing",
-    "Building Permits": "housing",
-    "Construction": "housing",
-    "Existing Home": "housing",
-    "New Home": "housing",
-    "Pending Home": "housing",
-    "Consumer Confidence": "consumer_survey",
-    "Consumer Sentiment": "consumer_survey",
-    "Michigan": "consumer_survey",
-    "Business Confidence": "business_survey",
-    "ifo": "business_survey",
-    "ZEW": "business_survey",
-    "ISM": "business_survey",
-    "Tankan": "business_survey",
-    "Speaks": "speech",
-    "Speech": "speech",
-    "Testimony": "speech",
-    "Press Conference": "speech",
-    "Chair": "speech",
-    "Governor": "speech",
-    "President": "speech",
-}
-
-
-def classify_event_type(title: str) -> str:
-    """Classify event type based on title keywords."""
-    title_upper = title.upper()
-    for keyword, event_type in EVENT_TYPE_MAPPING.items():
-        if keyword.upper() in title_upper:
-            return event_type
-    return "miscellaneous"
-
-
-def parse_numeric_value(value: str | None) -> float | None:
-    """Parse numeric value from string, handling percentages and suffixes."""
-    if not value or value.strip() == "":
-        return None
-
-    cleaned = value.strip().replace("%", "").replace(",", "").replace(" ", "")
-    if cleaned == "":
-        return None
-
-    suffix = cleaned[-1].upper()
-    multipliers = {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}
-    multiplier = multipliers.get(suffix, 1)
-    if multiplier != 1:
-        cleaned = cleaned[:-1]
-
-    try:
-        return float(cleaned) * multiplier
-    except ValueError:
-        return None
-
-
-def _to_float(value: str | float | int | None) -> float | None:
-    """Coerce a source EPS value (str, float, or None) to float, or None.
-
-    Yahoo's earnings feed returns EPS fields as strings, floats, or None
-    depending on the row. The BigQuery ``earnings_calendar`` table types these
-    columns as FLOAT64, so blank/None values must map to NULL and everything
-    else must be a real float before the frame is built (otherwise Polars
-    infers a String column and the MERGE is rejected).
-    """
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
 
 
 @dg.asset(

@@ -12,11 +12,11 @@ from unittest.mock import MagicMock
 import dagster as dg
 import polars as pl
 
-from macro_agents.defs.domains.calendars import (
+from macro_agents.defs.domains.calendar_events import (
     EARNINGS_NUMERIC_COLUMN_TYPES,
     _to_float,
-    earnings_calendar,
 )
+from macro_agents.defs.domains.calendars import earnings_calendar
 
 
 class TestToFloat:
