@@ -521,8 +521,7 @@ def earnings_calendar(
     # FLOAT64 raw-table schema — even for a batch where every value is None,
     # which would otherwise infer a Null/String column and break the MERGE.
     processed_df = processed_df.with_columns(
-        pl.col(col).cast(pl.Float64, strict=False)
-        for col in EARNINGS_NUMERIC_COLUMNS
+        pl.col(col).cast(pl.Float64, strict=False) for col in EARNINGS_NUMERIC_COLUMNS
     )
     context.log.info(f"Fetched {len(processed_df)} earnings announcements")
 
