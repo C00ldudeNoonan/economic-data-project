@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -29,8 +29,29 @@ class QueryParameter:
         object.__setattr__(self, "bigquery_type", normalized_type)
 
 
-QueryParameterInput = QueryParameterScalar | QueryParameter
+@dataclass(frozen=True)
+class QueryArrayParameter:
+    """An array BigQuery parameter with an explicit element type."""
+
+    values: Sequence[QueryParameterScalar | None]
+    bigquery_type: str
+
+    def __post_init__(self) -> None:
+        normalized_type = self.bigquery_type.strip().upper()
+        if not normalized_type:
+            raise ValueError("bigquery_type must not be empty")
+        object.__setattr__(self, "values", tuple(self.values))
+        object.__setattr__(self, "bigquery_type", normalized_type)
+
+
+QueryParameterInput = QueryParameterScalar | QueryParameter | QueryArrayParameter
 QueryParameters = Mapping[str, QueryParameterInput]
+
+
+def numeric_query_parameter(value: Decimal | int | float | None) -> QueryParameter:
+    """Build an exact BigQuery NUMERIC parameter from a Python number."""
+    decimal_value = None if value is None else Decimal(str(value))
+    return QueryParameter(decimal_value, "NUMERIC")
 
 
 def prepare_query_parameters(
@@ -38,7 +59,7 @@ def prepare_query_parameters(
     *,
     read_only: bool,
     params: QueryParameters | None,
-) -> list[bigquery.ScalarQueryParameter]:
+) -> list[bigquery.ScalarQueryParameter | bigquery.ArrayQueryParameter]:
     """Validate a query contract and build named BigQuery parameters."""
     statement = _parse_single_statement(query)
 
@@ -84,7 +105,13 @@ def _parse_single_statement(query: str) -> exp.Expression:
 
 def _to_bigquery_parameter(
     name: str, value: QueryParameterInput
-) -> bigquery.ScalarQueryParameter:
+) -> bigquery.ScalarQueryParameter | bigquery.ArrayQueryParameter:
+    if isinstance(value, QueryArrayParameter):
+        return bigquery.ArrayQueryParameter(
+            name,
+            value.bigquery_type,
+            list(value.values),
+        )
     if isinstance(value, QueryParameter):
         return bigquery.ScalarQueryParameter(
             name,

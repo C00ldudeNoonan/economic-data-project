@@ -1,3 +1,5 @@
+import ast
+from pathlib import Path
 from unittest.mock import Mock
 
 import polars as pl
@@ -11,6 +13,27 @@ from macro_agents.defs.analysis.economy_state.economy_state_charts import (
 from macro_agents.defs.analysis.investments.investment_recommendation_charts import (
     _fetch_recommendations_row,
 )
+
+
+def test_raw_query_calls_do_not_pass_positional_parameters() -> None:
+    definitions_root = Path(__file__).parents[1] / "src" / "macro_agents" / "defs"
+    violations: list[str] = []
+
+    for path in definitions_root.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "query"
+                and len(node.args) >= 2
+            ):
+                violations.append(f"{path.relative_to(definitions_root)}:{node.lineno}")
+
+    assert violations == [], (
+        "Use BigQueryWarehouseResource.execute_query(..., params=...) instead of "
+        f"raw client query(sql, params): {violations}"
+    )
 
 
 def test_economy_state_chart_lookup_uses_named_run_id() -> None:
