@@ -9,7 +9,10 @@ This module provides functions to detect 4 types of interesting movements:
 
 import polars as pl
 
-from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
+from macro_agents.defs.resources.bigquery_warehouse import (
+    BigQueryWarehouseResource,
+    default_dataset_for_schema,
+)
 
 
 def query_data_for_findings(
@@ -26,8 +29,13 @@ def query_data_for_findings(
     Returns:
         Dict with DataFrames for: economic, market, commodity, correlation, sentiment
     """
+    # These agent_* tables are dbt models in the agents_preprocess group, which
+    # materializes into economics_analysis — not the resource's default
+    # (economics_raw) dataset. Qualify every reference so it resolves correctly.
+    analysis_dataset = default_dataset_for_schema("economics_analysis")
+
     # Economic indicators with 3m, 6m, 1y changes
-    economic_query = """
+    economic_query = f"""
     SELECT
         series_code,
         series_name,
@@ -37,7 +45,7 @@ def query_data_for_findings(
         pct_change_6m,
         pct_change_1y,
         date_grain
-    FROM agent_fred_series_latest_aggregates
+    FROM {analysis_dataset}.agent_fred_series_latest_aggregates
     WHERE month >= DATE_SUB(
         DATE_TRUNC(DATE(@week_start), MONTH),
         INTERVAL 12 MONTH
@@ -48,7 +56,7 @@ def query_data_for_findings(
     """
 
     # Market data from summary tables (12 weeks)
-    market_query = """
+    market_query = f"""
     SELECT
         ticker AS symbol,
         time_period,
@@ -57,12 +65,12 @@ def query_data_for_findings(
         win_rate_pct,
         worst_day_pct_change,
         best_day_pct_change
-    FROM agent_market_performance
+    FROM {analysis_dataset}.agent_market_performance
     WHERE time_period IN ('12_weeks', '26_weeks')
     """
 
     # Commodity data from summary tables
-    commodity_query = """
+    commodity_query = f"""
     SELECT
         commodity AS symbol,
         time_period,
@@ -71,12 +79,12 @@ def query_data_for_findings(
         win_rate_pct,
         worst_day_pct_change,
         best_day_pct_change
-    FROM agent_commodity_performance
+    FROM {analysis_dataset}.agent_commodity_performance
     WHERE time_period IN ('12_weeks', '26_weeks')
     """
 
     # Correlation data showing economic indicators vs forward returns
-    correlation_query = """
+    correlation_query = f"""
     SELECT
         symbol,
         series_name,
@@ -88,12 +96,12 @@ def query_data_for_findings(
         corr_econ_q3_returns,
         avg_q1_return_when_econ_growing,
         avg_q1_return_when_econ_declining
-    FROM agent_leading_econ_return_indicator
+    FROM {analysis_dataset}.agent_leading_econ_return_indicator
     WHERE observation_count >= 12
     """
 
     # Sentiment trends with momentum
-    sentiment_query = """
+    sentiment_query = f"""
     SELECT
         date,
         avg_score,
@@ -101,7 +109,7 @@ def query_data_for_findings(
         total_posts,
         weekly_avg_score,
         score_momentum_pct
-    FROM agent_reddit_sentiment_trends
+    FROM {analysis_dataset}.agent_reddit_sentiment_trends
     WHERE date >= DATE_SUB(DATE(@week_start), INTERVAL 3 MONTH)
       AND date <= DATE(@week_end)
     ORDER BY date DESC
