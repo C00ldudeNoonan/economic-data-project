@@ -20,7 +20,7 @@ from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseReso
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="economic_analysis",
     description="Analyze current economic indicators and commodity data to determine the state of the economy",
     deps=[
@@ -261,7 +261,7 @@ def analyze_economy_state(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="economic_analysis",
     description="Analyze economy state using specialized domain sub-agents (v2)",
     deps=[

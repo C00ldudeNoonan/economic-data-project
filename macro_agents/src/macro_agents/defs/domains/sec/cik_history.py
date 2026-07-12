@@ -115,7 +115,7 @@ def curated_predecessor_records(symbols: set[str], now: datetime) -> list[dict]:
 
 @dg.asset(
     group_name="sec_ingestion",
-    kinds={"api", "duckdb"},
+    kinds={"api", "bigquery"},
     deps=[sp500_cik_enriched],
     description=(
         "Track company name history from SEC EDGAR former names. "

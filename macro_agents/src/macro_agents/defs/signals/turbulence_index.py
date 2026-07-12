@@ -33,7 +33,7 @@ ASSET_QUERIES = {
 
 @dg.asset(
     group_name=SIGNALS_GROUP,
-    kinds={"python", "duckdb"},
+    kinds={"python", "bigquery"},
     deps=[
         dg.AssetKey(["stg_major_indices"]),
         dg.AssetKey(["stg_fixed_income"]),

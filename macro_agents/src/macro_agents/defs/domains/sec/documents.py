@@ -22,7 +22,7 @@ sec_filing_documents_partitions = dg.DynamicPartitionsDefinition(
 @dg.asset(
     name="sec_filing_documents",
     group_name="sec_ingestion",
-    kinds={"api", "gcs", "duckdb"},
+    kinds={"api", "gcs", "bigquery"},
     partitions_def=sec_filing_documents_partitions,
     deps=[sec_filing_metadata],
     description="Download a single SEC filing document to GCS, partitioned by filing_id",
@@ -94,7 +94,7 @@ def sec_filing_documents(
 @dg.asset(
     name="sec_filing_documents_batch",
     group_name="sec_ingestion",
-    kinds={"api", "gcs", "duckdb"},
+    kinds={"api", "gcs", "bigquery"},
     deps=[sec_filing_metadata],
     description="Batch download unprocessed SEC filing documents to GCS (processes up to 25 per run)",
 )

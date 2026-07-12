@@ -24,7 +24,7 @@ SIGNALS_GROUP = "computed_signals"
 
 @dg.asset(
     group_name=SIGNALS_GROUP,
-    kinds={"python", "duckdb"},
+    kinds={"python", "bigquery"},
     deps=[dg.AssetKey(["sp500_companies_prices_raw"])],
     description="Network correlation analysis via Minimum Spanning Tree of S&P 500 stocks",
 )

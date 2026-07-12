@@ -53,7 +53,7 @@ def build_company_manifest(
 @dg.asset(
     name="sec_filing_gcs_manifest",
     group_name="sec_ingestion",
-    kinds={"gcs", "duckdb"},
+    kinds={"gcs", "bigquery"},
     deps=[sec_filing_metadata],
     description="Generate per-company manifest.json files in GCS listing all filings",
 )
@@ -148,7 +148,7 @@ def sec_filing_gcs_manifest(
 @dg.asset(
     name="sec_filing_gcs_catalog",
     group_name="sec_ingestion",
-    kinds={"gcs", "duckdb"},
+    kinds={"gcs", "bigquery"},
     deps=[sec_filing_gcs_manifest],
     description="Generate root-level catalog.json with CIK and accession indexes for discoverability",
 )

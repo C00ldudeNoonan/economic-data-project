@@ -17,7 +17,7 @@ from macro_agents.defs.resources.bigquery_warehouse import (
 
 @dg.asset(
     group_name="news_summaries",
-    kinds={"ai", "duckdb"},
+    kinds={"ai", "bigquery"},
     partitions_def=dg.DailyPartitionsDefinition(start_date="2024-01-01"),
     deps=[dg.AssetKey(["agent_reddit_posts_daily"])],
     description="AI-generated daily summary of Reddit posts from financial/economic subreddits",
@@ -138,7 +138,7 @@ def reddit_daily_summary(
 
 @dg.asset(
     group_name="news_summaries",
-    kinds={"ai", "duckdb"},
+    kinds={"ai", "bigquery"},
     partitions_def=dg.WeeklyPartitionsDefinition(start_date="2024-01-01"),
     description="AI-generated weekly cross-source summary combining Reddit and FOMC data",
 )

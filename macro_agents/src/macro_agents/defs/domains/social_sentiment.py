@@ -42,7 +42,7 @@ def _score_texts(texts: list[str]) -> list[dict]:
 
 @dg.asset(
     group_name=SENTIMENT_GROUP,
-    kinds={"ml", "duckdb"},
+    kinds={"ml", "bigquery"},
     partitions_def=reddit_partitions,
     deps=["reddit_post_content_raw", "reddit_comments_raw"],
     description="VADER sentiment scores for Reddit posts and comments",

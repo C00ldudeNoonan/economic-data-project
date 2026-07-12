@@ -131,7 +131,7 @@ def _period_outperformance(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="backtesting",
     description="Evaluate backtest investment recommendations using DSPy evaluation framework",
     deps=[

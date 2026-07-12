@@ -32,7 +32,7 @@ def _generate_metadata_id(filing_id: str, section_name: str) -> str:
 @dg.asset(
     name="sec_filing_llm_analysis",
     group_name="transformation",
-    kinds={"llm", "duckdb", "ollama"},
+    kinds={"llm", "bigquery", "ollama"},
     partitions_def=sp500_company_tickers,
     deps=[sec_filing_text_extracted],
     description="Generate LLM summaries and embeddings for SEC filings (partitioned by ticker)",

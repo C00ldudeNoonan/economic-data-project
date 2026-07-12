@@ -386,7 +386,7 @@ def calculate_fci_scores(
 
 
 @dg.asset(
-    kinds={"duckdb"},
+    kinds={"bigquery"},
     group_name="transformation",
     deps=[dg.AssetKey(["stg_fred_series"]), dg.AssetKey(["fci_weights_config"])],
     description="Financial Conditions Index calculated from FRED economic indicators using weighted rolling windows",
@@ -536,7 +536,7 @@ def financial_conditions_index(
 
 
 @dg.asset(
-    kinds={"duckdb"},
+    kinds={"bigquery"},
     group_name="transformation",
     description="FCI weights configuration table for reference and analysis",
     tags={"analysis_type": "configuration", "data_type": "weights"},

@@ -20,7 +20,7 @@ from macro_agents.defs.utils.sec_text_extractor import SECTextExtractor
 @metaxify(key="sec_filing_text_extracted")
 @dg.asset(
     group_name="transformation",
-    kinds={"gcs", "duckdb", "sec_filing_documents"},
+    kinds={"gcs", "bigquery", "sec_filing_documents"},
     deps=[sec_filing_metadata],
     description="Extract text content from SEC filings stored in GCS",
     metadata={"metaxy/feature": "sec/extracted_text"},

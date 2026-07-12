@@ -25,7 +25,7 @@ def _is_old_format(gcs_path: str | None, symbol: str) -> bool:
 @dg.asset(
     name="sec_filing_gcs_migration",
     group_name="sec_maintenance",
-    kinds={"gcs", "duckdb"},
+    kinds={"gcs", "bigquery"},
     description="Migrate SEC filing GCS paths from old format to new symbol-based format",
 )
 def sec_filing_gcs_migration(

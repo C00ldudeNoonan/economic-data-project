@@ -42,7 +42,7 @@ def _percentile_rank(arr: np.ndarray, window: int = 252) -> np.ndarray:
 
 @dg.asset(
     group_name=SIGNALS_GROUP,
-    kinds={"python", "duckdb"},
+    kinds={"python", "bigquery"},
     deps=[
         dg.AssetKey(["stg_major_indices"]),
         dg.AssetKey(["stg_sp500_companies_prices"]),

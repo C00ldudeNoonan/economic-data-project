@@ -57,7 +57,7 @@ def get_latest_backtest_economy_state_analysis(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="backtesting",
     description="Backtest asset class relationship analysis with historical data cutoff",
     deps=[

@@ -170,7 +170,7 @@ def _get_gemini_models(api_key: str | None = None) -> list[str]:
 
 
 @dg.asset(
-    kinds={"duckdb"},
+    kinds={"bigquery"},
     group_name="agents",
     description="Fetches and stores current available chat/completion AI models from OpenAI, Anthropic, and Gemini APIs suitable for economic analysis",
 )
