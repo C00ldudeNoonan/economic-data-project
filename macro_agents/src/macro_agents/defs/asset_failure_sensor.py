@@ -1,538 +1,32 @@
-from datetime import datetime, tzinfo
-from typing import cast
+"""Dagster asset that monitors asset/asset-check failures and escalates.
+
+The bookkeeping, GitHub notifications, and tracking-table access live in the
+``macro_agents.defs.asset_failure`` package; this module wires them into the
+scheduled ``asset_failure_monitor`` asset, its job, and Definitions.
+"""
+
+from datetime import datetime
 
 import dagster as dg
-import pytz
 
+from macro_agents.defs.asset_failure._common import UTC_TZ
+from macro_agents.defs.asset_failure.github_issues import (  # noqa: F401 — re-exported for test patching / callers
+    create_github_issue_for_failure,
+    update_github_issue_for_failure,
+)
+from macro_agents.defs.asset_failure.handlers import (
+    handle_check_failure,
+    handle_check_success,
+    handle_materialization_failure,
+    handle_materialization_success,
+)
+from macro_agents.defs.asset_failure.tracking import (
+    get_all_asset_check_keys,
+    get_all_asset_keys,
+    get_failure_tracking_record,
+    initialize_failure_tracking_table,
+)
 from macro_agents.defs.resources.github import github_resource
-
-UTC_TZ = cast(tzinfo, pytz.UTC)
-
-
-def _initialize_failure_tracking_table(md, context):
-    """Create the failure tracking table if it doesn't exist."""
-    create_table_query = """
-    CREATE TABLE IF NOT EXISTS `asset_check_failures` (
-        asset_key STRING NOT NULL,
-        check_name STRING NOT NULL DEFAULT '',
-        failure_type STRING NOT NULL,
-        consecutive_failures INT64 NOT NULL DEFAULT 0,
-        last_failure_timestamp TIMESTAMP NOT NULL,
-        last_success_timestamp TIMESTAMP,
-        github_issue_number INT64,
-        github_issue_url STRING,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP()
-    )
-    """
-
-    md.execute_query(create_table_query, read_only=False)
-    context.log.debug("Initialized asset_check_failures table")
-
-
-def _get_all_asset_check_keys(context):
-    """Extract all asset check keys from the current definitions."""
-    from macro_agents.definitions import defs
-
-    check_keys = []
-    for check in defs.asset_checks or []:
-        try:
-            check_key = check.check_key
-            check_keys.append(check_key)
-        except Exception as e:
-            context.log.warning(
-                f"Could not extract check key from asset check {check}: {e}. Skipping."
-            )
-            continue
-
-    return check_keys
-
-
-def _get_all_asset_keys() -> list[dg.AssetKey]:
-    """Resolve asset keys without loading definitions at module import time."""
-    from macro_agents.definitions import defs
-
-    return list(defs.resolve_all_asset_keys())
-
-
-def _get_failure_tracking_record(
-    md, asset_key: str, failure_type: str, check_name: str | None = None, context=None
-):
-    """Retrieve the current failure tracking record."""
-    check_name_value = check_name if check_name else ""
-
-    query = """
-    SELECT * FROM asset_check_failures
-    WHERE asset_key = @asset_key
-      AND failure_type = @failure_type
-      AND check_name = @check_name
-    """
-
-    try:
-        result = md.execute_query(
-            query,
-            read_only=True,
-            params={
-                "asset_key": asset_key,
-                "failure_type": failure_type,
-                "check_name": check_name_value,
-            },
-        )
-        if len(result) > 0:
-            return result.to_dicts()[0]
-        return None
-    except Exception as e:
-        if context:
-            context.log.warning(f"Error querying failure tracking record: {e}")
-        return None
-
-
-def _handle_check_failure(
-    md,
-    github,
-    asset_key,
-    check_name,
-    current_record,
-    timestamp,
-    execution_record,
-    context,
-):
-    """
-    Handle a failed check:
-    1. Increment consecutive failures
-    2. Create GitHub issue if threshold (3) is reached
-    """
-    if current_record:
-        new_count = current_record["consecutive_failures"] + 1
-
-        update_query = """
-        UPDATE asset_check_failures
-        SET consecutive_failures = @consecutive_failures,
-            last_failure_timestamp = @last_failure_timestamp,
-            updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = @asset_key
-          AND failure_type = 'asset_check'
-          AND check_name = @check_name
-        """
-
-        md.execute_query(
-            update_query,
-            read_only=False,
-            params={
-                "consecutive_failures": new_count,
-                "last_failure_timestamp": timestamp,
-                "asset_key": asset_key,
-                "check_name": check_name,
-            },
-        )
-
-        context.log.info(
-            f"Check {check_name} for {asset_key} failed. Consecutive failures: {new_count}"
-        )
-
-        if new_count >= 3 and not current_record.get("github_issue_number"):
-            if github:
-                _create_github_issue_for_failure(
-                    github=github,
-                    md=md,
-                    asset_key=asset_key,
-                    check_name=check_name,
-                    failure_type="asset_check",
-                    consecutive_failures=new_count,
-                    execution_record=execution_record,
-                    context=context,
-                )
-            else:
-                context.log.warning(
-                    f"Check {check_name} for {asset_key} has {new_count} consecutive failures "
-                    "but GitHub is not configured - no issue created"
-                )
-        elif new_count > 3 and current_record.get("github_issue_number") and github:
-            _update_github_issue_for_failure(
-                github=github,
-                issue_number=current_record["github_issue_number"],
-                asset_key=asset_key,
-                check_name=check_name,
-                failure_type="asset_check",
-                consecutive_failures=new_count,
-                timestamp=timestamp,
-                context=context,
-            )
-    else:
-        upsert_query = """
-        MERGE `asset_check_failures` AS target
-        USING (
-            SELECT
-                @asset_key AS asset_key,
-                @check_name AS check_name,
-                @last_failure_timestamp AS last_failure_timestamp
-        ) AS source
-        ON target.asset_key = source.asset_key
-           AND target.failure_type = 'asset_check'
-           AND target.check_name = source.check_name
-        WHEN MATCHED THEN UPDATE SET
-            consecutive_failures = target.consecutive_failures + 1,
-            last_failure_timestamp = source.last_failure_timestamp,
-            updated_at = CURRENT_TIMESTAMP()
-        WHEN NOT MATCHED THEN INSERT (
-            asset_key,
-            check_name,
-            failure_type,
-            consecutive_failures,
-            last_failure_timestamp
-        ) VALUES (
-            source.asset_key,
-            source.check_name,
-            'asset_check',
-            1,
-            source.last_failure_timestamp
-        )
-        """
-
-        md.execute_query(
-            upsert_query,
-            read_only=False,
-            params={
-                "asset_key": asset_key,
-                "check_name": check_name,
-                "last_failure_timestamp": timestamp,
-            },
-        )
-
-        context.log.info(f"Failure recorded for check {check_name} on {asset_key}")
-
-
-def _handle_check_success(
-    md, github, asset_key, check_name, current_record, timestamp, context
-):
-    """
-    Handle a successful check:
-    1. Reset consecutive failures to 0
-    2. Close GitHub issue if one exists
-    """
-    if current_record and current_record["consecutive_failures"] > 0:
-        context.log.info(
-            f"Check {check_name} for {asset_key} passed after "
-            f"{current_record['consecutive_failures']} consecutive failures"
-        )
-
-        if current_record.get("github_issue_number") and github:
-            github.close_issue(
-                issue_number=current_record["github_issue_number"],
-                comment=f"✅ Asset check is now passing as of {timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}",
-                context=context,
-            )
-
-        update_query = """
-        UPDATE asset_check_failures
-        SET consecutive_failures = 0,
-            last_success_timestamp = @last_success_timestamp,
-            github_issue_number = NULL,
-            github_issue_url = NULL,
-            updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = @asset_key
-          AND failure_type = 'asset_check'
-          AND check_name = @check_name
-        """
-
-        md.execute_query(
-            update_query,
-            read_only=False,
-            params={
-                "last_success_timestamp": timestamp,
-                "asset_key": asset_key,
-                "check_name": check_name,
-            },
-        )
-
-
-def _handle_materialization_failure(
-    md, github, asset_key, current_record, timestamp, context
-):
-    """Handle a failed asset materialization."""
-    if current_record:
-        new_count = current_record["consecutive_failures"] + 1
-
-        update_query = """
-        UPDATE asset_check_failures
-        SET consecutive_failures = @consecutive_failures,
-            last_failure_timestamp = @last_failure_timestamp,
-            updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = @asset_key
-          AND failure_type = 'asset_materialization'
-          AND check_name = ''
-        """
-
-        md.execute_query(
-            update_query,
-            read_only=False,
-            params={
-                "consecutive_failures": new_count,
-                "last_failure_timestamp": timestamp,
-                "asset_key": asset_key,
-            },
-        )
-
-        context.log.info(
-            f"Asset {asset_key} failed to materialize. Consecutive failures: {new_count}"
-        )
-
-        if new_count >= 3 and not current_record.get("github_issue_number"):
-            if github:
-                _create_github_issue_for_failure(
-                    github=github,
-                    md=md,
-                    asset_key=asset_key,
-                    check_name=None,
-                    failure_type="asset_materialization",
-                    consecutive_failures=new_count,
-                    execution_record=None,
-                    context=context,
-                )
-            else:
-                context.log.warning(
-                    f"Asset {asset_key} has {new_count} consecutive materialization failures "
-                    "but GitHub is not configured - no issue created"
-                )
-        elif new_count > 3 and current_record.get("github_issue_number") and github:
-            _update_github_issue_for_failure(
-                github=github,
-                issue_number=current_record["github_issue_number"],
-                asset_key=asset_key,
-                check_name=None,
-                failure_type="asset_materialization",
-                consecutive_failures=new_count,
-                timestamp=timestamp,
-                context=context,
-            )
-    else:
-        upsert_query = """
-        MERGE `asset_check_failures` AS target
-        USING (
-            SELECT
-                @asset_key AS asset_key,
-                @last_failure_timestamp AS last_failure_timestamp
-        ) AS source
-        ON target.asset_key = source.asset_key
-           AND target.failure_type = 'asset_materialization'
-           AND target.check_name = ''
-        WHEN MATCHED THEN UPDATE SET
-            consecutive_failures = target.consecutive_failures + 1,
-            last_failure_timestamp = source.last_failure_timestamp,
-            updated_at = CURRENT_TIMESTAMP()
-        WHEN NOT MATCHED THEN INSERT (
-            asset_key,
-            check_name,
-            failure_type,
-            consecutive_failures,
-            last_failure_timestamp
-        ) VALUES (
-            source.asset_key,
-            '',
-            'asset_materialization',
-            1,
-            source.last_failure_timestamp
-        )
-        """
-
-        md.execute_query(
-            upsert_query,
-            read_only=False,
-            params={
-                "asset_key": asset_key,
-                "last_failure_timestamp": timestamp,
-            },
-        )
-
-        context.log.info(f"Materialization failure recorded for asset {asset_key}")
-
-
-def _handle_materialization_success(
-    md, github, asset_key, current_record, timestamp, context
-):
-    """Handle a successful asset materialization."""
-    if current_record and current_record["consecutive_failures"] > 0:
-        context.log.info(
-            f"Asset {asset_key} materialized successfully after "
-            f"{current_record['consecutive_failures']} consecutive failures"
-        )
-
-        if current_record.get("github_issue_number") and github:
-            github.close_issue(
-                issue_number=current_record["github_issue_number"],
-                comment=f"✅ Asset is now materializing successfully as of {timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}",
-                context=context,
-            )
-
-        update_query = """
-        UPDATE asset_check_failures
-        SET consecutive_failures = 0,
-            last_success_timestamp = @last_success_timestamp,
-            github_issue_number = NULL,
-            github_issue_url = NULL,
-            updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = @asset_key
-          AND failure_type = 'asset_materialization'
-          AND check_name = ''
-        """
-
-        md.execute_query(
-            update_query,
-            read_only=False,
-            params={
-                "last_success_timestamp": timestamp,
-                "asset_key": asset_key,
-            },
-        )
-
-
-def _create_github_issue_for_failure(
-    github,
-    md,
-    asset_key,
-    check_name,
-    failure_type,
-    consecutive_failures,
-    execution_record,
-    context,
-):
-    """Create a GitHub issue for a check or asset that has failed 3+ times consecutively."""
-
-    if failure_type == "asset_check":
-        metadata_str = ""
-        if (
-            execution_record
-            and hasattr(execution_record, "event")
-            and hasattr(execution_record.event, "metadata_entries")
-        ):
-            metadata = execution_record.event.metadata_entries
-            metadata_str = "\n".join([f"- **{m.label}**: {m.value}" for m in metadata])
-
-        title = f"🚨 Asset Check Failure: {check_name} ({asset_key})"
-
-        body = f"""## Asset Check Consecutive Failure Alert
-
-**Asset**: `{asset_key}`
-**Check**: `{check_name}`
-**Consecutive Failures**: {consecutive_failures}
-**Last Failure**: {datetime.fromtimestamp(execution_record.create_timestamp if execution_record else datetime.now().timestamp(), tz=UTC_TZ).strftime("%Y-%m-%d %H:%M:%S UTC")}
-
-### Check Details
-
-{metadata_str if metadata_str else "No additional metadata available"}
-
-### Next Steps
-
-1. Review the asset check definition and recent execution logs
-2. Investigate the underlying data quality issue
-3. Fix the root cause
-4. Re-run the asset check to verify the fix
-
----
-*This issue was automatically created by the Dagster asset check failure sensor.*
-"""
-    else:
-        title = f"🚨 Asset Materialization Failure: {asset_key}"
-
-        body = f"""## Asset Materialization Consecutive Failure Alert
-
-**Asset**: `{asset_key}`
-**Consecutive Failures**: {consecutive_failures}
-**Last Failure**: {datetime.now(UTC_TZ).strftime("%Y-%m-%d %H:%M:%S UTC")}
-
-### Next Steps
-
-1. Review the asset definition and recent execution logs in Dagster
-2. Check for upstream dependency failures
-3. Investigate error messages in the Dagster UI
-4. Fix the root cause
-5. Re-materialize the asset to verify the fix
-
----
-*This issue was automatically created by the Dagster asset failure sensor.*
-"""
-
-    issue_number = github.create_issue(
-        title=title, body=body, labels=["dagster-failure", "automated"], context=context
-    )
-
-    issue_url = f"https://github.com/{github.repo_owner}/{github.repo_name}/issues/{issue_number}"
-
-    if failure_type == "asset_check":
-        update_query = """
-        UPDATE asset_check_failures
-        SET github_issue_number = @github_issue_number,
-            github_issue_url = @github_issue_url,
-            updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = @asset_key
-          AND failure_type = 'asset_check'
-          AND check_name = @check_name
-        """
-        md.execute_query(
-            update_query,
-            read_only=False,
-            params={
-                "github_issue_number": issue_number,
-                "github_issue_url": issue_url,
-                "asset_key": asset_key,
-                "check_name": check_name or "",
-            },
-        )
-    else:
-        update_query = """
-        UPDATE asset_check_failures
-        SET github_issue_number = @github_issue_number,
-            github_issue_url = @github_issue_url,
-            updated_at = CURRENT_TIMESTAMP()
-        WHERE asset_key = @asset_key
-          AND failure_type = 'asset_materialization'
-          AND check_name = ''
-        """
-        md.execute_query(
-            update_query,
-            read_only=False,
-            params={
-                "github_issue_number": issue_number,
-                "github_issue_url": issue_url,
-                "asset_key": asset_key,
-            },
-        )
-
-    context.log.info(
-        f"Created GitHub issue #{issue_number} for {asset_key}: {issue_url}"
-    )
-
-
-def _update_github_issue_for_failure(
-    github,
-    issue_number,
-    asset_key,
-    check_name,
-    failure_type,
-    consecutive_failures,
-    timestamp,
-    context,
-):
-    """Add a comment to an existing GitHub issue for continued failures."""
-
-    if failure_type == "asset_check":
-        comment = f"""### Continued Failure Update
-
-**Consecutive Failures**: {consecutive_failures}
-**Latest Failure**: {timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")}
-
-The asset check `{check_name}` for `{asset_key}` continues to fail. Please investigate urgently.
-"""
-    else:
-        comment = f"""### Continued Failure Update
-
-**Consecutive Failures**: {consecutive_failures}
-**Latest Failure**: {timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")}
-
-The asset `{asset_key}` continues to fail materialization. Please investigate urgently.
-"""
-
-    github.add_comment(issue_number=issue_number, comment=comment, context=context)
 
 
 @dg.asset(
@@ -581,9 +75,9 @@ def asset_failure_monitor(context):
                 "Set GITHUB_TOKEN to enable issue creation."
             )
 
-        _initialize_failure_tracking_table(md, context)
+        initialize_failure_tracking_table(md, context)
 
-        check_keys = _get_all_asset_check_keys(context)
+        check_keys = get_all_asset_check_keys(context)
         asset_checks_evaluated = len(check_keys)
 
         summary_records = (
@@ -610,12 +104,12 @@ def asset_failure_monitor(context):
 
                 is_failed = execution_record.status.value == "FAILED"
 
-                current_record = _get_failure_tracking_record(
+                current_record = get_failure_tracking_record(
                     md, asset_key_str, "asset_check", check_name, context
                 )
 
                 if is_failed:
-                    _handle_check_failure(
+                    handle_check_failure(
                         md=md,
                         github=github if github_enabled else None,
                         asset_key=asset_key_str,
@@ -626,7 +120,7 @@ def asset_failure_monitor(context):
                         context=context,
                     )
                 else:
-                    _handle_check_success(
+                    handle_check_success(
                         md=md,
                         github=github if github_enabled else None,
                         asset_key=asset_key_str,
@@ -636,12 +130,14 @@ def asset_failure_monitor(context):
                         context=context,
                     )
             except Exception as e:
+                # Intentional resilience boundary: one bad check must not crash
+                # the monitor (see docstring). Logged, not silently swallowed.
                 context.log.warning(
                     f"Error processing asset check {check_key}: {e}. Continuing with next check."
                 )
                 continue
 
-        all_asset_keys = _get_all_asset_keys()
+        all_asset_keys = get_all_asset_keys()
 
         for asset_key in all_asset_keys:
             asset_key_str = str(asset_key)
@@ -662,12 +158,12 @@ def asset_failure_monitor(context):
                         == "ASSET_MATERIALIZATION"
                     )
 
-                    current_record = _get_failure_tracking_record(
+                    current_record = get_failure_tracking_record(
                         md, asset_key_str, "asset_materialization", None, context
                     )
 
                     if is_success:
-                        _handle_materialization_success(
+                        handle_materialization_success(
                             md=md,
                             github=github if github_enabled else None,
                             asset_key=asset_key_str,
@@ -677,7 +173,7 @@ def asset_failure_monitor(context):
                         )
                     else:
                         # Handle materialization failure
-                        _handle_materialization_failure(
+                        handle_materialization_failure(
                             md=md,
                             github=github if github_enabled else None,
                             asset_key=asset_key_str,
@@ -686,6 +182,8 @@ def asset_failure_monitor(context):
                             context=context,
                         )
             except Exception as e:
+                # Intentional resilience boundary (see docstring): keep monitoring
+                # remaining assets even if one lookup fails. Logged, not silent.
                 context.log.warning(
                     f"Error processing materialization status for {asset_key}: {e}"
                 )
@@ -701,6 +199,8 @@ def asset_failure_monitor(context):
             }
         )
     except Exception as e:
+        # Top-level resilience boundary: always materialize so a monitor bug
+        # never masks the asset/check failures it is meant to surface.
         context.log.error(
             "Error in asset_failure_monitor execution: "
             f"{e}. Asset will materialize to avoid masking monitored failures."

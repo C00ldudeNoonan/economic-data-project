@@ -13,15 +13,15 @@ class TestAssetCheckFailureSensor:
 
     def test_initialize_failure_tracking_table(self):
         """Test table initialization."""
-        from macro_agents.defs.asset_failure_sensor import (
-            _initialize_failure_tracking_table,
+        from macro_agents.defs.asset_failure.tracking import (
+            initialize_failure_tracking_table,
         )
 
         mock_md = Mock()
         mock_context = Mock()
         mock_context.log = Mock()
 
-        _initialize_failure_tracking_table(mock_md, mock_context)
+        initialize_failure_tracking_table(mock_md, mock_context)
 
         mock_md.execute_query.assert_called_once()
         call_args = mock_md.execute_query.call_args
@@ -32,15 +32,15 @@ class TestAssetCheckFailureSensor:
 
     def test_get_failure_tracking_record_uses_named_parameters(self):
         """Test that failure lookup binds each key by name."""
-        from macro_agents.defs.asset_failure_sensor import (
-            _get_failure_tracking_record,
+        from macro_agents.defs.asset_failure.tracking import (
+            get_failure_tracking_record,
         )
 
         mock_md = Mock()
         mock_md.execute_query.return_value = MagicMock()
         mock_md.execute_query.return_value.__len__.return_value = 0
 
-        result = _get_failure_tracking_record(
+        result = get_failure_tracking_record(
             mock_md,
             asset_key="test_asset",
             failure_type="asset_check",
@@ -58,7 +58,7 @@ class TestAssetCheckFailureSensor:
 
     def test_handle_first_failure(self):
         """Test handling the first failure of a check."""
-        from macro_agents.defs.asset_failure_sensor import _handle_check_failure
+        from macro_agents.defs.asset_failure.handlers import handle_check_failure
 
         mock_md = Mock()
         mock_github = Mock()
@@ -67,7 +67,7 @@ class TestAssetCheckFailureSensor:
         mock_execution_record = Mock()
         mock_execution_record.create_timestamp = datetime.now(pytz.UTC).timestamp()
 
-        _handle_check_failure(
+        handle_check_failure(
             md=mock_md,
             github=mock_github,
             asset_key="test_asset",
@@ -89,7 +89,7 @@ class TestAssetCheckFailureSensor:
 
     def test_handle_third_failure_creates_issue(self):
         """Test that the 3rd consecutive failure creates a GitHub issue."""
-        from macro_agents.defs.asset_failure_sensor import _handle_check_failure
+        from macro_agents.defs.asset_failure.handlers import handle_check_failure
 
         mock_md = Mock()
         mock_github = Mock()
@@ -103,9 +103,9 @@ class TestAssetCheckFailureSensor:
         current_record = {"consecutive_failures": 2, "github_issue_number": None}
 
         with patch(
-            "macro_agents.defs.asset_failure_sensor._create_github_issue_for_failure"
+            "macro_agents.defs.asset_failure.handlers.create_github_issue_for_failure"
         ) as mock_create:
-            _handle_check_failure(
+            handle_check_failure(
                 md=mock_md,
                 github=mock_github,
                 asset_key="test_asset",
@@ -120,7 +120,7 @@ class TestAssetCheckFailureSensor:
 
     def test_handle_success_resets_counter(self):
         """Test that success resets the failure counter."""
-        from macro_agents.defs.asset_failure_sensor import _handle_check_success
+        from macro_agents.defs.asset_failure.handlers import handle_check_success
 
         mock_md = Mock()
         mock_github = Mock()
@@ -129,7 +129,7 @@ class TestAssetCheckFailureSensor:
 
         current_record = {"consecutive_failures": 5, "github_issue_number": 123}
 
-        _handle_check_success(
+        handle_check_success(
             md=mock_md,
             github=mock_github,
             asset_key="test_asset",
@@ -150,8 +150,8 @@ class TestAssetCheckFailureSensor:
 
     def test_handle_materialization_failure(self):
         """Test handling asset materialization failure."""
-        from macro_agents.defs.asset_failure_sensor import (
-            _handle_materialization_failure,
+        from macro_agents.defs.asset_failure.handlers import (
+            handle_materialization_failure,
         )
 
         mock_md = Mock()
@@ -161,7 +161,7 @@ class TestAssetCheckFailureSensor:
 
         current_record = None
 
-        _handle_materialization_failure(
+        handle_materialization_failure(
             md=mock_md,
             github=mock_github,
             asset_key="test_asset",
@@ -178,8 +178,8 @@ class TestAssetCheckFailureSensor:
 
     def test_handle_materialization_success(self):
         """Test handling successful asset materialization."""
-        from macro_agents.defs.asset_failure_sensor import (
-            _handle_materialization_success,
+        from macro_agents.defs.asset_failure.handlers import (
+            handle_materialization_success,
         )
 
         mock_md = Mock()
@@ -189,7 +189,7 @@ class TestAssetCheckFailureSensor:
 
         current_record = {"consecutive_failures": 3, "github_issue_number": 456}
 
-        _handle_materialization_success(
+        handle_materialization_success(
             md=mock_md,
             github=mock_github,
             asset_key="test_asset",
@@ -226,14 +226,14 @@ class TestAssetCheckFailureSensor:
                     instance=instance,
                 ) as mock_context,
                 patch(
-                    "macro_agents.defs.asset_failure_sensor._initialize_failure_tracking_table"
+                    "macro_agents.defs.asset_failure_sensor.initialize_failure_tracking_table"
                 ) as mock_initialize,
                 patch(
-                    "macro_agents.defs.asset_failure_sensor._get_all_asset_check_keys",
+                    "macro_agents.defs.asset_failure_sensor.get_all_asset_check_keys",
                     return_value=[],
                 ),
                 patch(
-                    "macro_agents.defs.asset_failure_sensor._get_all_asset_keys",
+                    "macro_agents.defs.asset_failure_sensor.get_all_asset_keys",
                     return_value=[],
                 ),
             ):
@@ -260,7 +260,7 @@ class TestAssetCheckFailureSensor:
                     instance=instance,
                 ) as mock_context,
                 patch(
-                    "macro_agents.defs.asset_failure_sensor._initialize_failure_tracking_table",
+                    "macro_agents.defs.asset_failure_sensor.initialize_failure_tracking_table",
                     side_effect=RuntimeError("boom"),
                 ),
             ):
@@ -293,11 +293,11 @@ class TestAssetFailureMonitorIntegration:
                         instance=instance,
                     ) as context,
                     patch(
-                        "macro_agents.defs.asset_failure_sensor._get_all_asset_check_keys",
+                        "macro_agents.defs.asset_failure_sensor.get_all_asset_check_keys",
                         return_value=[],
                     ),
                     patch(
-                        "macro_agents.defs.asset_failure_sensor._get_all_asset_keys",
+                        "macro_agents.defs.asset_failure_sensor.get_all_asset_keys",
                         return_value=[],
                     ),
                 ):
