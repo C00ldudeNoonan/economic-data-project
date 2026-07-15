@@ -9,12 +9,15 @@ import dagster as dg
 import polars as pl
 
 from macro_agents.defs.analysis.news.news_summarizer import NewsSummarizerResource
-from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
+from macro_agents.defs.resources.bigquery_warehouse import (
+    BigQueryWarehouseResource,
+    default_dataset_for_schema,
+)
 
 
 @dg.asset(
     group_name="news_summaries",
-    kinds={"ai", "duckdb"},
+    kinds={"ai", "bigquery"},
     partitions_def=dg.DailyPartitionsDefinition(start_date="2024-01-01"),
     deps=[dg.AssetKey(["agent_reddit_posts_daily"])],
     description="AI-generated daily summary of Reddit posts from financial/economic subreddits",
@@ -41,6 +44,11 @@ def reddit_daily_summary(
 
     context.log.info(f"Generating daily Reddit summary for {partition_date}")
 
+    # agent_reddit_posts_daily is a dbt model in the agents_preprocess group,
+    # which materializes into economics_analysis — not the resource's default
+    # (economics_raw) dataset. Qualify the reference so it resolves correctly.
+    analysis_dataset = default_dataset_for_schema("economics_analysis")
+
     # Fetch all posts for this date across all subreddits
     query = f"""
         SELECT
@@ -50,7 +58,7 @@ def reddit_daily_summary(
             subreddit,
             author,
             url
-        FROM agent_reddit_posts_daily
+        FROM {analysis_dataset}.agent_reddit_posts_daily
         WHERE partition_date = '{partition_date}'
         ORDER BY score DESC
         LIMIT 100
@@ -130,7 +138,7 @@ def reddit_daily_summary(
 
 @dg.asset(
     group_name="news_summaries",
-    kinds={"ai", "duckdb"},
+    kinds={"ai", "bigquery"},
     partitions_def=dg.WeeklyPartitionsDefinition(start_date="2024-01-01"),
     description="AI-generated weekly cross-source summary combining Reddit and FOMC data",
 )

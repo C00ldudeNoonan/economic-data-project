@@ -13,9 +13,24 @@ document_extraction:
         project: "{{ env_var('GOOGLE_CLOUD_PROJECT', 'econ-data-project-478800') }}"
         dataset: economics_documents_dev
         location: US
+      source_paths:
+        sec_filing_html: gs://econ-project-general-storage-dev/sec_filings
+        fomc_transcript_pdfs: gs://econ-project-general-storage-dev/fomc_transcripts
+    staging:
+      warehouse:
+        type: bigquery
+        project: "{{ env_var('GOOGLE_CLOUD_PROJECT', 'econ-data-project-478800') }}"
+        dataset: economics_documents_staging
+        location: US
+      source_paths:
+        sec_filing_html: gs://econ-project-general-storage-staging/sec_filings
+        fomc_transcript_pdfs: gs://econ-project-general-storage-staging/fomc_transcripts
     prod:
       warehouse:
         type: bigquery
         project: "{{ env_var('GOOGLE_CLOUD_PROJECT', 'econ-data-project-478800') }}"
         dataset: economics_documents
         location: US
+      source_paths:
+        sec_filing_html: gs://econ-project-general-storage/sec_filings
+        fomc_transcript_pdfs: gs://econ-project-general-storage/fomc_transcripts

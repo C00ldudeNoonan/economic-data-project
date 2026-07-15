@@ -219,7 +219,7 @@ def extract_recommendations_summary(recommendations_content: str) -> dict[str, A
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="economic_analysis",
     description="Generate actionable investment recommendations based on economy state and asset class relationships",
     deps=[

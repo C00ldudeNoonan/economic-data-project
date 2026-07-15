@@ -92,7 +92,7 @@ def get_latest_backtest_relationship_analysis(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="backtesting",
     description="Backtest investment recommendations generation with historical data cutoff",
     deps=[

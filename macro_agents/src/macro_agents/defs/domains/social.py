@@ -26,7 +26,7 @@ reddit_partitions = dg.MultiPartitionsDefinition(
 
 @dg.asset(
     group_name=SOCIAL_GROUP,
-    kinds={"web_scraping", "duckdb"},
+    kinds={"web_scraping", "bigquery"},
     partitions_def=reddit_partitions,
     description="Reddit posts from financial/economic subreddits scraped from old.reddit.com with aggressive rate limiting",
 )
@@ -143,7 +143,7 @@ def reddit_posts_raw(
 
 @dg.asset(
     group_name=SOCIAL_GROUP,
-    kinds={"web_scraping", "duckdb"},
+    kinds={"web_scraping", "bigquery"},
     partitions_def=reddit_partitions,
     deps=["reddit_posts_raw"],
     description="Full post content and selftext fetched per post from old.reddit.com",
@@ -222,7 +222,7 @@ def reddit_post_content_raw(
 
 @dg.asset(
     group_name=SOCIAL_GROUP,
-    kinds={"web_scraping", "duckdb"},
+    kinds={"web_scraping", "bigquery"},
     partitions_def=reddit_partitions,
     deps=["reddit_posts_raw"],
     description="Comments scraped per post from old.reddit.com",
@@ -304,7 +304,7 @@ def reddit_comments_raw(
 
 @dg.asset(
     group_name=EMBEDDING_GROUP,
-    kinds={"ml", "duckdb"},
+    kinds={"ml", "bigquery"},
     partitions_def=reddit_partitions,
     deps=["reddit_post_content_raw", "reddit_comments_raw"],
     description="Embeddings for Reddit post text and comment text using Ollama nomic-embed-text",

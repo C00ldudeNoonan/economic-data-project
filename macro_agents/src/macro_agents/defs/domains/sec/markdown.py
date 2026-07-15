@@ -25,7 +25,7 @@ from macro_agents.defs.utils.sec_text_extractor import SECTextExtractor
 
 @dg.asset(
     group_name="transformation",
-    kinds={"gcs", "duckdb"},
+    kinds={"gcs", "bigquery"},
     deps=[sec_filing_metadata],
     description=(
         "Convert SEC filing HTML to Markdown for AI agent consumption. "

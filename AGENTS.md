@@ -3,6 +3,7 @@
 ## Project Structure & Module Organization
 - `macro_agents/`: Dagster project and AI agents (`src/macro_agents/`), tests in `macro_agents/tests/`.
 - `dbt_project/`: dbt models and configs (`models/` for staging, markets, analysis, etc.).
+- `document_extraction/`: dbt-ml project for extracting SEC/FOMC documents into BigQuery.
 - Root `makefile`: common dev, test, lint, and setup commands.
 
 ## Build, Test, and Development Commands
@@ -12,7 +13,10 @@
 - `make ruff`: lint/format Python with Ruff.
 - `make lint` / `make fix`: lint or fix dbt SQL with SQLFluff.
 - `make typecheck-dagster`: run `ty` type-checker over `macro_agents`.
+- `make dbt-deps`: explicitly install locked dbt packages (networked setup step).
 - `make dbt-manifest`: parse dbt project.
+- `cd document_extraction && uv sync`: install the locked dbt-ml environment.
+- `cd document_extraction && uv run dbt-ml compile --target dev`: validate the extraction DAG without materializing data.
 
 ## Worktrunk Hooks (wt)
 - Project hooks live in `.config/wt.toml`; user hooks live in `~/.config/worktrunk/config.toml`. Project hooks require first-run approval.
@@ -54,11 +58,13 @@
 ## Testing Guidelines
 - Framework: `pytest` for Python (`macro_agents`).
 - Run Dagster tests: `cd macro_agents && uv run pytest tests/ -v`.
+- Install dbt packages once with `make dbt-deps`; pytest performs one offline dbt parse per session.
+- Network integration tests are opt-in: `RUN_NETWORK_TESTS=1 uv run pytest -m network`.
 - Test standards:
   - Prefer behavior-focused assertions (status, metadata, materialized values) over snapshots.
   - Cover loading, empty, error, and populated states.
   - Use deterministic fixtures and local resources (temp DuckDB, ephemeral Dagster instances); avoid network calls.
-  - For Dagster assets, use `DagsterInstance.ephemeral()` and `build_op_context` with mocked resources.
+  - Use `DagsterInstance.ephemeral()` and `build_op_context` as context managers so their database resources are disposed deterministically.
   - Keep tests isolated and fast; clean up temp files and avoid shared mutable state.
 
 ## Commit & Pull Request Guidelines

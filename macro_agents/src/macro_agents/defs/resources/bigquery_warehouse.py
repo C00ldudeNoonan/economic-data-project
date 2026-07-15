@@ -409,13 +409,34 @@ class BigQueryWarehouseResource(dg.ConfigurableResource):
         return df[column].to_list() if column in df.columns else []
 
 
-def default_raw_dataset() -> str:
-    """Environment-suffixed economics_raw dataset name.
+def default_dataset_for_schema(schema: str) -> str:
+    """Environment-suffixed dataset name for a given dbt schema base name.
 
-    Mirrors the dbt generate_schema_name macro:
-      prod    → economics_raw
-      staging → economics_raw_staging
-      dev     → economics_raw_dev
+    Mirrors dbt's generate_schema_name macro (dbt_project/macros/
+    generate_schema_name.sql): prod uses the schema name as-is, staging/dev
+    append a suffix. Use this to reference dbt-managed models living in a
+    schema other than a resource's own default dataset — e.g. staging-schema
+    `stg_*` views queried by a job whose BigQueryWarehouseResource defaults
+    to the raw dataset. Computed at call time (not module load) so env
+    overrides in tests take effect.
+
+    Reads DBT_TARGET first — that's what dbt's own profiles.yml
+    (`target: "{{ env_var('DBT_TARGET', 'dev') }}"`) and generate_schema_name
+    actually key off — falling back to ENVIRONMENT only when DBT_TARGET is
+    unset. The two can diverge (e.g. ENVIRONMENT=prod with DBT_TARGET=staging
+    for an ad hoc dbt run against the production deployment), and the
+    dataset a dbt model is actually materialized into follows DBT_TARGET.
+    """
+    target = os.getenv("DBT_TARGET") or os.getenv("ENVIRONMENT", "dev")
+    suffix = {"prod": "", "staging": "_staging"}.get(target, "_dev")
+    return f"{schema}{suffix}"
+
+
+def default_raw_dataset() -> str:
+    """Return the environment-scoped raw dataset used by Dagster resources.
+
+    This follows the deployment environment rather than ``DBT_TARGET`` because
+    raw ingestion assets are not dbt-managed. The explicit
     BIGQUERY_DATASET overrides the derived name. Computed at call time so
     env overrides (tests, sandbox runs) take effect without reimporting.
     """
@@ -428,6 +449,6 @@ _default_dataset = default_raw_dataset()
 
 bigquery_warehouse_resource = BigQueryWarehouseResource(
     project=os.getenv("BIGQUERY_PROJECT", "econ-data-project-478800"),
-    dataset=os.getenv("BIGQUERY_DATASET", _default_dataset),
+    dataset=_default_dataset,
     location=os.getenv("BIGQUERY_LOCATION", "US"),
 )

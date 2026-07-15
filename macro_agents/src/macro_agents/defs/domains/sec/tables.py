@@ -32,9 +32,7 @@ def ensure_sec_company_cik_table(
     """).result()
 
 
-def ensure_sec_filings_table(
-    conn: bigquery.Client, dataset: str | None = None
-) -> None:
+def ensure_sec_filings_table(conn: bigquery.Client, dataset: str | None = None) -> None:
     """Create sec_filings table if it doesn't exist."""
     project = conn.project
     dataset = dataset or default_raw_dataset()
@@ -212,6 +210,30 @@ def ensure_sec_filing_markdown_table(
             section_count INT64,
             word_count INT64,
             created_at TIMESTAMP
+        )
+    """).result()
+
+
+def ensure_sec_filing_fts_content_table(
+    conn: bigquery.Client, dataset: str = "economics_raw"
+) -> None:
+    """Create the denormalized full-text-search source table if it doesn't exist.
+
+    Joins filing metadata with section text so BigQuery ``SEARCH()`` keyword
+    queries return symbol, form_type, and filing_date alongside matches.
+    """
+    project = conn.project
+    conn.query(f"""
+        CREATE TABLE IF NOT EXISTS `{project}.{dataset}.sec_filing_fts_content` (
+            content_id STRING NOT NULL,
+            filing_id STRING NOT NULL,
+            symbol STRING NOT NULL,
+            form_type STRING,
+            filing_date DATE,
+            section_name STRING,
+            content_text STRING,
+            word_count INT64,
+            indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
         )
     """).result()
 

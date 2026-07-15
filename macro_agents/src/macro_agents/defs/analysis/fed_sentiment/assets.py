@@ -38,7 +38,7 @@ def _generate_id(prefix: str, *components: str) -> str:
 
 @dg.asset(
     group_name="fed_sentiment",
-    kinds={"nlp", "duckdb"},
+    kinds={"nlp", "bigquery"},
     deps=[dg.AssetKey(["process_fomc_transcripts"])],
     description="Dictionary-based hawkish/dovish scoring of FOMC transcript sections",
 )
@@ -156,7 +156,7 @@ MAX_SECTION_CHARS = 12_000  # ~3K tokens — safe for most models
 
 @dg.asset(
     group_name="fed_sentiment",
-    kinds={"ai", "duckdb"},
+    kinds={"ai", "bigquery"},
     deps=[dg.AssetKey(["process_fomc_transcripts"])],
     description="LLM-based hawkish/dovish scoring of FOMC transcript sections",
 )
@@ -300,7 +300,7 @@ def score_fed_sentiment_llm(
 
 @dg.asset(
     group_name="fed_sentiment",
-    kinds={"analysis", "duckdb"},
+    kinds={"analysis", "bigquery"},
     deps=[
         dg.AssetKey(["score_fed_sentiment_dictionary"]),
         dg.AssetKey(["fomc_transcript_schema"]),

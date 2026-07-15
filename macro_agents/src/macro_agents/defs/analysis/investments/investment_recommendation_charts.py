@@ -472,7 +472,7 @@ def _fetch_recommendations_row(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb", "gcs"},
+    kinds={"dspy", "bigquery", "gcs"},
     group_name="economic_analysis",
     description="Generate chart images for investment recommendations and store a chart manifest",
     deps=[dg.AssetKey(["generate_investment_recommendations"])],

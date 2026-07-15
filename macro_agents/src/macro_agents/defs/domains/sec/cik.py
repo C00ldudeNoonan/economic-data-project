@@ -10,7 +10,7 @@ from macro_agents.defs.resources.sec_edgar import SECEdgarResource
 
 @dg.asset(
     group_name="sec_ingestion",
-    kinds={"api", "duckdb"},
+    kinds={"api", "bigquery"},
     deps=[dg.AssetKey("sp500_companies_raw")],
     description="Enrich S&P 500 companies with validated CIK codes from SEC EDGAR",
 )

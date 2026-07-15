@@ -65,7 +65,7 @@ def _dbt_ml_launcher(project_dir: Path) -> list[str]:
         return ["dbt-ml"]
     raise RuntimeError(
         "Neither uv nor dbt-ml is on PATH; install uv or "
-        "'dbt-ml[bigquery,gcs]' to run document extraction."
+        "'dbt-ml[bigquery,gcs,html,pdf]' to run document extraction."
     )
 
 

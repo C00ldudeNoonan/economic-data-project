@@ -67,10 +67,7 @@ def test_default_gcs_bucket_explicit_override_wins(monkeypatch):
 def test_gcs_resource_resolves_bucket_at_runtime(monkeypatch):
     monkeypatch.delenv("GCS_BUCKET_NAME", raising=False)
     monkeypatch.setenv("ENVIRONMENT", "staging")
-    assert (
-        GCSResource().resolved_bucket_name
-        == "econ-project-general-storage-staging"
-    )
+    assert GCSResource().resolved_bucket_name == "econ-project-general-storage-staging"
 
 
 def test_gcs_resource_configured_bucket_wins(monkeypatch):

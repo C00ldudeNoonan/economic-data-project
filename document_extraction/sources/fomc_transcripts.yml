@@ -5,8 +5,8 @@ version: 2
 # the Federal Reserve releases transcripts with a multi-year lag, so staleness
 # is expected. (The fomc/ prefix holds already-parsed JSON from the legacy
 # pipeline and is not a dbt-ml source.)
-# BLOCKED on dbt-ml#110 (same as sec_filings.yml): path pinned to the
-# canonical prod bucket for every profile target.
+# The reviewed project default points at prod. profiles.yml overrides this
+# root for every supported target so dev/staging runs never read prod objects.
 sources:
   - name: fomc_transcript_pdfs
     description: "FOMC meeting transcript PDFs from the Federal Reserve"

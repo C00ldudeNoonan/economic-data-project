@@ -79,7 +79,7 @@ def fetch_filings_across_ciks(
 
 @dg.asset(
     group_name="sec_ingestion",
-    kinds={"api", "duckdb"},
+    kinds={"api", "bigquery"},
     deps=[sp500_cik_enriched],
     description="Fetch SEC 10-K and 10-Q filing metadata for S&P 500 companies (incremental)",
 )

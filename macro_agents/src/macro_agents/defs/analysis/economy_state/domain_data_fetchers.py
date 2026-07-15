@@ -73,7 +73,7 @@ def get_labor_market_data(
             AND series_code IN ('{series_list}')
             AND current_value IS NOT NULL
             AND month >= (
-                SELECT MAX(month) - INTERVAL '{max_months - 1} months'
+                SELECT MAX(month) - INTERVAL {max_months - 1} MONTH
                 FROM agent_fred_series_latest_aggregates_snapshot
                 WHERE snapshot_date = '{cutoff_date}'
             )
@@ -94,7 +94,7 @@ def get_labor_market_data(
         WHERE series_code IN ('{series_list}')
             AND current_value IS NOT NULL
             AND month >= (
-                SELECT MAX(month) - INTERVAL '{max_months - 1} months'
+                SELECT MAX(month) - INTERVAL {max_months - 1} MONTH
                 FROM agent_fred_series_latest_aggregates
             )
         ORDER BY series_name, month DESC
@@ -271,7 +271,7 @@ def get_credit_data(
             AND series_code IN ('{series_list}')
             AND current_value IS NOT NULL
             AND month >= (
-                SELECT MAX(month) - INTERVAL '{max_months - 1} months'
+                SELECT MAX(month) - INTERVAL {max_months - 1} MONTH
                 FROM agent_fred_series_latest_aggregates_snapshot
                 WHERE snapshot_date = '{cutoff_date}'
             )
@@ -291,7 +291,7 @@ def get_credit_data(
         WHERE series_code IN ('{series_list}')
             AND current_value IS NOT NULL
             AND month >= (
-                SELECT MAX(month) - INTERVAL '{max_months - 1} months'
+                SELECT MAX(month) - INTERVAL {max_months - 1} MONTH
                 FROM agent_fred_series_latest_aggregates
             )
         ORDER BY series_name, month DESC

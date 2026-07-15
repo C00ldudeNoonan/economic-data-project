@@ -122,7 +122,7 @@ def create_model_versions_table(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="optimization",
     description="Prepare training data from backtest evaluation results for DSPy optimization",
     deps=[
@@ -302,7 +302,7 @@ def prepare_optimization_training_data(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb", "gcs"},
+    kinds={"dspy", "bigquery", "gcs"},
     group_name="optimization",
     description="Optimize DSPy modules using MIPROv2 optimizer with backtest data",
     deps=[
@@ -734,7 +734,7 @@ def optimize_dspy_modules(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb", "gcs"},
+    kinds={"dspy", "bigquery", "gcs"},
     group_name="optimization",
     description="Promote optimized model to production if improvement threshold is met",
     deps=[optimize_dspy_modules],
@@ -832,7 +832,7 @@ def promote_optimized_model_to_production(
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb", "gcs"},
+    kinds={"dspy", "bigquery", "gcs"},
     group_name="optimization",
     description="Automatically promote the best optimized model to production for each module",
     deps=[optimize_dspy_modules],

@@ -15,6 +15,7 @@ from metaxy.metadata_store.base import MetadataStore
 from macro_agents.defs.domains.sec import lineage  # noqa: F401 — register features
 from macro_agents.defs.domains.sec.tables import ensure_sec_filing_chunks_table
 from macro_agents.defs.domains.sec.text import sec_filing_text_extracted
+from macro_agents.defs.resources.bigquery_query import QueryArrayParameter
 from macro_agents.defs.resources.gcs import GCSResource
 from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
 from macro_agents.defs.domains.sec.config import (
@@ -120,7 +121,7 @@ def _split_text_into_chunks(
 @metaxify(key="sec_filing_search_index")
 @dg.asset(
     group_name="transformation",
-    kinds={"llm", "duckdb", "ollama"},
+    kinds={"llm", "bigquery", "ollama"},
     deps=[sec_filing_text_extracted],
     description=(
         "Generate chunked embeddings from SEC filing text for semantic search. "
@@ -260,11 +261,16 @@ def sec_filing_search_index(
 
                 # If partially embedded, delete existing chunks and re-embed
                 if existing_chunks > 0:
-                    conn.query(
+                    bq.execute_query(
                         "DELETE FROM sec_filing_chunks "
-                        "WHERE filing_id = ? AND section_name = ?",
-                        [filing_id, section_name],  # ty: ignore[invalid-argument-type]
-                    ).result()
+                        "WHERE filing_id = @filing_id "
+                        "AND section_name = @section_name",
+                        read_only=False,
+                        params={
+                            "filing_id": filing_id,
+                            "section_name": section_name,
+                        },
+                    )
                     context.log.debug(
                         f"Cleared {existing_chunks} partial chunks for "
                         f"{symbol}/{section_name}, re-embedding {len(chunks)}"
@@ -278,31 +284,53 @@ def sec_filing_search_index(
                     embeddings = ollama.get_embeddings([chunk_text])
                     embedding = embeddings[0] if embeddings else None
 
-                    conn.query(
+                    bq.execute_query(
                         """
-                        INSERT INTO sec_filing_chunks
-                        (chunk_id, filing_id, symbol, section_name,
-                         chunk_index, chunk_text, word_count,
-                         embedding, model_name)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT (chunk_id) DO UPDATE SET
-                            chunk_text = EXCLUDED.chunk_text,
-                            word_count = EXCLUDED.word_count,
-                            embedding = EXCLUDED.embedding,
-                            model_name = EXCLUDED.model_name
+                        MERGE sec_filing_chunks AS target
+                        USING (
+                            SELECT
+                                @chunk_id AS chunk_id,
+                                @filing_id AS filing_id,
+                                @symbol AS symbol,
+                                @section_name AS section_name,
+                                @chunk_index AS chunk_index,
+                                @chunk_text AS chunk_text,
+                                @word_count AS word_count,
+                                @embedding AS embedding,
+                                @model_name AS model_name
+                        ) AS source
+                        ON target.chunk_id = source.chunk_id
+                        WHEN MATCHED THEN UPDATE SET
+                            chunk_text = source.chunk_text,
+                            word_count = source.word_count,
+                            embedding = source.embedding,
+                            model_name = source.model_name
+                        WHEN NOT MATCHED THEN INSERT (
+                            chunk_id, filing_id, symbol, section_name,
+                            chunk_index, chunk_text, word_count,
+                            embedding, model_name
+                        ) VALUES (
+                            source.chunk_id, source.filing_id, source.symbol,
+                            source.section_name, source.chunk_index,
+                            source.chunk_text, source.word_count,
+                            source.embedding, source.model_name
+                        )
                         """,
-                        [  # ty: ignore[invalid-argument-type]
-                            chunk_id,
-                            filing_id,
-                            symbol,
-                            section_name,
-                            i,
-                            chunk_text,
-                            chunk_word_count,
-                            embedding,
-                            ollama._embedding_model,
-                        ],
-                    ).result()
+                        read_only=False,
+                        params={
+                            "chunk_id": chunk_id,
+                            "filing_id": filing_id,
+                            "symbol": symbol,
+                            "section_name": section_name,
+                            "chunk_index": i,
+                            "chunk_text": chunk_text,
+                            "word_count": chunk_word_count,
+                            "embedding": QueryArrayParameter(
+                                embedding or [], "FLOAT64"
+                            ),
+                            "model_name": ollama._embedding_model,
+                        },
+                    )
 
                     total_chunks += 1
                 context.log.debug(

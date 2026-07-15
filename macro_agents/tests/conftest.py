@@ -2,12 +2,21 @@
 Pytest configuration and fixtures.
 """
 
+import json
+import os
 import re
+import socket
+import subprocess
+import sys
+from pathlib import Path
+from types import TracebackType
+from typing import NoReturn, Self
 from unittest.mock import Mock
 
 import duckdb
 import polars as pl
 import pytest
+from google.cloud import bigquery
 
 from macro_agents.defs.resources.bigquery_query import (
     QueryParameters,
@@ -18,6 +27,118 @@ _TIMESTAMP_CALL_RE = re.compile(
     r"TIMESTAMP\('(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) UTC'\)"
 )
 _NAMED_PARAMETER_RE = re.compile(r"@([A-Za-z_][A-Za-z0-9_]*)")
+
+
+class NetworkAccessBlocked(RuntimeError):
+    """Raised when a default test attempts external network access."""
+
+
+def _block_network(*args: object, **kwargs: object) -> NoReturn:
+    raise NetworkAccessBlocked(
+        "Network access is disabled in the default test suite. "
+        "Mark the test with @pytest.mark.network and opt in explicitly."
+    )
+
+
+_network_monkeypatch: pytest.MonkeyPatch | None = None
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Block Python network access before collection and session fixtures run."""
+    if os.getenv("RUN_NETWORK_TESTS") == "1":
+        return
+    global _network_monkeypatch
+    _network_monkeypatch = pytest.MonkeyPatch()
+    _network_monkeypatch.setattr(socket, "create_connection", _block_network)
+    _network_monkeypatch.setattr(socket.socket, "connect", _block_network)
+    _network_monkeypatch.setattr(socket.socket, "connect_ex", _block_network)
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Restore socket functions after the pytest session."""
+    global _network_monkeypatch
+    if _network_monkeypatch is not None:
+        _network_monkeypatch.undo()
+        _network_monkeypatch = None
+
+
+@pytest.fixture(scope="session")
+def dbt_project_dir() -> Path:
+    """Return the repository dbt project used by integration tests."""
+    project_dir = Path(__file__).resolve().parents[2] / "dbt_project"
+    if not project_dir.exists():
+        pytest.fail(f"dbt project directory not found at {project_dir}")
+    return project_dir
+
+
+@pytest.fixture(scope="session")
+def dbt_manifest(dbt_project_dir: Path) -> dict[str, object]:
+    """Parse dbt once, offline, and return the generated manifest."""
+    packages_dir = dbt_project_dir / "dbt_packages"
+    missing_packages = [
+        package
+        for package in ("dbt_project_evaluator", "dbt_utils")
+        if not (packages_dir / package).exists()
+    ]
+    if missing_packages:
+        pytest.fail(
+            "dbt packages are not installed: "
+            f"{', '.join(missing_packages)}. Run `make dbt-deps` before pytest."
+        )
+
+    dbt_executable = Path(sys.executable).with_name("dbt")
+    if not dbt_executable.exists():
+        pytest.fail(f"dbt executable not found next to Python at {dbt_executable}")
+
+    command = [
+        str(dbt_executable),
+        "parse",
+        "--project-dir",
+        str(dbt_project_dir),
+        "--profiles-dir",
+        str(dbt_project_dir),
+        "--target",
+        "dev",
+        "--no-send-anonymous-usage-stats",
+    ]
+    environment = {
+        **os.environ,
+        "BIGQUERY_PROJECT": "econ-data-project-478800",
+        "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
+    }
+    try:
+        subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=environment,
+        )
+    except subprocess.CalledProcessError as error:
+        pytest.fail(
+            f"dbt parse failed.\nSTDOUT:\n{error.stdout}\n\nSTDERR:\n{error.stderr}",
+            pytrace=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        pytest.fail(f"dbt parse timed out after {error.timeout} seconds", pytrace=False)
+
+    manifest_path = dbt_project_dir / "target" / "manifest.json"
+    if not manifest_path.exists():
+        pytest.fail(f"dbt parse did not create {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        pytest.fail("dbt manifest must contain a JSON object")
+    return manifest
+
+
+@pytest.fixture(scope="session")
+def dagster_defs(dbt_manifest: dict[str, object]):
+    """Load Dagster definitions only after the offline dbt parse succeeds."""
+    # Deferred intentionally: definitions read the generated manifest at import time.
+    from macro_agents.definitions import defs
+
+    return defs
 
 
 def _bq_to_duckdb(sql: str) -> str:
@@ -45,7 +166,14 @@ def _bind_named_parameters(
         read_only=read_only,
         params=params,
     )
-    values_by_name = {parameter.name: parameter.value for parameter in query_parameters}
+    values_by_name = {
+        parameter.name: (
+            parameter.values
+            if isinstance(parameter, bigquery.ArrayQueryParameter)
+            else parameter.value
+        )
+        for parameter in query_parameters
+    }
     ordered_values: list[object] = []
 
     def replace_parameter(match: re.Match[str]) -> str:
@@ -63,6 +191,17 @@ class DuckDBWarehouseStub:
 
     def __init__(self):
         self._conn = duckdb.connect()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
 
     def execute_query(
         self,

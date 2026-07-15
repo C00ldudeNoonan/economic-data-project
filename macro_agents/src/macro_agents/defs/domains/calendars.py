@@ -60,6 +60,17 @@ WEEKDAY_NAMES = [
 
 WEEKDAY_ABBRS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
+# earnings_calendar numeric columns typed as FLOAT64 in BigQuery. Used both to
+# pin the staging frame's dtypes and to normalize any drifted target columns
+# (older tables created by pre-fix code can hold these as STRING).
+EARNINGS_NUMERIC_COLUMNS = [
+    "eps_estimated",
+    "eps_actual",
+    "revenue_estimated",
+    "revenue_actual",
+]
+EARNINGS_NUMERIC_COLUMN_TYPES = {col: "FLOAT64" for col in EARNINGS_NUMERIC_COLUMNS}
+
 
 def _nth_weekday_of_month(year: int, month: int, weekday: int, n: int) -> date:
     """Return the date for the nth weekday of a month (weekday: 0=Mon)."""
@@ -337,6 +348,23 @@ def parse_numeric_value(value: str | None) -> float | None:
         return None
 
 
+def _to_float(value: str | float | int | None) -> float | None:
+    """Coerce a source EPS value (str, float, or None) to float, or None.
+
+    Yahoo's earnings feed returns EPS fields as strings, floats, or None
+    depending on the row. The BigQuery ``earnings_calendar`` table types these
+    columns as FLOAT64, so blank/None values must map to NULL and everything
+    else must be a real float before the frame is built (otherwise Polars
+    infers a String column and the MERGE is rejected).
+    """
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 @dg.asset(
     group_name=CALENDAR_GROUP,
     kinds={"api", "economic_calendar"},
@@ -475,8 +503,8 @@ def earnings_calendar(
                 "company_name": row.get("company_name", ""),
                 "report_date": report_date,
                 "fiscal_date_ending": "",
-                "eps_estimated": row.get("eps_estimated"),
-                "eps_actual": row.get("eps_actual"),
+                "eps_estimated": _to_float(row.get("eps_estimated")),
+                "eps_actual": _to_float(row.get("eps_actual")),
                 "revenue_estimated": None,
                 "revenue_actual": None,
                 "report_time": row.get("report_time", ""),
@@ -489,8 +517,22 @@ def earnings_calendar(
         )
 
     processed_df = pl.DataFrame(processed_records)
+    # Pin numeric columns to Float64 so the staging table always matches the
+    # FLOAT64 raw-table schema — even for a batch where every value is None,
+    # which would otherwise infer a Null/String column and break the MERGE.
+    processed_df = processed_df.with_columns(
+        pl.col(col).cast(pl.Float64, strict=False) for col in EARNINGS_NUMERIC_COLUMNS
+    )
     context.log.info(f"Fetched {len(processed_df)} earnings announcements")
 
+    # Repair existing deployments: a target table first created by pre-fix code
+    # can still hold these columns as STRING. The FLOAT64 staging columns above
+    # would then fail the MERGE assignment into a STRING target, so normalize
+    # the target's numeric columns first (SAFE_CAST; no-op if already FLOAT64
+    # or the table doesn't yet exist).
+    bq.normalize_column_types(
+        "earnings_calendar", EARNINGS_NUMERIC_COLUMN_TYPES, context=context
+    )
     bq.upsert_data("earnings_calendar", processed_df, ["event_id"], context=context)
 
     return dg.MaterializeResult(

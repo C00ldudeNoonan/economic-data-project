@@ -105,5 +105,18 @@ run_retries:
   max_retries: 2
   retry_on_asset_or_op_failure: true
 
+# Tick retention (issue #132) — Dagster's supported mechanism for pruning the
+# high-volume schedule/sensor tick tables. Successful ticks are kept so
+# automation history stays auditable; skipped/failed ticks age out. This does
+# NOT touch materialization/observation/asset-check state.
+retention:
+  schedule:
+    purge_after_days: 90
+  sensor:
+    purge_after_days:
+      skipped: 7
+      failure: 30
+      success: 90
+
 telemetry:
   enabled: false

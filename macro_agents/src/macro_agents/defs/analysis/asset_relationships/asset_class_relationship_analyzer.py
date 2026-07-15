@@ -174,7 +174,7 @@ def extract_relationship_summary(analysis_content: str) -> dict[str, Any]:
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="economic_analysis",
     description="Understand relationships between asset classes and the economic cycle",
     deps=[

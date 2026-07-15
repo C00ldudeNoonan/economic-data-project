@@ -1,17 +1,18 @@
 # Economic Data Project
 
-An end-to-end data platform that ingests, transforms, and analyzes economic and financial market data. Pipelines run on self-hosted Dagster OSS (Docker) and store everything in MotherDuck (DuckDB cloud). Data is queried and explored via AI agents using the MotherDuck MCP server.
+An end-to-end data platform that ingests, transforms, and analyzes economic and financial market data. Pipelines run on self-hosted Dagster OSS (Docker) and store everything in Google BigQuery. Data is queried and explored via AI agents using the dbt-index MCP server's warehouse tools.
 
 ## Architecture
 
 ```
-External APIs → Dagster (ingestion) → MotherDuck/DuckDB
+External APIs → Dagster (ingestion) → Google BigQuery
+                 └→ GCS documents → dbt-ml extraction → BigQuery
                                           ↓
                               dbt (SQL transformations)
                                           ↓
                          DSPy AI agents (analysis & signals)
                                           ↓
-                         Claude + MotherDuck MCP (query interface)
+                         Claude + dbt-index MCP (query interface)
 ```
 
 ## Project Structure
@@ -40,7 +41,7 @@ economic-data-project/
 │   │   │   └── news/                # Reddit + FOMC weekly summaries
 │   │   ├── transformation/          # dbt orchestration + FCI
 │   │   ├── backtesting/             # Strategy backtesting
-│   │   ├── resources/               # Shared resources (MotherDuck, GCS, etc.)
+│   │   ├── resources/               # Shared resources (BigQuery, GCS, etc.)
 │   │   └── telemetry/               # Pipeline monitoring assets
 │   └── tests/                       # 440+ test suite
 ├── dbt_project/                     # SQL transformations
@@ -50,6 +51,7 @@ economic-data-project/
 │       ├── government/              # FRED, housing, yields
 │       ├── commodities/             # Commodity analysis
 │       └── analysis/                # Cross-domain analytics
+├── document_extraction/              # dbt-ml SEC/FOMC document extraction
 ├── docker-compose.yml               # Local/production deployment
 ├── dagster.yaml                     # Dagster OSS config
 └── makefile                         # Common commands
@@ -60,7 +62,7 @@ economic-data-project/
 ### Prerequisites
 - Docker Desktop
 - API keys (see `.env.example`)
-- MotherDuck account
+- Google Cloud project with BigQuery enabled + a service account (see `GOOGLE_APPLICATION_CREDENTIALS`)
 
 ### Setup
 
@@ -81,8 +83,11 @@ Dagster UI: `http://localhost:3000`
 ### Development (without Docker)
 
 ```bash
+# From the repository root, install Python and locked dbt dependencies
+make setup-dagster
+make dbt-manifest
+
 cd macro_agents
-uv sync --extra dev
 
 # Validate definitions
 uv run dg check defs
@@ -93,6 +98,11 @@ uv run pytest tests/ -v
 # Lint
 uv run ruff check .
 uv run ruff format .
+
+# Validate dbt-ml document extraction without materializing data
+cd ../document_extraction
+uv sync
+uv run dbt-ml compile --target dev
 ```
 
 ## Data Sources
@@ -110,7 +120,7 @@ uv run ruff format .
 
 ## Querying the Data
 
-The platform is designed to be queried via AI agents using the MotherDuck MCP server. Configure Claude Code with your MotherDuck token (see `.mcp.json`) to query any table directly in conversation.
+The platform is designed to be queried via AI agents using the dbt-index MCP server (see `.mcp.json`), whose `warehouse` tool runs SQL directly against BigQuery. With that server configured, Claude Code can query any table directly in conversation.
 
 ```bash
 # Example: ask Claude about the data
@@ -131,8 +141,9 @@ Copy `.env.example` to `.env`. Required keys:
 
 | Variable | Description |
 |----------|-------------|
-| `MOTHERDUCK_TOKEN` | MotherDuck auth token |
-| `MOTHERDUCK_DATABASE` | Target database name |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to a GCP service-account JSON file (or inline JSON) for BigQuery |
+| `BIGQUERY_PROJECT` | GCP project ID hosting the BigQuery datasets |
+| `BIGQUERY_DATASET` | Default BigQuery dataset (defaults to `economics_raw*` per environment) |
 | `FRED_API_KEY` | FRED API key |
 | `MARKETSTACK_API_KEY` | MarketStack API key |
 | `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | LLM provider for AI agents |
@@ -152,6 +163,9 @@ docker compose --env-file .env build       # Rebuild images
 docker compose logs -f dagster_user_code   # Tail user code logs
 
 # Development
+make dbt-deps                            # Install locked dbt packages
+make dbt-manifest                        # Generate the local manifest
+cd macro_agents
 uv run pytest tests/ -v                    # Run tests
 uv run ruff check . && ruff format .       # Lint + format
 uv run dg check defs                       # Validate Dagster definitions
@@ -161,7 +175,7 @@ uv run dg check defs                       # Validate Dagster definitions
 
 - **[Dagster](https://docs.dagster.io)** — asset orchestration, schedules, sensors
 - **[dbt](https://docs.getdbt.com)** — SQL transformations
-- **[DuckDB](https://duckdb.org/docs) / [MotherDuck](https://motherduck.com/docs)** — analytical database + cloud sync
+- **[Google BigQuery](https://cloud.google.com/bigquery/docs)** — serverless analytical data warehouse
 - **[DSPy](https://dspy.ai)** — LLM pipeline framework for AI agents
 - **[Polars](https://docs.pola.rs)** — dataframe processing
 - **[uv](https://docs.astral.sh/uv/)** — Python package management

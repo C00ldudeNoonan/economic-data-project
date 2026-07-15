@@ -215,29 +215,29 @@ class TestAssetCheckFailureSensor:
         mock_github = Mock()
         mock_github.setup_for_execution = Mock()
 
-        instance = DagsterInstance.ephemeral()
-        instance.event_log_storage.get_asset_check_summary_records = Mock(
-            return_value={}
-        )
-        instance.get_latest_materialization_event = Mock(return_value=None)
-        mock_context = build_op_context(
-            resources={"bq": mock_md, "github": mock_github}, instance=instance
-        )
-
-        with (
-            patch(
-                "macro_agents.defs.asset_failure_sensor._initialize_failure_tracking_table"
-            ) as mock_initialize,
-            patch(
-                "macro_agents.defs.asset_failure_sensor._get_all_asset_check_keys",
-                return_value=[],
-            ),
-            patch(
-                "macro_agents.defs.asset_failure_sensor._get_all_asset_keys",
-                return_value=[],
-            ),
-        ):
-            result = asset_failure_monitor(mock_context)
+        with DagsterInstance.ephemeral() as instance:
+            instance.event_log_storage.get_asset_check_summary_records = Mock(
+                return_value={}
+            )
+            instance.get_latest_materialization_event = Mock(return_value=None)
+            with (
+                build_op_context(
+                    resources={"bq": mock_md, "github": mock_github},
+                    instance=instance,
+                ) as mock_context,
+                patch(
+                    "macro_agents.defs.asset_failure_sensor._initialize_failure_tracking_table"
+                ) as mock_initialize,
+                patch(
+                    "macro_agents.defs.asset_failure_sensor._get_all_asset_check_keys",
+                    return_value=[],
+                ),
+                patch(
+                    "macro_agents.defs.asset_failure_sensor._get_all_asset_keys",
+                    return_value=[],
+                ),
+            ):
+                result = asset_failure_monitor(mock_context)
 
         mock_initialize.assert_called_once()
         assert result.metadata["status"] == "ok"
@@ -253,16 +253,18 @@ class TestAssetCheckFailureSensor:
         mock_github = Mock()
         mock_github.setup_for_execution = Mock()
 
-        instance = DagsterInstance.ephemeral()
-        mock_context = build_op_context(
-            resources={"bq": mock_md, "github": mock_github}, instance=instance
-        )
-
-        with patch(
-            "macro_agents.defs.asset_failure_sensor._initialize_failure_tracking_table",
-            side_effect=RuntimeError("boom"),
-        ):
-            result = asset_failure_monitor(mock_context)
+        with DagsterInstance.ephemeral() as instance:
+            with (
+                build_op_context(
+                    resources={"bq": mock_md, "github": mock_github},
+                    instance=instance,
+                ) as mock_context,
+                patch(
+                    "macro_agents.defs.asset_failure_sensor._initialize_failure_tracking_table",
+                    side_effect=RuntimeError("boom"),
+                ),
+            ):
+                result = asset_failure_monitor(mock_context)
 
         assert result.metadata["status"] == "error"
         assert "boom" in result.metadata["error"]
@@ -276,31 +278,30 @@ class TestAssetFailureMonitorIntegration:
         from macro_agents.defs.asset_failure_sensor import asset_failure_monitor
         from tests.conftest import DuckDBWarehouseStub
 
-        bq_resource = DuckDBWarehouseStub()
-
         mock_github = Mock()
         mock_github.setup_for_execution = Mock()
 
-        instance = DagsterInstance.ephemeral()
-        instance.event_log_storage.get_asset_check_summary_records = Mock(
-            return_value={}
-        )
+        with DuckDBWarehouseStub() as bq_resource:
+            with DagsterInstance.ephemeral() as instance:
+                instance.event_log_storage.get_asset_check_summary_records = Mock(
+                    return_value={}
+                )
 
-        context = build_op_context(
-            resources={"bq": bq_resource, "github": mock_github}, instance=instance
-        )
+                with (
+                    build_op_context(
+                        resources={"bq": bq_resource, "github": mock_github},
+                        instance=instance,
+                    ) as context,
+                    patch(
+                        "macro_agents.defs.asset_failure_sensor._get_all_asset_check_keys",
+                        return_value=[],
+                    ),
+                    patch(
+                        "macro_agents.defs.asset_failure_sensor._get_all_asset_keys",
+                        return_value=[],
+                    ),
+                ):
+                    result = asset_failure_monitor(context)
 
-        with (
-            patch(
-                "macro_agents.defs.asset_failure_sensor._get_all_asset_check_keys",
-                return_value=[],
-            ),
-            patch(
-                "macro_agents.defs.asset_failure_sensor._get_all_asset_keys",
-                return_value=[],
-            ),
-        ):
-            result = asset_failure_monitor(context)
-
-        assert result.metadata["status"] == "ok"
-        assert bq_resource.table_exists("asset_check_failures")
+                assert result.metadata["status"] == "ok"
+                assert bq_resource.table_exists("asset_check_failures")

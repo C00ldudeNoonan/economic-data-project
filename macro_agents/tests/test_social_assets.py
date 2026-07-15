@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import dagster as dg
 import polars as pl
+import pytest
 from macro_agents.defs.domains.social import (
     reddit_comments_raw,
     reddit_content_embeddings,
@@ -16,10 +17,12 @@ def _partition_key(subreddit: str = "investing", date: str = "2024-01-15"):
     return dg.MultiPartitionKey({"subreddit": subreddit, "date": date})
 
 
-def _build_context(subreddit: str = "investing", date: str = "2024-01-15"):
-    return dg.build_asset_context(
-        partition_key=_partition_key(subreddit, date),
-    )
+@pytest.fixture()
+def asset_context():
+    with dg.build_asset_context(
+        partition_key=_partition_key(),
+    ) as context:
+        yield context
 
 
 def _meta_val(metadata: dict, key: str):
@@ -35,8 +38,8 @@ def _meta_val(metadata: dict, key: str):
 class TestRedditPostContentRaw:
     """Tests for reddit_post_content_raw asset."""
 
-    def test_fetches_content_for_posts(self):
-        context = _build_context()
+    def test_fetches_content_for_posts(self, asset_context):
+        context = asset_context
         reddit = Mock()
         md = Mock()
 
@@ -80,8 +83,8 @@ class TestRedditPostContentRaw:
         assert _meta_val(result.metadata, "skipped") == 0
         md.upsert_data.assert_called_once()
 
-    def test_handles_empty_posts(self):
-        context = _build_context()
+    def test_handles_empty_posts(self, asset_context):
+        context = asset_context
         reddit = Mock()
         md = Mock()
 
@@ -94,8 +97,8 @@ class TestRedditPostContentRaw:
         assert _meta_val(result.metadata, "num_posts") == 0
         reddit.get_post_content.assert_not_called()
 
-    def test_handles_fetch_failure(self):
-        context = _build_context()
+    def test_handles_fetch_failure(self, asset_context):
+        context = asset_context
         reddit = Mock()
         md = Mock()
 
@@ -112,8 +115,8 @@ class TestRedditPostContentRaw:
         assert _meta_val(result.metadata, "failed") == 1
         assert _meta_val(result.metadata, "num_posts") == 0
 
-    def test_skips_empty_permalink(self):
-        context = _build_context()
+    def test_skips_empty_permalink(self, asset_context):
+        context = asset_context
         reddit = Mock()
         md = Mock()
 
@@ -130,8 +133,8 @@ class TestRedditPostContentRaw:
 class TestRedditCommentsRaw:
     """Tests for reddit_comments_raw asset."""
 
-    def test_fetches_comments_for_posts(self):
-        context = _build_context()
+    def test_fetches_comments_for_posts(self, asset_context):
+        context = asset_context
         reddit = Mock()
         md = Mock()
 
@@ -164,8 +167,8 @@ class TestRedditCommentsRaw:
         assert _meta_val(result.metadata, "failed") == 0
         md.upsert_data.assert_called_once()
 
-    def test_handles_empty_comments(self):
-        context = _build_context()
+    def test_handles_empty_comments(self, asset_context):
+        context = asset_context
         reddit = Mock()
         md = Mock()
 
@@ -193,8 +196,8 @@ class TestRedditCommentsRaw:
         assert _meta_val(result.metadata, "skipped") == 1
         md.upsert_data.assert_not_called()
 
-    def test_handles_query_failure(self):
-        context = _build_context()
+    def test_handles_query_failure(self, asset_context):
+        context = asset_context
         reddit = Mock()
         md = Mock()
 
@@ -210,8 +213,8 @@ class TestRedditCommentsRaw:
 class TestRedditContentEmbeddings:
     """Tests for reddit_content_embeddings asset."""
 
-    def test_embeds_posts_and_comments(self):
-        context = _build_context()
+    def test_embeds_posts_and_comments(self, asset_context):
+        context = asset_context
         ollama = Mock()
         md = Mock()
 
@@ -240,8 +243,8 @@ class TestRedditContentEmbeddings:
         assert _meta_val(result.metadata, "failed") == 0
         md.upsert_data.assert_called_once()
 
-    def test_skips_empty_text(self):
-        context = _build_context()
+    def test_skips_empty_text(self, asset_context):
+        context = asset_context
         ollama = Mock()
         md = Mock()
 
@@ -267,8 +270,8 @@ class TestRedditContentEmbeddings:
         assert _meta_val(result.metadata, "skipped") == 2
         ollama.get_embeddings.assert_not_called()
 
-    def test_falls_back_to_title_when_no_selftext(self):
-        context = _build_context()
+    def test_falls_back_to_title_when_no_selftext(self, asset_context):
+        context = asset_context
         ollama = Mock()
         md = Mock()
 
@@ -290,8 +293,8 @@ class TestRedditContentEmbeddings:
         assert _meta_val(result.metadata, "embedded") == 1
         ollama.get_embeddings.assert_called_once_with(["Important Market Update"])
 
-    def test_handles_embedding_failure(self):
-        context = _build_context()
+    def test_handles_embedding_failure(self, asset_context):
+        context = asset_context
         ollama = Mock()
         md = Mock()
 
@@ -313,8 +316,8 @@ class TestRedditContentEmbeddings:
         assert _meta_val(result.metadata, "failed") == 1
         assert _meta_val(result.metadata, "embedded") == 0
 
-    def test_handles_query_failure_gracefully(self):
-        context = _build_context()
+    def test_handles_query_failure_gracefully(self, asset_context):
+        context = asset_context
         ollama = Mock()
         md = Mock()
 
@@ -328,10 +331,10 @@ class TestRedditContentEmbeddings:
 class TestRedditSentimentScored:
     """Tests for reddit_sentiment_scored asset."""
 
-    def test_scores_posts_and_comments(self):
+    def test_scores_posts_and_comments(self, asset_context):
         from macro_agents.defs.domains.social_sentiment import reddit_sentiment_scored
 
-        context = _build_context()
+        context = asset_context
         md = Mock()
 
         md.execute_query.side_effect = [
@@ -358,10 +361,10 @@ class TestRedditSentimentScored:
         assert _meta_val(result.metadata, "comments_scored") == 1
         md.upsert_data.assert_called_once()
 
-    def test_skips_empty_text(self):
+    def test_skips_empty_text(self, asset_context):
         from macro_agents.defs.domains.social_sentiment import reddit_sentiment_scored
 
-        context = _build_context()
+        context = asset_context
         md = Mock()
 
         md.execute_query.side_effect = [
@@ -385,10 +388,10 @@ class TestRedditSentimentScored:
         assert _meta_val(result.metadata, "total_scored") == 0
         md.upsert_data.assert_not_called()
 
-    def test_handles_query_failure(self):
+    def test_handles_query_failure(self, asset_context):
         from macro_agents.defs.domains.social_sentiment import reddit_sentiment_scored
 
-        context = _build_context()
+        context = asset_context
         md = Mock()
 
         md.execute_query.side_effect = Exception("DB error")
@@ -414,10 +417,10 @@ class TestRedditSentimentScored:
         assert results[1]["compound"] < -0.05
         assert results[2]["label"] == "neutral"
 
-    def test_content_types_correct(self):
+    def test_content_types_correct(self, asset_context):
         from macro_agents.defs.domains.social_sentiment import reddit_sentiment_scored
 
-        context = _build_context()
+        context = asset_context
         md = Mock()
 
         md.execute_query.side_effect = [
@@ -483,10 +486,10 @@ class TestExtractTickers:
 class TestRedditTickerMentions:
     """Tests for reddit_ticker_mentions asset."""
 
-    def test_extracts_from_posts_and_comments(self):
+    def test_extracts_from_posts_and_comments(self, asset_context):
         from macro_agents.defs.domains.social_tickers import reddit_ticker_mentions
 
-        context = _build_context()
+        context = asset_context
         md = Mock()
 
         md.execute_query.side_effect = [
@@ -511,10 +514,10 @@ class TestRedditTickerMentions:
         assert _meta_val(result.metadata, "unique_tickers") == 4
         md.upsert_data.assert_called_once()
 
-    def test_no_tickers_found(self):
+    def test_no_tickers_found(self, asset_context):
         from macro_agents.defs.domains.social_tickers import reddit_ticker_mentions
 
-        context = _build_context()
+        context = asset_context
         md = Mock()
 
         md.execute_query.side_effect = [
@@ -539,10 +542,10 @@ class TestRedditTickerMentions:
         assert _meta_val(result.metadata, "unique_tickers") == 0
         md.upsert_data.assert_not_called()
 
-    def test_handles_query_failure(self):
+    def test_handles_query_failure(self, asset_context):
         from macro_agents.defs.domains.social_tickers import reddit_ticker_mentions
 
-        context = _build_context()
+        context = asset_context
         md = Mock()
 
         md.execute_query.side_effect = Exception("DB error")

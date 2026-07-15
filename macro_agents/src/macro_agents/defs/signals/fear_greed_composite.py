@@ -18,7 +18,10 @@ import dagster as dg
 import numpy as np
 import polars as pl
 
-from macro_agents.defs.resources.bigquery_warehouse import BigQueryWarehouseResource
+from macro_agents.defs.resources.bigquery_warehouse import (
+    BigQueryWarehouseResource,
+    default_dataset_for_schema,
+)
 
 
 SIGNALS_GROUP = "computed_signals"
@@ -39,7 +42,7 @@ def _percentile_rank(arr: np.ndarray, window: int = 252) -> np.ndarray:
 
 @dg.asset(
     group_name=SIGNALS_GROUP,
-    kinds={"python", "duckdb"},
+    kinds={"python", "bigquery"},
     deps=[
         dg.AssetKey(["stg_major_indices"]),
         dg.AssetKey(["stg_sp500_companies_prices"]),
@@ -52,7 +55,13 @@ def fear_greed_signals(
     context: dg.AssetExecutionContext,
     bq: BigQueryWarehouseResource,
 ) -> dg.MaterializeResult:
-    lookback = "3 years"
+    # BigQuery INTERVAL literals must be unquoted (`INTERVAL 3 YEAR`), unlike
+    # the DuckDB/Postgres quoted-string form (`INTERVAL '3 years'`).
+    lookback_years = 3
+
+    # stg_* models are dbt staging views living in the economics_staging
+    # schema, not this resource's default (economics_raw) dataset.
+    staging_dataset = default_dataset_for_schema("economics_staging")
 
     # 1. Market Momentum: SPY vs 125-day MA
     context.log.info("Computing market momentum component...")
@@ -60,9 +69,9 @@ def fear_greed_signals(
         f"""
         SELECT date, adj_close,
                AVG(adj_close) OVER (ORDER BY date ROWS BETWEEN 124 PRECEDING AND CURRENT ROW) AS sma_125
-        FROM stg_major_indices
+        FROM {staging_dataset}.stg_major_indices
         WHERE symbol = 'SPY' AND adj_close IS NOT NULL
-          AND date >= CURRENT_DATE - INTERVAL '{lookback}'
+          AND date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
         ORDER BY date
         """,
         read_only=True,
@@ -79,9 +88,9 @@ def fear_greed_signals(
                 adj_close,
                 MAX(adj_close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS high_52w,
                 MIN(adj_close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS low_52w
-            FROM stg_sp500_companies_prices
+            FROM {staging_dataset}.stg_sp500_companies_prices
             WHERE adj_close IS NOT NULL
-              AND date >= CURRENT_DATE - INTERVAL '{lookback}' - INTERVAL '1 year'
+              AND date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR - INTERVAL 1 YEAR
         ),
         daily_stats AS (
             SELECT
@@ -93,7 +102,7 @@ def fear_greed_signals(
         )
         SELECT date, new_highs, new_lows, new_highs - new_lows AS net_new_highs
         FROM daily_stats
-        WHERE date >= CURRENT_DATE - INTERVAL '{lookback}'
+        WHERE date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
         ORDER BY date
         """,
         read_only=True,
@@ -105,9 +114,9 @@ def fear_greed_signals(
         f"""
         SELECT date, literal AS vix,
                AVG(literal) OVER (ORDER BY date ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) AS vix_sma_50
-        FROM stg_fred_series
+        FROM {staging_dataset}.stg_fred_series
         WHERE series_code = 'VIXCLS' AND literal IS NOT NULL
-          AND date >= CURRENT_DATE - INTERVAL '{lookback}'
+          AND date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
         ORDER BY date
         """,
         read_only=True,
@@ -119,17 +128,17 @@ def fear_greed_signals(
         f"""
         WITH spy_ret AS (
             SELECT date, adj_close / LAG(adj_close, 20) OVER (ORDER BY date) - 1 AS spy_20d_ret
-            FROM stg_major_indices WHERE symbol = 'SPY' AND adj_close IS NOT NULL
+            FROM {staging_dataset}.stg_major_indices WHERE symbol = 'SPY' AND adj_close IS NOT NULL
         ),
         govt_ret AS (
             SELECT date, adj_close / LAG(adj_close, 20) OVER (ORDER BY date) - 1 AS govt_20d_ret
-            FROM stg_fixed_income WHERE symbol = 'GOVT' AND adj_close IS NOT NULL
+            FROM {staging_dataset}.stg_fixed_income WHERE symbol = 'GOVT' AND adj_close IS NOT NULL
         )
         SELECT s.date, s.spy_20d_ret, g.govt_20d_ret,
                s.spy_20d_ret - g.govt_20d_ret AS stock_bond_diff
         FROM spy_ret s
         INNER JOIN govt_ret g ON s.date = g.date
-        WHERE s.date >= CURRENT_DATE - INTERVAL '{lookback}'
+        WHERE s.date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
           AND s.spy_20d_ret IS NOT NULL AND g.govt_20d_ret IS NOT NULL
         ORDER BY s.date
         """,
@@ -141,16 +150,16 @@ def fear_greed_signals(
     credit_df = bq.execute_query(
         f"""
         WITH hy AS (
-            SELECT date, literal AS hy_spread FROM stg_fred_series
+            SELECT date, literal AS hy_spread FROM {staging_dataset}.stg_fred_series
             WHERE series_code = 'BAMLH0A0HYM2' AND literal IS NOT NULL
         ),
         ig AS (
-            SELECT date, literal AS ig_spread FROM stg_fred_series
+            SELECT date, literal AS ig_spread FROM {staging_dataset}.stg_fred_series
             WHERE series_code = 'BAMLC0A0CM' AND literal IS NOT NULL
         )
         SELECT h.date, h.hy_spread, i.ig_spread, h.hy_spread - i.ig_spread AS hy_ig_diff
         FROM hy h INNER JOIN ig i ON h.date = i.date
-        WHERE h.date >= CURRENT_DATE - INTERVAL '{lookback}'
+        WHERE h.date >= CURRENT_DATE - INTERVAL {lookback_years} YEAR
         ORDER BY h.date
         """,
         read_only=True,

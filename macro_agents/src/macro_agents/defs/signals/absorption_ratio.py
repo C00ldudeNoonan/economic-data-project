@@ -22,7 +22,7 @@ SIGNALS_GROUP = "computed_signals"
 
 @dg.asset(
     group_name=SIGNALS_GROUP,
-    kinds={"python", "duckdb"},
+    kinds={"python", "bigquery"},
     deps=[dg.AssetKey(["sp500_companies_prices_raw"])],
     description="Absorption ratio systemic risk signal from S&P 500 stock returns PCA",
 )
@@ -36,7 +36,7 @@ def absorption_ratio_signals(
         SELECT date, symbol, adj_close
         FROM sp500_companies_prices_raw
         WHERE adj_close IS NOT NULL
-          AND CAST(date AS DATE) >= CURRENT_DATE - INTERVAL '3 years'
+          AND CAST(date AS DATE) >= CURRENT_DATE - INTERVAL 3 YEAR
         ORDER BY date, symbol
         """,
         read_only=True,

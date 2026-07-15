@@ -31,7 +31,7 @@ class HousingInventoryConfig(dg.Config):
 
 @dg.asset(
     group_name=HOUSING_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     description="Raw data from BLS API for housing inventory - runs weekly on Sundays at 3 AM EST for current year",
 )
 def housing_inventory_raw(
@@ -105,7 +105,7 @@ def housing_inventory_raw(
 
 @dg.asset(
     group_name=HOUSING_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     description="Raw data from BLS API for housing pulse - runs weekly on Sundays at 4 AM EST",
 )
 def housing_pulse_raw(
@@ -180,7 +180,7 @@ realtor_partition = dg.StaticPartitionsDefinition(
 
 @dg.asset(
     group_name=HOUSING_GROUP,
-    kinds={"polars", "duckdb"},
+    kinds={"polars", "bigquery"},
     partitions_def=realtor_partition,
     backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=10),
     description="Raw monthly housing data from Realtor.com via Google Drive",

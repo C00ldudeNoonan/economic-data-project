@@ -21,9 +21,11 @@ fomc_transcript_pdfs (gs://econ-project-general-storage/fomc_transcripts, *.pdf)
             └── fomc_document_chunks  one row per 800-char chunk (RAG grain)
 ```
 
-Tables land in `economics_documents_dev` (dev) / `economics_documents` (prod)
-on BigQuery. Domain parsing (symbol, form_type, year from `source_path`)
-happens downstream in dbt SQL, not here — the extraction layer stays generic.
+Tables land in `economics_documents_dev` (dev),
+`economics_documents_staging` (staging), or `economics_documents` (prod) on
+BigQuery. The SEC transform reads domain keys such as symbol, form type, and
+filing date from each JSON envelope; downstream dbt models consume those
+columns without needing to parse GCS paths.
 
 ## Run it
 
@@ -34,6 +36,7 @@ Python >= 3.12; macro_agents pins 3.11):
 cd document_extraction
 uv sync
 uv run dbt-ml build            # dev target: economics_documents_dev
+uv run dbt-ml build --target staging
 uv run dbt-ml build --target prod
 ```
 
@@ -42,17 +45,19 @@ Set `GOOGLE_CLOUD_PROJECT=econ-data-project-478800` when using user ADC —
 the GCS client cannot infer a project from user credentials. Incremental
 runs skip unchanged GCS objects without downloading them.
 
-Environment note: the BigQuery side switches per target (dev/prod
-datasets), but the GCS source path is pinned to the canonical prod bucket —
-dbt-ml does not yet support per-target source paths (blocked on
-[dbt-ml#110](https://github.com/C00ldudeNoonan/dbt-ml/issues/110)). The
-macro_agents Dagster pipelines, by contrast, derive their bucket from
-ENVIRONMENT (see resources/gcs.py default_gcs_bucket). Once #110 lands,
-point each target at its environment bucket and drop this note.
+`profiles.yml` scopes both BigQuery datasets and GCS source roots by target:
+dev uses the `-dev` bucket, staging uses `-staging`, and prod uses the canonical
+bucket. This uses the per-target source path contract added in dbt-ml v0.2.8
+([dbt-ml#110](https://github.com/C00ldudeNoonan/dbt-ml/issues/110)).
+
+After upgrading from v0.2.7, run one `dbt-ml build --full-refresh` per existing
+target. v0.2.8 changes state hashes and fixes chunk invalidation when an
+upstream dependency changes
+([dbt-ml#109](https://github.com/C00ldudeNoonan/dbt-ml/issues/109)).
 
 ## Orchestration
 
-Dagster runs this project via `dbt-ml run --json` (see
+Dagster runs this project via `dbt-ml build --json` (see
 `macro_agents/src/macro_agents/defs/transformation/dbt_ml.py`) and
 `dbt-ml emit-dbt-sources --dagster-meta` hands the tables to `dbt_project`
 as sources with pinned asset keys.

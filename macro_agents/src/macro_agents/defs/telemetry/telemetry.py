@@ -13,7 +13,7 @@ from macro_agents.defs.telemetry.checks import telemetry_checks
 
 @dg.asset(
     group_name="application_ingestion",
-    kinds={"sqlite", "duckdb"},
+    kinds={"sqlite", "bigquery"},
     description="Replicate telemetry events from SQLite to MotherDuck with incremental updates",
 )
 def telemetry_events_raw(
@@ -203,7 +203,7 @@ def telemetry_events_raw(
 
 @dg.asset(
     group_name="application_ingestion",
-    kinds={"sqlite", "duckdb"},
+    kinds={"sqlite", "bigquery"},
     description="Replicate users table from SQLite to MotherDuck (full refresh daily)",
 )
 def users_raw(

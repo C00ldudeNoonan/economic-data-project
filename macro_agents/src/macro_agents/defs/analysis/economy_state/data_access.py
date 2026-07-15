@@ -17,7 +17,7 @@ def get_economic_data(
             month_filter = f"AND month = (SELECT MAX(month) FROM agent_fred_series_latest_aggregates_snapshot WHERE snapshot_date = '{cutoff_date}')"
             limit_clause = f"LIMIT {max_series}" if max_series else ""
         else:
-            month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL '{months_per_series - 1} months' FROM agent_fred_series_latest_aggregates_snapshot WHERE snapshot_date = '{cutoff_date}')"
+            month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL {months_per_series - 1} MONTH FROM agent_fred_series_latest_aggregates_snapshot WHERE snapshot_date = '{cutoff_date}')"
             limit_clause = (
                 f"LIMIT {max_series * months_per_series}" if max_series else ""
             )
@@ -43,7 +43,7 @@ def get_economic_data(
             month_filter = "AND month = (SELECT MAX(month) FROM agent_fred_series_latest_aggregates)"
             limit_clause = f"LIMIT {max_series}" if max_series else ""
         else:
-            month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL '{months_per_series - 1} months' FROM agent_fred_series_latest_aggregates)"
+            month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL {months_per_series - 1} MONTH FROM agent_fred_series_latest_aggregates)"
             limit_clause = (
                 f"LIMIT {max_series * months_per_series}" if max_series else ""
             )
@@ -370,12 +370,12 @@ def get_housing_data(
         if latest_month_only:
             month_filter = f"AND month = (SELECT MAX(month) FROM agent_housing_inventory_latest_aggregates WHERE month <= '{cutoff_date}')"
         else:
-            month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL '{months_limit - 1} months' FROM agent_housing_inventory_latest_aggregates WHERE month <= '{cutoff_date}')"
+            month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL {months_limit - 1} MONTH FROM agent_housing_inventory_latest_aggregates WHERE month <= '{cutoff_date}')"
     else:
         if latest_month_only:
             month_filter = "AND month = (SELECT MAX(month) FROM agent_housing_inventory_latest_aggregates)"
         else:
-            month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL '{months_limit - 1} months' FROM agent_housing_inventory_latest_aggregates)"
+            month_filter = f"AND month >= (SELECT MAX(month) - INTERVAL {months_limit - 1} MONTH FROM agent_housing_inventory_latest_aggregates)"
 
     inventory_query = f"""
     SELECT 

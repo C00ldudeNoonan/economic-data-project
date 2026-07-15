@@ -101,7 +101,7 @@ def get_backtest_dates(config: BacktestConfig) -> list[str]:
 
 
 @dg.asset(
-    kinds={"dspy", "duckdb"},
+    kinds={"dspy", "bigquery"},
     group_name="backtesting",
     description="Backtest economy state analysis with historical data cutoff",
     deps=[
