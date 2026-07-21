@@ -144,7 +144,7 @@ def dbt_ml_document_extraction(context: dg.AssetExecutionContext):
                 "failed_documents": len(result.get("errors", [])),
                 "failed_tests": len(result.get("test_failures", [])),
                 "warehouse": target["adapter_type"],
-                "elapsed_seconds": result.get("execution_time"),
+                "elapsed_seconds": result.get("duration_seconds"),
             },
         )
 
