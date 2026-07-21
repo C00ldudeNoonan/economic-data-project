@@ -289,8 +289,8 @@ wheels = [
 
 [[package]]
 name = "dbt-ml"
-version = "0.2.8"
-source = { git = "https://github.com/C00ldudeNoonan/dbt-ml?subdirectory=dbt-ml&rev=v0.2.8#5ef4132c539e2f6a0df03a266686fdd015380831" }
+version = "0.2.10"
+source = { git = "https://github.com/C00ldudeNoonan/dbt-ml?subdirectory=dbt-ml&rev=v0.2.10#0f1f4090b2244588dcc61873bdf11a67a17dfa1d" }
 dependencies = [
     { name = "anthropic" },
     { name = "click" },
@@ -356,7 +356,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "dbt-ml", extras = ["bigquery", "gcs", "html", "pdf"], git = "https://github.com/C00ldudeNoonan/dbt-ml?subdirectory=dbt-ml&rev=v0.2.8" }]
+requires-dist = [{ name = "dbt-ml", extras = ["bigquery", "gcs", "html", "pdf"], git = "https://github.com/C00ldudeNoonan/dbt-ml?subdirectory=dbt-ml&rev=v0.2.10" }]
 
 [[package]]
 name = "duckdb"
