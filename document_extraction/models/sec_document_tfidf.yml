@@ -1,0 +1,38 @@
+version: 2
+
+# TF-IDF features over each SEC filing's clean body text. This is the
+# document-feature matrix consumed by sec_document_clusters and
+# sec_document_topics (issue #47 corpus analysis). max_df drops boilerplate
+# terms common to nearly every 10-K; min_df drops one-off noise, so the
+# vocabulary keeps the company/industry-distinctive language that makes the
+# clusters and topics interpretable.
+models:
+  - name: sec_document_tfidf
+    description: "TF-IDF features over SEC filing body text"
+    depends_on: [ref('sec_document_text')]
+    ml:
+      task: features
+      mode: fit_transform
+      provider: builtin.tfidf
+      text_field: text
+      artifact:
+        path: target/artifacts/sec_document_tfidf
+      metrics: [row_count, vocabulary_size]
+      options:
+        ngram_range: [1, 2]
+        min_df: 2
+        max_df: 0.85
+        max_features: 20000
+        stop_words: english
+        # Alphabetic words of 3-20 letters. The 3-letter floor drops the
+        # pervasive period / date tokens ("09 30", "2024 12", "march 31")
+        # from the financial tables that otherwise dominate the clusters. The
+        # 20-letter ceiling drops the long concatenated inline-XBRL taxonomy
+        # names ("fairvaluemeasurementsrecurringmember",
+        # "foreignexchangecontractmember") that leak from the HTML-to-text
+        # extraction; real English financial terms stay under it. (The proper
+        # fix is stripping XBRL tag names in sec_document_text — see the
+        # follow-up on extraction quality.)
+        token_pattern: "(?u)\\b[a-zA-Z]{3,20}\\b"
+    materialization: full
+    tags: [features, classic_ml]

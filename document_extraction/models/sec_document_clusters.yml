@@ -1,0 +1,34 @@
+version: 2
+
+# K-means clusters over the SEC TF-IDF matrix — the first cut of issue #47
+# corpus clustering (classic ML; embedding-based clustering is a planned
+# follow-up once an embedding provider is wired). normalize: l2 makes
+# Euclidean distance track cosine similarity, the right default for TF-IDF.
+# Materializes one row per filing (cluster, distance) plus companion tables:
+#   sec_document_clusters__topics              (c-TF-IDF top terms per cluster)
+#   sec_document_clusters__representative_docs (filings nearest each centroid)
+#   sec_document_clusters__neighbors           (each filing's nearest filings)
+models:
+  - name: sec_document_clusters
+    description: "K-means clusters over SEC TF-IDF features (+ cluster topics)"
+    depends_on: [ref('sec_document_tfidf')]
+    ml:
+      task: cluster
+      mode: fit_transform
+      provider: builtin.kmeans
+      artifact:
+        path: target/artifacts/sec_document_clusters
+      metrics: [n_clusters, silhouette, inertia]
+      options:
+        n_clusters: 8
+        normalize: l2
+        representative_docs: 3
+        top_terms: 8
+        nearest_neighbors: 3
+        random_state: 0
+    materialization: full
+    tags: [cluster, classic_ml]
+
+    tests:
+      - not_null: [document_id, cluster]
+      - unique: document_id

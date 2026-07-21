@@ -8,5 +8,5 @@ name = "document-extraction"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "dbt-ml[bigquery,gcs,html,pdf] @ git+https://github.com/C00ldudeNoonan/dbt-ml@v0.2.10#subdirectory=dbt-ml",
+    "dbt-ml[bigquery,gcs,html,pdf,ml] @ git+https://github.com/C00ldudeNoonan/dbt-ml@v0.2.10#subdirectory=dbt-ml",
 ]
