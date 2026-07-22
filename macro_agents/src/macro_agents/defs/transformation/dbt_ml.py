@@ -18,7 +18,12 @@ from pathlib import Path
 
 import dagster as dg
 
-from macro_agents.defs.transformation.dbt import environment
+# Resolve the dbt target locally rather than importing it from `dbt.py`: that
+# module builds a DbtProject and requires dbt_project/target/manifest.json at
+# import time, so importing it (transitively, e.g. under pytest collection)
+# would force a dbt parse before this producer — which only shells out to the
+# dbt-ml CLI — can even be loaded. This mirrors `dbt.environment`.
+environment = os.getenv("DBT_TARGET", "dev")
 
 DBT_ML_SOURCE_NAME = "dbt_ml_document_extraction"
 DBT_ML_TABLES = (

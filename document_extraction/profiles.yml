@@ -8,6 +8,9 @@
 # profile, source configs, and .env) so producer writes and downstream dbt
 # source reads target the same project; GOOGLE_CLOUD_PROJECT stays the GCS
 # client's project, set by the Dagster producer.
+# Source buckets honor GCS_BUCKET_NAME (the same explicit override the Dagster
+# ingestion GCS resource uses) so extraction reads exactly what ingestion
+# wrote; unset, they default to the per-environment bucket.
 document_extraction:
   target: dev
   outputs:
@@ -18,8 +21,8 @@ document_extraction:
         dataset: economics_documents_dev
         location: US
       source_paths:
-        sec_filing_html: gs://econ-project-general-storage-dev/sec_filings
-        fomc_transcript_pdfs: gs://econ-project-general-storage-dev/fomc_transcripts
+        sec_filing_html: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage-dev') }}/sec_filings
+        fomc_transcript_pdfs: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage-dev') }}/fomc_transcripts
     staging:
       warehouse:
         type: bigquery
@@ -27,8 +30,8 @@ document_extraction:
         dataset: economics_documents_staging
         location: US
       source_paths:
-        sec_filing_html: gs://econ-project-general-storage-staging/sec_filings
-        fomc_transcript_pdfs: gs://econ-project-general-storage-staging/fomc_transcripts
+        sec_filing_html: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage-staging') }}/sec_filings
+        fomc_transcript_pdfs: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage-staging') }}/fomc_transcripts
     prod:
       warehouse:
         type: bigquery
@@ -36,5 +39,5 @@ document_extraction:
         dataset: economics_documents
         location: US
       source_paths:
-        sec_filing_html: gs://econ-project-general-storage/sec_filings
-        fomc_transcript_pdfs: gs://econ-project-general-storage/fomc_transcripts
+        sec_filing_html: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage') }}/sec_filings
+        fomc_transcript_pdfs: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage') }}/fomc_transcripts

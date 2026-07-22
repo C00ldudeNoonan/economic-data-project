@@ -7,14 +7,30 @@ future dbt-ml upgrade that renames a field again fails here instead of
 silently emitting null metadata.
 """
 
+import importlib.util
 import json
 import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 
 import dagster as dg
 import pytest
 
-from macro_agents.defs.transformation import dbt_ml
+# Load the producer module directly by path rather than via
+# `from macro_agents.defs.transformation import dbt_ml`. That package import
+# runs transformation/__init__.py, which imports dbt.py and requires
+# dbt_project/target/manifest.json at import time — so on a clean checkout it
+# would abort collection before the offline-parse fixture can build the
+# manifest. The producer only shells out to the dbt-ml CLI and has no
+# macro_agents imports, so it loads standalone with no manifest needed.
+_DBT_ML_PATH = (
+    Path(__file__).parents[1] / "src/macro_agents/defs/transformation/dbt_ml.py"
+)
+_spec = importlib.util.spec_from_file_location(
+    "dbt_ml_producer_under_test", _DBT_ML_PATH
+)
+dbt_ml = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(dbt_ml)
 
 
 def _run_results_payload() -> dict:
