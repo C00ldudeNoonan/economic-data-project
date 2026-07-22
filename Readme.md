@@ -6,6 +6,7 @@ An end-to-end data platform that ingests, transforms, and analyzes economic and 
 
 ```
 External APIs → Dagster (ingestion) → Google BigQuery
+                 └→ GCS documents → dbt-ml extraction → BigQuery
                                           ↓
                               dbt (SQL transformations)
                                           ↓
@@ -50,6 +51,7 @@ economic-data-project/
 │       ├── government/              # FRED, housing, yields
 │       ├── commodities/             # Commodity analysis
 │       └── analysis/                # Cross-domain analytics
+├── document_extraction/              # dbt-ml SEC/FOMC document extraction
 ├── docker-compose.yml               # Local/production deployment
 ├── dagster.yaml                     # Dagster OSS config
 └── makefile                         # Common commands
@@ -96,6 +98,11 @@ uv run pytest tests/ -v
 # Lint
 uv run ruff check .
 uv run ruff format .
+
+# Validate dbt-ml document extraction without materializing data
+cd ../document_extraction
+uv sync
+uv run dbt-ml compile --target dev
 ```
 
 ## Data Sources

@@ -1,0 +1,20 @@
+version: 2
+
+# One row per chunk with deterministic, content-addressed chunk IDs — same
+# retrieval grain as sec_document_chunks, for agent RAG over FOMC transcripts.
+models:
+  - name: fomc_document_chunks
+    description: "Recursive character chunks of each FOMC transcript"
+    depends_on: [ref('fomc_document_registry')]
+
+    chunk:
+      strategy: recursive
+      text_field: text
+      chunk_size: 800
+      chunk_overlap: 100
+
+    materialization: incremental
+
+    tests:
+      - not_null: [chunk_id, document_id, text]
+      - unique: chunk_id

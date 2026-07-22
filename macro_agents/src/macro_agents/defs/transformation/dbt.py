@@ -44,6 +44,18 @@ class CustomizedDagsterDbtTranslator(DagsterDbtTranslator):
         resource_type = dbt_resource_props["resource_type"]
         name = dbt_resource_props["name"]
         if resource_type == "source":
+            # Honor an explicitly pinned Dagster asset key from source meta
+            # (meta.dagster.asset_key) so dbt models reading the dbt-ml
+            # producer tables link to the materializing asset; otherwise key
+            # the source by its bare name (the convention for this project's
+            # ingestion sources).
+            pinned = (
+                (dbt_resource_props.get("meta") or {})
+                .get("dagster", {})
+                .get("asset_key")
+            )
+            if pinned:
+                return dg.AssetKey(pinned)
             return dg.AssetKey(name)
         else:
             return super().get_asset_key(dbt_resource_props)

@@ -432,17 +432,23 @@ def default_dataset_for_schema(schema: str) -> str:
     return f"{schema}{suffix}"
 
 
-_environment = os.getenv("ENVIRONMENT", "dev")
+def default_raw_dataset() -> str:
+    """Return the environment-scoped raw dataset used by Dagster resources.
 
-# Dataset suffix mirrors the dbt generate_schema_name macro:
-#   prod  → no suffix   → economics_raw
-#   staging → _staging  → economics_raw_staging
-#   dev   → _dev        → economics_raw_dev
-_dataset_suffix = {"prod": "", "staging": "_staging"}.get(_environment, "_dev")
-_default_dataset = f"economics_raw{_dataset_suffix}"
+    This follows the deployment environment rather than ``DBT_TARGET`` because
+    raw ingestion assets are not dbt-managed. The explicit
+    BIGQUERY_DATASET overrides the derived name. Computed at call time so
+    env overrides (tests, sandbox runs) take effect without reimporting.
+    """
+    environment = os.getenv("ENVIRONMENT", "dev")
+    suffix = {"prod": "", "staging": "_staging"}.get(environment, "_dev")
+    return os.getenv("BIGQUERY_DATASET", f"economics_raw{suffix}")
+
+
+_default_dataset = default_raw_dataset()
 
 bigquery_warehouse_resource = BigQueryWarehouseResource(
     project=os.getenv("BIGQUERY_PROJECT", "econ-data-project-478800"),
-    dataset=os.getenv("BIGQUERY_DATASET", _default_dataset),
+    dataset=_default_dataset,
     location=os.getenv("BIGQUERY_LOCATION", "US"),
 )

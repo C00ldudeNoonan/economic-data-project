@@ -1,0 +1,27 @@
+version: 2
+
+# One row per filing document/version. The bucket objects are JSON envelopes
+# ({"content": "<html...>", "metadata": {...}}) written by
+# macro_agents' filing_downloader — NOT raw HTML, despite the .htm names —
+# so this uses the json backend to project the envelope fields. The
+# extraction contract supplies identity and lineage (document_id, source_uri
+# with the GCS object generation, content_hash, backend provenance,
+# extracted_at). HTML-to-text parsing happens in sec_document_text.
+models:
+  - name: sec_document_registry
+    description: "One row per SEC filing envelope: raw HTML content + filing metadata"
+    source: ref('sec_filing_html')
+
+    extraction:
+      backend: json
+      options:
+        fields:
+          - content
+          - metadata
+      flush_every: 100
+
+    materialization: incremental
+
+    tests:
+      - not_null: [document_id, content]
+      - unique: document_id

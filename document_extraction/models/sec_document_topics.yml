@@ -1,0 +1,27 @@
+version: 2
+
+# NMF topics over the SEC TF-IDF matrix, a companion to sec_document_clusters
+# for issue #47. Materializes one row per filing x topic (topic, weight) plus
+# sec_document_topics__topics (top terms per topic). Where clusters give each
+# filing one hard assignment, topics give a soft per-filing mixture.
+models:
+  - name: sec_document_topics
+    description: "NMF topics over SEC TF-IDF features (+ top terms per topic)"
+    depends_on: [ref('sec_document_tfidf')]
+    ml:
+      task: topic_model
+      mode: fit_transform
+      provider: builtin.nmf
+      artifact:
+        path: target/artifacts/sec_document_topics
+      metrics: [n_topics, reconstruction_error, topic_coherence]
+      options:
+        n_topics: 8
+        top_terms: 8
+        random_state: 0
+    materialization: full
+    tags: [topic_model, classic_ml]
+
+    tests:
+      - not_null: [document_id, topic, weight]
+      - unique: [document_id, topic]

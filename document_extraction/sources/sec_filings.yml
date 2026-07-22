@@ -1,0 +1,23 @@
+version: 2
+
+# SEC filing primary documents stored by the macro_agents ingestion
+# pipeline. Each object is a JSON envelope ({"content": html, "metadata":
+# {...}}) despite the .htm name. The bucket mixes two layouts (see
+# gcs_schema.py "Current bucket state"):
+#   legacy: sec_filings/{form_type}/{year}/{cik}/{accession}/{doc}.htm
+#   target: sec_filings/{symbol}/{form_type}/{year}/{cik}/{accession}/{doc}.htm
+# file_pattern matches basenames, so "*.htm" picks up both layouts; domain
+# keys come from the envelope metadata, not the path, so the mix is safe.
+# Filings migrated old->new exist at BOTH paths (the migration copies
+# without deleting); sec_document_text dedupes by content_hash.
+#
+# The reviewed project default points at prod. profiles.yml overrides this
+# root for every supported target so dev/staging runs never read prod objects.
+sources:
+  - name: sec_filing_html
+    description: "SEC 10-K/10-Q primary document envelopes (JSON with HTML content)"
+    path: gs://econ-project-general-storage/sec_filings
+    file_pattern: "*.htm"
+    max_objects: 20000
+    freshness:
+      warn_after: { count: 45, period: day }

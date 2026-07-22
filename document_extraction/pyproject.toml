@@ -1,0 +1,12 @@
+# Standalone environment for the dbt-ml document extraction project.
+# dbt-ml requires Python >= 3.12 while macro_agents pins 3.11, so this
+# project keeps its own venv; Dagster invokes it via
+# `uv run --project document_extraction dbt-ml ...` (see
+# macro_agents/src/macro_agents/defs/transformation/dbt_ml.py).
+[project]
+name = "document-extraction"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "dbt-ml[bigquery,gcs,html,pdf,ml] @ git+https://github.com/C00ldudeNoonan/dbt-ml@v0.2.10#subdirectory=dbt-ml",
+]

@@ -1,0 +1,11 @@
+name: document_extraction
+version: "0.1.0"
+profile: document_extraction
+
+extraction:
+  default_backend: html
+
+source-paths: ["sources"]
+model-paths: ["models"]
+transform-paths: ["transforms"]
+target-path: "target"

@@ -15,8 +15,11 @@ defs = dg.Definitions(
         "bq": bigquery_warehouse_resource,
         "metaxy_store": MetaxyStoreFromConfigResource(name="prod"),
         "sqlite": sqlite_resource,
+        # bucket_name intentionally unset: resolved at runtime via
+        # default_gcs_bucket() (GCS_BUCKET_NAME when set, else the
+        # ENVIRONMENT-suffixed document bucket) so dev/staging runs never
+        # write to the prod bucket by default.
         "gcs": GCSResource(
-            bucket_name=dg.EnvVar("GCS_BUCKET_NAME"),
             credentials_path=dg.EnvVar("GOOGLE_APPLICATION_CREDENTIALS"),
         ),
         "google_sheets": GoogleSheetsResource(

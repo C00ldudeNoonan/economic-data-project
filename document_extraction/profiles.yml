@@ -1,0 +1,47 @@
+# Warehouse config for the dbt-ml document extraction project.
+# Auth is Application Default Credentials (gcloud auth application-default
+# login locally; workload identity or a service-account keyfile in CI).
+# GOOGLE_APPLICATION_CREDENTIALS in this repo holds inline JSON, which the
+# Dagster BigQueryWarehouseResource rewrites to a temp-file path before any
+# dbt-ml subprocess launches — plain ADC works in both contexts.
+# The BigQuery project resolves from BIGQUERY_PROJECT (matching the main dbt
+# profile, source configs, and .env) so producer writes and downstream dbt
+# source reads target the same project; GOOGLE_CLOUD_PROJECT stays the GCS
+# client's project, set by the Dagster producer.
+# Source buckets honor GCS_BUCKET_NAME (the same explicit override the Dagster
+# ingestion GCS resource uses) so extraction reads exactly what ingestion
+# wrote; unset, they default to the per-environment bucket. docker-compose
+# injects ${GCS_BUCKET_NAME} as a present-but-empty var when the host leaves
+# it unset, and env_var's default only applies when the var is entirely
+# absent — so the Dagster producer strips an empty GCS_BUCKET_NAME before
+# launching dbt-ml (see _subprocess_env in transformation/dbt_ml.py).
+document_extraction:
+  target: dev
+  outputs:
+    dev:
+      warehouse:
+        type: bigquery
+        project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
+        dataset: economics_documents_dev
+        location: US
+      source_paths:
+        sec_filing_html: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage-dev') }}/sec_filings
+        fomc_transcript_pdfs: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage-dev') }}/fomc_transcripts
+    staging:
+      warehouse:
+        type: bigquery
+        project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
+        dataset: economics_documents_staging
+        location: US
+      source_paths:
+        sec_filing_html: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage-staging') }}/sec_filings
+        fomc_transcript_pdfs: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage-staging') }}/fomc_transcripts
+    prod:
+      warehouse:
+        type: bigquery
+        project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
+        dataset: economics_documents
+        location: US
+      source_paths:
+        sec_filing_html: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage') }}/sec_filings
+        fomc_transcript_pdfs: gs://{{ env_var('GCS_BUCKET_NAME', 'econ-project-general-storage') }}/fomc_transcripts

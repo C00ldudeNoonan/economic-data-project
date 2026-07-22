@@ -69,3 +69,7 @@ logs/
 # Reference materials (large binaries stored in GCS)
 docs/reference_materials/*
 !docs/reference_materials/catalog.md
+
+# dbt-ml project artifacts
+document_extraction/target/
+document_extraction/.venv/

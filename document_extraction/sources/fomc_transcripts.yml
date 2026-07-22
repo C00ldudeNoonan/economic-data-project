@@ -1,0 +1,15 @@
+version: 2
+
+# FOMC meeting transcript PDFs downloaded by the macro_agents pipeline.
+# Layout: fomc_transcripts/{year}/{meeting_date}.pdf. No freshness config —
+# the Federal Reserve releases transcripts with a multi-year lag, so staleness
+# is expected. (The fomc/ prefix holds already-parsed JSON from the legacy
+# pipeline and is not a dbt-ml source.)
+# The reviewed project default points at prod. profiles.yml overrides this
+# root for every supported target so dev/staging runs never read prod objects.
+sources:
+  - name: fomc_transcript_pdfs
+    description: "FOMC meeting transcript PDFs from the Federal Reserve"
+    path: gs://econ-project-general-storage/fomc_transcripts
+    file_pattern: "*.pdf"
+    max_objects: 5000

@@ -1,0 +1,22 @@
+version: 2
+
+# One row per chunk with deterministic, content-addressed chunk IDs — the
+# retrieval grain for issue #47 (embedding cluster analysis) and agent RAG.
+# Document lineage (document_id, source_uri, content_hash) is carried onto
+# every chunk; unchanged documents re-run to identical chunk IDs.
+models:
+  - name: sec_document_chunks
+    description: "Recursive character chunks of each SEC filing document"
+    depends_on: [ref('sec_document_text')]
+
+    chunk:
+      strategy: recursive
+      text_field: text
+      chunk_size: 800
+      chunk_overlap: 100
+
+    materialization: incremental
+
+    tests:
+      - not_null: [chunk_id, document_id, text]
+      - unique: chunk_id

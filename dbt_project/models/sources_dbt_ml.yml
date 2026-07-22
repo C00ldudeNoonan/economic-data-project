@@ -1,0 +1,85 @@
+version: 2
+
+# Sources produced by the dbt-ml document_extraction project (see
+# document_extraction/README.md). Base file generated with
+# `dbt-ml emit-dbt-sources --dagster-meta`, then adapted to this project's
+# target-aware schema convention. meta.dagster.asset_key pins each table to
+# the Dagster asset that materializes it
+# (macro_agents/src/macro_agents/defs/transformation/dbt_ml.py), so
+# dagster-dbt links dbt models reading these sources to the dbt-ml producer.
+sources:
+  - name: dbt_ml_document_extraction
+    description: Tables materialized by the dbt-ml document_extraction project.
+    database: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
+    schema: >-
+      {%- if target.name == 'dev' -%}
+        economics_documents_dev
+      {%- elif target.name == 'staging' -%}
+        economics_documents_staging
+      {%- else -%}
+        economics_documents
+      {%- endif -%}
+    tables:
+      # Column tests intentionally omitted until the dbt-ml producer has run
+      # against the prod target — source tests execute in `dbt build` and
+      # would fail while the prod tables don't exist yet. dbt-ml enforces the
+      # same not_null/unique tests on its side (document_extraction/models/).
+      - name: sec_document_registry
+        description: One row per SEC filing HTML document, with text + structure.
+        meta:
+          dagster:
+            asset_key:
+              - dbt_ml_document_extraction
+              - sec_document_registry
+        columns:
+          - name: document_id
+          - name: text
+
+      - name: sec_document_text
+        description: One row per SEC filing — body text plus domain keys (symbol, form_type, filing_date) parsed from the envelope metadata.
+        meta:
+          dagster:
+            asset_key:
+              - dbt_ml_document_extraction
+              - sec_document_text
+        columns:
+          - name: document_id
+          - name: text
+          - name: symbol
+          - name: form_type
+          - name: filing_date
+
+      - name: sec_document_chunks
+        description: Recursive character chunks of each SEC filing document.
+        meta:
+          dagster:
+            asset_key:
+              - dbt_ml_document_extraction
+              - sec_document_chunks
+        columns:
+          - name: chunk_id
+          - name: document_id
+          - name: text
+
+      - name: fomc_document_registry
+        description: One row per FOMC transcript PDF, with text + page offsets.
+        meta:
+          dagster:
+            asset_key:
+              - dbt_ml_document_extraction
+              - fomc_document_registry
+        columns:
+          - name: document_id
+          - name: text
+
+      - name: fomc_document_chunks
+        description: Recursive character chunks of each FOMC transcript.
+        meta:
+          dagster:
+            asset_key:
+              - dbt_ml_document_extraction
+              - fomc_document_chunks
+        columns:
+          - name: chunk_id
+          - name: document_id
+          - name: text

@@ -5,8 +5,8 @@ in helpers.py follow these conventions; this module documents them as
 importable constants so tooling and tests can reference the schema without
 hard-coding strings.
 
-Bucket layout
-=============
+Target bucket layout
+====================
 
 sec_filings/
     catalog.json                              # root catalog (CIK/accession index)
@@ -20,6 +20,23 @@ sec_filings/
             extracted/
                 full_text.json                # full extracted text
                 section_{n}_{item}.json       # per-section extracted text
+
+Current bucket state (verified 2026-07-10)
+------------------------------------------
+The bucket holds a MIX of layouts. Newer downloads follow the target
+layout above (with the {symbol} level); older objects still live at the
+legacy ``sec_filings/{form_type}/{year}/{cik}/{accession}/`` paths with no
+symbol level (84 of 109 primary documents at time of writing). The
+migration for the legacy objects is implemented in ``migration.py`` but has
+not run against the bucket. No ``filing.md`` / ``sections/*.md`` or
+manifest/catalog JSONs exist yet — the markdown conversion in
+``markdown.py`` and the manifest assets have not run either. The primary
+document is a JSON envelope ({"content": html, "metadata": {...}}) despite
+its ``.htm`` name. Readers are unaffected by the path mix because they
+resolve object paths from the ``gcs_path`` column of the ``sec_filings``
+table, not from these templates. Consumers listing the bucket directly
+(e.g. the dbt-ml ``document_extraction`` project) must handle both layouts
+until the migration runs.
 
 Encoding rules
 --------------

@@ -23,3 +23,5 @@ dagster_home_local/
 # OS
 .DS_Store
 Thumbs.db
+document_extraction/.venv/
+document_extraction/target/
