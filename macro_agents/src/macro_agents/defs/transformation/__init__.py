@@ -10,6 +10,8 @@ from macro_agents.defs.transformation.dbt import (
 )
 from macro_agents.defs.transformation.checks import transformation_checks
 from macro_agents.defs.transformation.dbt_ml import (
+    dbt_ml_clustering_job,
+    dbt_ml_document_clustering,
     dbt_ml_document_extraction,
     dbt_ml_documents_job,
 )
@@ -146,11 +148,12 @@ defs = dg.Definitions(
     assets=[
         *dbt_asset_definitions,
         dbt_ml_document_extraction,
+        dbt_ml_document_clustering,
         financial_conditions_index,
         fci_weights_config,
     ],
     asset_checks=transformation_checks,
-    jobs=[*dbt_jobs, dbt_ml_documents_job],
+    jobs=[*dbt_jobs, dbt_ml_documents_job, dbt_ml_clustering_job],
     resources={"dbt": dbt_resource},
     sensors=transformation_sensors,
 )

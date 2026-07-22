@@ -33,7 +33,7 @@ dbt_ml = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(dbt_ml)
 
 
-def _run_results_payload() -> dict:
+def _run_results_payload(tables: tuple[str, ...] = dbt_ml.DBT_ML_TABLES) -> dict:
     """A representative run_results.json as dbt-ml v0.2.9 emits it."""
     return {
         "metadata": {
@@ -56,12 +56,17 @@ def _run_results_payload() -> dict:
                     "fully_qualified": f"proj.economics_documents_dev.{table}"
                 },
             }
-            for table in dbt_ml.DBT_ML_TABLES
+            for table in tables
         ],
     }
 
 
-def _materialize(monkeypatch: pytest.MonkeyPatch, payload: dict, returncode: int = 0):
+def _materialize(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: dict,
+    returncode: int = 0,
+    asset=dbt_ml.dbt_ml_document_extraction,
+):
     def fake_run(*_args, **_kwargs):
         return subprocess.CompletedProcess(
             args=[], returncode=returncode, stdout=json.dumps(payload), stderr=""
@@ -72,7 +77,7 @@ def _materialize(monkeypatch: pytest.MonkeyPatch, payload: dict, returncode: int
     monkeypatch.setattr(dbt_ml, "_dbt_ml_launcher", lambda _dir: ["dbt-ml"])
     monkeypatch.setattr(dbt_ml, "_subprocess_env", dict)
     context = dg.build_asset_context()
-    return list(dbt_ml.dbt_ml_document_extraction(context))
+    return list(asset(context))
 
 
 def test_producer_maps_json_contract_to_metadata(
@@ -97,6 +102,23 @@ def test_producer_maps_json_contract_to_metadata(
     assert (
         sec_registry["relation"] == "proj.economics_documents_dev.sec_document_registry"
     )
+
+
+def test_clustering_producer_maps_ml_tables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The clustering asset is separate from extraction and surfaces the three
+    # classic-ML tables (issue #47) as their own Dagster materializations.
+    payload = _run_results_payload(dbt_ml.DBT_ML_CLUSTERING_TABLES)
+    results = _materialize(
+        monkeypatch, payload, asset=dbt_ml.dbt_ml_document_clustering
+    )
+
+    by_table = {r.asset_key.path[-1]: r for r in results}
+    assert set(by_table) == set(dbt_ml.DBT_ML_CLUSTERING_TABLES)
+    assert by_table["sec_document_clusters"].metadata["rows_written"] == 100
+    # clustering tables are keyed under the same source name as extraction
+    assert results[0].asset_key.path[0] == dbt_ml.DBT_ML_SOURCE_NAME
 
 
 def test_producer_raises_on_misconfigured_project(

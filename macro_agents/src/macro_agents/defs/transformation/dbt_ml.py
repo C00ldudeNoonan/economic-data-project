@@ -2,11 +2,18 @@
 
 dbt-ml materializes GCS documents into BigQuery tables that dbt models
 consume as sources (dbt-ml docs/orchestration-dagster.md). This module runs
-`dbt-ml build --json` as one multi_asset whose outputs carry the same asset
-keys that `dbt-ml emit-dbt-sources --dagster-meta` pins on the emitted
+`dbt-ml build --json` and maps each produced table to a Dagster asset whose
+key matches what `dbt-ml emit-dbt-sources --dagster-meta` pins on the emitted
 source tables ([source_name, table_name]). Keys are declared literally
 instead of read from the dbt manifest because this code location may load
 dbt in Platform observe-only mode, where no local manifest exists.
+
+Extraction and classic-ML clustering are two separate assets/jobs, selected
+by dbt-ml tag: extraction builds everything except `tag:classic_ml`, and
+clustering (issue #47) builds `tag:classic_ml` (tfidf -> clusters/topics).
+Keeping them apart means a sparse-corpus clustering failure cannot fail the
+extraction job, and the clustering outputs get their own asset lineage
+instead of materializing invisibly inside the extraction build.
 """
 
 import json
@@ -14,6 +21,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import dagster as dg
@@ -26,14 +34,22 @@ import dagster as dg
 environment = os.getenv("DBT_TARGET", "dev")
 
 DBT_ML_SOURCE_NAME = "dbt_ml_document_extraction"
-DBT_ML_TABLES = (
+DBT_ML_EXTRACTION_TABLES = (
     "sec_document_registry",
     "sec_document_text",
     "sec_document_chunks",
     "fomc_document_registry",
     "fomc_document_chunks",
 )
+DBT_ML_CLUSTERING_TABLES = (
+    "sec_document_tfidf",
+    "sec_document_clusters",
+    "sec_document_topics",
+)
+# Kept for backwards compatibility with anything importing the old name.
+DBT_ML_TABLES = DBT_ML_EXTRACTION_TABLES
 
+_CLASSIC_ML_TAG = "classic_ml"
 _DEFAULT_GCP_PROJECT = "econ-data-project-478800"
 
 
@@ -104,33 +120,32 @@ def _subprocess_env() -> dict[str, str]:
     return env
 
 
-@dg.multi_asset(
-    specs=[
-        dg.AssetSpec(
-            key=dg.AssetKey([DBT_ML_SOURCE_NAME, table]),
-            group_name="document_extraction",
-            description=f"dbt-ml materialized table {table}",
-            kinds={"bigquery"},
-        )
-        for table in DBT_ML_TABLES
-    ],
-)
-def dbt_ml_document_extraction(context: dg.AssetExecutionContext):
-    """Run the dbt-ml document_extraction project (extraction + tests)."""
+def _run_dbt_ml_build(
+    context: dg.AssetExecutionContext,
+    tables: tuple[str, ...],
+    *,
+    select: str | None = None,
+    exclude: str | None = None,
+) -> Iterator[dg.MaterializeResult]:
+    """Run `dbt-ml build --json` for a tag selection and emit one
+    MaterializeResult per table in `tables`."""
     project_dir = _resolve_project_dir()
+    command = [
+        *_dbt_ml_launcher(project_dir),
+        "--project-dir",
+        str(project_dir),
+        "--target",
+        environment,
+        "build",
+        "--json",
+    ]
+    if select is not None:
+        command += ["--select", select]
+    if exclude is not None:
+        command += ["--exclude", exclude]
+
     proc = subprocess.run(
-        [
-            *_dbt_ml_launcher(project_dir),
-            "--project-dir",
-            str(project_dir),
-            "--target",
-            environment,
-            "build",
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        env=_subprocess_env(),
+        command, capture_output=True, text=True, env=_subprocess_env()
     )
     # Exit codes (dbt-ml issue #87): 0 = ok, 1 = a model/document/test
     # failed, 2 = misconfigured project.
@@ -144,7 +159,7 @@ def dbt_ml_document_extraction(context: dg.AssetExecutionContext):
     by_model = {result["model_name"]: result for result in payload["results"]}
     target = payload["metadata"]["target"]
 
-    for table in DBT_ML_TABLES:
+    for table in tables:
         result = by_model.get(table, {})
         yield dg.MaterializeResult(
             asset_key=dg.AssetKey([DBT_ML_SOURCE_NAME, table]),
@@ -162,6 +177,46 @@ def dbt_ml_document_extraction(context: dg.AssetExecutionContext):
         )
 
 
+@dg.multi_asset(
+    specs=[
+        dg.AssetSpec(
+            key=dg.AssetKey([DBT_ML_SOURCE_NAME, table]),
+            group_name="document_extraction",
+            description=f"dbt-ml materialized table {table}",
+            kinds={"bigquery"},
+        )
+        for table in DBT_ML_EXTRACTION_TABLES
+    ],
+)
+def dbt_ml_document_extraction(context: dg.AssetExecutionContext):
+    """Extract SEC/FOMC documents into BigQuery (everything except classic ML)."""
+    yield from _run_dbt_ml_build(
+        context, DBT_ML_EXTRACTION_TABLES, exclude=f"tag:{_CLASSIC_ML_TAG}"
+    )
+
+
+@dg.multi_asset(
+    specs=[
+        dg.AssetSpec(
+            key=dg.AssetKey([DBT_ML_SOURCE_NAME, table]),
+            group_name="document_clustering",
+            description=f"dbt-ml classic-ML table {table} (issue #47)",
+            kinds={"bigquery"},
+            # Reads sec_document_text, produced by the extraction asset.
+            deps=[dg.AssetKey([DBT_ML_SOURCE_NAME, "sec_document_text"])],
+        )
+        for table in DBT_ML_CLUSTERING_TABLES
+    ],
+)
+def dbt_ml_document_clustering(context: dg.AssetExecutionContext):
+    """Fit classic-ML TF-IDF features, k-means clusters, and NMF topics over
+    the SEC corpus (issue #47). Separate from extraction so a sparse-corpus
+    fit failure cannot fail the extraction job."""
+    yield from _run_dbt_ml_build(
+        context, DBT_ML_CLUSTERING_TABLES, select=f"tag:{_CLASSIC_ML_TAG}"
+    )
+
+
 dbt_ml_documents_job = dg.define_asset_job(
     name="dbt_ml_documents_job",
     tags={"dagster/priority": "5", "dagster/max_runtime": 3600},
@@ -169,5 +224,15 @@ dbt_ml_documents_job = dg.define_asset_job(
     description=(
         "Run the dbt-ml document_extraction project: SEC filing HTML from "
         "GCS into BigQuery registry and chunk tables."
+    ),
+)
+
+dbt_ml_clustering_job = dg.define_asset_job(
+    name="dbt_ml_clustering_job",
+    tags={"dagster/priority": "5", "dagster/max_runtime": 3600},
+    selection=dg.AssetSelection.assets(dbt_ml_document_clustering),
+    description=(
+        "Fit classic-ML clustering/topics over the SEC document corpus "
+        "(issue #47): TF-IDF features -> k-means clusters + NMF topics."
     ),
 )
