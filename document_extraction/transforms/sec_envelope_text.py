@@ -88,4 +88,21 @@ def run(deps: dict[str, pl.DataFrame]) -> pl.DataFrame:
             out[field] = str(value) if value is not None else None
         rows.append(out)
 
+    if not rows:
+        # An empty source (fresh/empty bucket) yields no rows; a bare
+        # pl.DataFrame([]) would be 0-column and the downstream chunk step
+        # and dbt-ml tests would fail on missing document_id/text/symbol/etc.
+        # Materialize an empty frame carrying the transform's full schema
+        # instead — lineage dtypes from the registry, text + metadata as
+        # strings — matching the non-empty column set and order.
+        registry_schema = dict(registry.schema)
+        schema: dict[str, Any] = {
+            column: registry_schema.get(column, pl.String)
+            for column in _LINEAGE_COLUMNS
+        }
+        schema["text"] = pl.String
+        for field in _METADATA_FIELDS:
+            schema[field] = pl.String
+        return pl.DataFrame(schema=schema)
+
     return pl.DataFrame(rows)
