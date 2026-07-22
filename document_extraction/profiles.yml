@@ -10,7 +10,11 @@
 # client's project, set by the Dagster producer.
 # Source buckets honor GCS_BUCKET_NAME (the same explicit override the Dagster
 # ingestion GCS resource uses) so extraction reads exactly what ingestion
-# wrote; unset, they default to the per-environment bucket.
+# wrote; unset, they default to the per-environment bucket. docker-compose
+# injects ${GCS_BUCKET_NAME} as a present-but-empty var when the host leaves
+# it unset, and env_var's default only applies when the var is entirely
+# absent — so the Dagster producer strips an empty GCS_BUCKET_NAME before
+# launching dbt-ml (see _subprocess_env in transformation/dbt_ml.py).
 document_extraction:
   target: dev
   outputs:

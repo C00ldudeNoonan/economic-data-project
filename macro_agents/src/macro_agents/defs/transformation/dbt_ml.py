@@ -93,6 +93,14 @@ def _subprocess_env() -> dict[str, str]:
         env["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
     if not env.get("GOOGLE_CLOUD_PROJECT"):
         env["GOOGLE_CLOUD_PROJECT"] = _DEFAULT_GCP_PROJECT
+    # docker-compose injects GCS_BUCKET_NAME as ${GCS_BUCKET_NAME}, i.e. a
+    # present-but-empty var when the host leaves it unset. dbt-ml's
+    # env_var('GCS_BUCKET_NAME', <default>) only applies the default when the
+    # var is entirely absent, so an empty value would render gs:///... . Drop
+    # an empty (or whitespace) value so the profile falls back to the
+    # per-target default bucket.
+    if not env.get("GCS_BUCKET_NAME", "").strip():
+        env.pop("GCS_BUCKET_NAME", None)
     return env
 
 

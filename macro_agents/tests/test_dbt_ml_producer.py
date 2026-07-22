@@ -109,3 +109,24 @@ def test_producer_raises_on_misconfigured_project(
 def test_producer_raises_on_build_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(RuntimeError, match="build failed"):
         _materialize(monkeypatch, {}, returncode=1)
+
+
+def test_subprocess_env_drops_empty_gcs_bucket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # docker-compose injects ${GCS_BUCKET_NAME} as a present-but-empty var;
+    # it must be dropped so dbt-ml's env_var default (per-target bucket) applies
+    # instead of rendering gs:///.
+    monkeypatch.setenv("GCS_BUCKET_NAME", "")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "proj")
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    assert "GCS_BUCKET_NAME" not in dbt_ml._subprocess_env()
+
+
+def test_subprocess_env_keeps_pinned_gcs_bucket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GCS_BUCKET_NAME", "pinned-bucket")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "proj")
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    assert dbt_ml._subprocess_env()["GCS_BUCKET_NAME"] == "pinned-bucket"
