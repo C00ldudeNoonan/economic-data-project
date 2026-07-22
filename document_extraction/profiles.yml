@@ -4,13 +4,17 @@
 # GOOGLE_APPLICATION_CREDENTIALS in this repo holds inline JSON, which the
 # Dagster BigQueryWarehouseResource rewrites to a temp-file path before any
 # dbt-ml subprocess launches — plain ADC works in both contexts.
+# The BigQuery project resolves from BIGQUERY_PROJECT (matching the main dbt
+# profile, source configs, and .env) so producer writes and downstream dbt
+# source reads target the same project; GOOGLE_CLOUD_PROJECT stays the GCS
+# client's project, set by the Dagster producer.
 document_extraction:
   target: dev
   outputs:
     dev:
       warehouse:
         type: bigquery
-        project: "{{ env_var('GOOGLE_CLOUD_PROJECT', 'econ-data-project-478800') }}"
+        project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
         dataset: economics_documents_dev
         location: US
       source_paths:
@@ -19,7 +23,7 @@ document_extraction:
     staging:
       warehouse:
         type: bigquery
-        project: "{{ env_var('GOOGLE_CLOUD_PROJECT', 'econ-data-project-478800') }}"
+        project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
         dataset: economics_documents_staging
         location: US
       source_paths:
@@ -28,7 +32,7 @@ document_extraction:
     prod:
       warehouse:
         type: bigquery
-        project: "{{ env_var('GOOGLE_CLOUD_PROJECT', 'econ-data-project-478800') }}"
+        project: "{{ env_var('BIGQUERY_PROJECT', env_var('BIGQUERY_PROJECT_ID', 'econ-data-project-478800')) }}"
         dataset: economics_documents
         location: US
       source_paths:

@@ -14,6 +14,8 @@ sources:
     schema: >-
       {%- if target.name == 'dev' -%}
         economics_documents_dev
+      {%- elif target.name == 'staging' -%}
+        economics_documents_staging
       {%- else -%}
         economics_documents
       {%- endif -%}
