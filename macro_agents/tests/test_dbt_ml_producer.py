@@ -36,7 +36,9 @@ def _run_results_payload() -> dict:
                 "documents_skipped": 2,
                 "errors": [],
                 "test_failures": [],
-                "relation": {"fully_qualified": f"proj.economics_documents_dev.{table}"},
+                "relation": {
+                    "fully_qualified": f"proj.economics_documents_dev.{table}"
+                },
             }
             for table in dbt_ml.DBT_ML_TABLES
         ],
@@ -57,7 +59,9 @@ def _materialize(monkeypatch: pytest.MonkeyPatch, payload: dict, returncode: int
     return list(dbt_ml.dbt_ml_document_extraction(context))
 
 
-def test_producer_maps_json_contract_to_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_producer_maps_json_contract_to_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     results = _materialize(monkeypatch, _run_results_payload())
 
     assert len(results) == len(dbt_ml.DBT_ML_TABLES)
@@ -75,12 +79,13 @@ def test_producer_maps_json_contract_to_metadata(monkeypatch: pytest.MonkeyPatch
     assert sec_registry["failed_documents"] == 0
     assert sec_registry["failed_tests"] == 0
     assert (
-        sec_registry["relation"]
-        == "proj.economics_documents_dev.sec_document_registry"
+        sec_registry["relation"] == "proj.economics_documents_dev.sec_document_registry"
     )
 
 
-def test_producer_raises_on_misconfigured_project(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_producer_raises_on_misconfigured_project(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     with pytest.raises(RuntimeError, match="misconfigured"):
         _materialize(monkeypatch, {}, returncode=2)
 
